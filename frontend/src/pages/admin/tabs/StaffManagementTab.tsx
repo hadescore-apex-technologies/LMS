@@ -1,0 +1,521 @@
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../../../services/api';
+import toast from 'react-hot-toast';
+import { UserPlus, Trash2, Edit3, Key, ShieldCheck, ShieldAlert, X, Save, Search, Loader2, Layers } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface Category {
+  id: number;
+  name: string;
+}
+
+interface StaffUser {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  is_active: boolean;
+  date_joined: string;
+  category: number | null;
+  category_name: string | null;
+}
+
+export const StaffManagementTab: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+
+  // Modals state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showPassModal, setShowPassModal] = useState(false);
+  
+  // Selected staff references
+  const [selectedStaff, setSelectedStaff] = useState<StaffUser | null>(null);
+
+  // Form Fields
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [role, setRole] = useState<'STAFF' | 'SUPER_ADMIN'>('STAFF');
+  const [categoryId, setCategoryId] = useState<string>('');
+
+  // Query staff list
+  const { data: staffList = [], isLoading } = useQuery<StaffUser[]>({
+    queryKey: ['admin-staff-roster'],
+    queryFn: async () => {
+      const res = await api.get('users/staff/');
+      return res.data;
+    }
+  });
+
+  // Query categories
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['categories-list'],
+    queryFn: async () => {
+      const res = await api.get('courses/categories/');
+      return res.data;
+    }
+  });
+
+  const createStaffMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('users/staff/', {
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        password,
+        role,
+        category: categoryId ? Number(categoryId) : null
+      });
+      return res.data;
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['admin-staff-roster'] });
+      const previousStaff = queryClient.getQueryData<StaffUser[]>(['admin-staff-roster']);
+      
+      const newStaffOpt: StaffUser = {
+        id: -Date.now(),
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        is_active: true,
+        role,
+        category: categoryId ? Number(categoryId) : null,
+        category_name: categories.find(c => c.id === Number(categoryId))?.name || null
+      };
+
+      if (previousStaff) {
+        queryClient.setQueryData<StaffUser[]>(
+          ['admin-staff-roster'],
+          [newStaffOpt, ...previousStaff]
+        );
+      }
+      setShowAddModal(false);
+      resetForm();
+      return { previousStaff };
+    },
+    onError: (err: any, variables, context) => {
+      if (context?.previousStaff) {
+        queryClient.setQueryData(['admin-staff-roster'], context.previousStaff);
+      }
+      toast.error(err.response?.data?.email?.[0] || 'Failed to create operator.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-staff-roster'] });
+      toast.success('Staff operator account created.');
+    }
+  });
+
+  const updateStaffMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedStaff) return;
+      const res = await api.put(`users/staff/${selectedStaff.id}/`, {
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        is_active: selectedStaff.is_active,
+        role,
+        category: categoryId ? Number(categoryId) : null
+      });
+      return res.data;
+    },
+    onMutate: async () => {
+      if (!selectedStaff) return;
+      await queryClient.cancelQueries({ queryKey: ['admin-staff-roster'] });
+      const previousStaff = queryClient.getQueryData<StaffUser[]>(['admin-staff-roster']);
+      
+      const updatedStaff: StaffUser = {
+        ...selectedStaff,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        role,
+        category: categoryId ? Number(categoryId) : null,
+        category_name: categories.find(c => c.id === Number(categoryId))?.name || null
+      };
+
+      if (previousStaff) {
+        queryClient.setQueryData<StaffUser[]>(
+          ['admin-staff-roster'],
+          previousStaff.map(item => item.id === selectedStaff.id ? updatedStaff : item)
+        );
+      }
+      setShowEditModal(false);
+      resetForm();
+      return { previousStaff };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousStaff) {
+        queryClient.setQueryData(['admin-staff-roster'], context.previousStaff);
+      }
+      toast.error('Failed to update operator details.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-staff-roster'] });
+      toast.success('Operator profile details saved.');
+    }
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedStaff) return;
+      await api.post(`users/staff/${selectedStaff.id}/reset-password/`, {
+        password: newPassword
+      });
+    },
+    onSuccess: () => {
+      setShowPassModal(false);
+      resetForm();
+      toast.success('Operator password reset completed.');
+    },
+    onError: () => {
+      toast.error('Failed to reset operator password.');
+    }
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: async (staff: StaffUser) => {
+      await api.patch(`users/staff/${staff.id}/`, {
+        is_active: !staff.is_active
+      });
+    },
+    onMutate: async (staff: StaffUser) => {
+      await queryClient.cancelQueries({ queryKey: ['admin-staff-roster'] });
+      const previousStaff = queryClient.getQueryData<StaffUser[]>(['admin-staff-roster']);
+      if (previousStaff) {
+        queryClient.setQueryData<StaffUser[]>(
+          ['admin-staff-roster'],
+          previousStaff.map(item => item.id === staff.id ? { ...item, is_active: !item.is_active } : item)
+        );
+      }
+      return { previousStaff };
+    },
+    onError: (err, staff, context) => {
+      if (context?.previousStaff) {
+        queryClient.setQueryData(['admin-staff-roster'], context.previousStaff);
+      }
+      toast.error('Failed to update status.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-staff-roster'] });
+      toast.success('Account status updated.');
+    }
+  });
+
+  const deleteStaffMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`users/staff/${id}/`);
+    },
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ['admin-staff-roster'] });
+      const previousStaff = queryClient.getQueryData<StaffUser[]>(['admin-staff-roster']);
+      if (previousStaff) {
+        queryClient.setQueryData<StaffUser[]>(
+          ['admin-staff-roster'],
+          previousStaff.filter(s => s.id !== id)
+        );
+      }
+      return { previousStaff };
+    },
+    onError: (err, id, context) => {
+      if (context?.previousStaff) {
+        queryClient.setQueryData(['admin-staff-roster'], context.previousStaff);
+      }
+      toast.error('Failed to delete user.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-staff-roster'] });
+      toast.success('Account permanently deleted.');
+    }
+  });
+
+  const openEdit = (staff: StaffUser) => {
+    setSelectedStaff(staff);
+    setEmail(staff.email);
+    setFirstName(staff.first_name);
+    setLastName(staff.last_name);
+    setRole(staff.role as any || 'STAFF');
+    setCategoryId(staff.category ? String(staff.category) : '');
+    setShowEditModal(true);
+  };
+
+  const openPass = (staff: StaffUser) => {
+    setSelectedStaff(staff);
+    setShowPassModal(true);
+  };
+
+  const resetForm = () => {
+    setEmail('');
+    setFirstName('');
+    setLastName('');
+    setPassword('');
+    setNewPassword('');
+    setRole('STAFF');
+    setCategoryId('');
+    setSelectedStaff(null);
+  };
+
+  const filteredStaff = staffList.filter(s =>
+    s.email.toLowerCase().includes(search.toLowerCase()) ||
+    s.first_name.toLowerCase().includes(search.toLowerCase()) ||
+    s.last_name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const CategorySelect = () => (
+    <div>
+      <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Assigned Category (Mentor Domain)</label>
+      <select
+        value={categoryId}
+        onChange={(e) => setCategoryId(e.target.value)}
+        className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none font-bold"
+      >
+        <option value="">No category assigned</option>
+        {categories.map(c => (
+          <option key={c.id} value={c.id}>{c.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 text-xs">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">Operator Administration</h1>
+          <p className="text-muted-foreground text-sm mt-1">Super Admin CRUD panel to configure STAFF and SUPER_ADMIN operator accounts with category assignments.</p>
+        </div>
+        <button
+          onClick={() => { resetForm(); setShowAddModal(true); }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl shadow-md transition-all hover:brightness-110"
+        >
+          <UserPlus size={15} />
+          <span>Add Operator</span>
+        </button>
+      </div>
+
+      {/* Control filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-muted/20 border border-border/50 p-4 rounded-2xl">
+        <div className="relative w-full sm:max-w-md">
+          <Search className="absolute left-3.5 top-3 text-muted-foreground" size={14} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search operators by name or email..."
+            className="w-full h-10 pl-10 pr-4 bg-background border border-border rounded-xl outline-none focus:border-primary/45"
+          />
+        </div>
+      </div>
+
+      {/* Operators list */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+        {isLoading ? (
+          <div className="py-20 text-center text-muted-foreground">
+            <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
+            <span>Loading Operators...</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground uppercase font-bold text-[10px] tracking-wider bg-muted/20">
+                  <th className="py-3 px-4">Operator Email</th>
+                  <th className="py-3 px-4">First Name</th>
+                  <th className="py-3 px-4">Last Name</th>
+                  <th className="py-3 px-4">System Role</th>
+                  <th className="py-3 px-4">Assigned Category</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredStaff.map((staff) => (
+                  <tr key={staff.id} className="hover:bg-muted/10 transition-colors">
+                    <td className="py-3.5 px-4 font-semibold text-foreground/85">{staff.email}</td>
+                    <td className="py-3.5 px-4 font-medium text-muted-foreground">{staff.first_name}</td>
+                    <td className="py-3.5 px-4 font-medium text-muted-foreground">{staff.last_name}</td>
+                    <td className="py-3.5 px-4">
+                      <span className={`inline-block text-[9px] font-bold uppercase px-2.5 py-0.5 rounded-full border ${staff.role === 'SUPER_ADMIN' ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' : 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20'}`}>
+                        {staff.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Staff'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {staff.category_name ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase px-2.5 py-0.5 rounded-full border bg-violet-500/10 text-violet-500 border-violet-500/20">
+                          <Layers size={9} />
+                          {staff.category_name}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <button
+                        onClick={() => toggleStatusMutation.mutate(staff)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold border text-[9px] uppercase ${staff.is_active ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-destructive/10 text-destructive border-destructive/20'}`}
+                      >
+                        {staff.is_active ? <ShieldCheck size={10} /> : <ShieldAlert size={10} />}
+                        <span>{staff.is_active ? 'Active' : 'Locked'}</span>
+                      </button>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <button onClick={() => openPass(staff)} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground" title="Password"><Key size={13} /></button>
+                        <button onClick={() => openEdit(staff)} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground" title="Edit"><Edit3 size={13} /></button>
+                        <button 
+                          onClick={() => {
+                            if (staff.email === 'hadescore.apex.technologies@gmail.com') {
+                              toast.error('The root administrator account cannot be deleted.');
+                              return;
+                            }
+                            if (window.confirm('Delete operator account?')) deleteStaffMutation.mutate(staff.id);
+                          }} 
+                          className="p-1.5 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive" 
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredStaff.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-muted-foreground font-medium">No operators matched filters.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Add Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <div onClick={() => setShowAddModal(false)} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div onClick={(e) => e.stopPropagation()} initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-card border border-border w-full max-w-sm rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex justify-between items-center border-b border-border pb-3">
+                <h3 className="font-bold text-sm">Add System Operator</h3>
+                <button onClick={() => setShowAddModal(false)}><X size={16} /></button>
+              </div>
+              <form onSubmit={(e) => { e.preventDefault(); createStaffMutation.mutate(); }} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Email Address *</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">First Name *</label>
+                    <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Last Name *</label>
+                    <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Default Password *</label>
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Role Assignment</label>
+                  <select value={role} onChange={(e) => setRole(e.target.value as any)} className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none font-bold">
+                    <option value="STAFF">Staff Operator</option>
+                    <option value="SUPER_ADMIN">Super Administrator</option>
+                  </select>
+                </div>
+                <CategorySelect />
+                <button type="submit" disabled={createStaffMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-primary/10">
+                  <Save size={12} />
+                  <span>{createStaffMutation.isPending ? 'Creating...' : 'Create Account'}</span>
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {showEditModal && (
+          <div onClick={() => setShowEditModal(false)} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div onClick={(e) => e.stopPropagation()} initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-card border border-border w-full max-w-sm rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex justify-between items-center border-b border-border pb-3">
+                <h3 className="font-bold text-sm">Modify Operator Account</h3>
+                <button onClick={() => setShowEditModal(false)}><X size={16} /></button>
+              </div>
+              <form onSubmit={(e) => { e.preventDefault(); updateStaffMutation.mutate(); }} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Email Address *</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">First Name *</label>
+                    <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Last Name *</label>
+                    <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Role Assignment</label>
+                  <select value={role} onChange={(e) => setRole(e.target.value as any)} className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none font-bold">
+                    <option value="STAFF">Staff Operator</option>
+                    <option value="SUPER_ADMIN">Super Administrator</option>
+                  </select>
+                </div>
+                <CategorySelect />
+                <button type="submit" disabled={updateStaffMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-primary/10">
+                  <Save size={12} />
+                  <span>{updateStaffMutation.isPending ? 'Saving...' : 'Save Profile'}</span>
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Password Reset Modal */}
+      <AnimatePresence>
+        {showPassModal && (
+          <div onClick={() => setShowPassModal(false)} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div onClick={(e) => e.stopPropagation()} initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-card border border-border w-full max-w-sm rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex justify-between items-center border-b border-border pb-3">
+                <h3 className="font-bold text-sm">Reset Lock Password</h3>
+                <button onClick={() => setShowPassModal(false)}><X size={16} /></button>
+              </div>
+              <form onSubmit={(e) => { e.preventDefault(); resetPasswordMutation.mutate(); }} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Account: {selectedStaff?.email}</label>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">New Security Password *</label>
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                </div>
+                <button type="submit" disabled={resetPasswordMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-primary/10">
+                  <Key size={12} />
+                  <span>Update Password</span>
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+export default StaffManagementTab;

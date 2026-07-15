@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 215 25% 97.5%;
+    --foreground: 224 47.1% 10.5%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 47.1% 10.5%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 47.1% 10.5%;
+    --primary: 221.2 83.2% 53.3%; /* Professional Cobalt/Sapphire Blue */
+    --primary-foreground: 210 20% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 199 89% 94%;
+    --accent-foreground: 199 89% 36%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.85rem;
+  }
+
+  .dark {
+    --background: 222 47% 4.5%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 8.5%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 7.5%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%; /* Glowing Electric Sapphire Blue */
+    --primary-foreground: 222 47% 4.5%;
+    --secondary: 222 47% 12%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 222 47% 12%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 199 89% 15%;
+    --accent-foreground: 199 89% 65%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 222 47% 13.5%;
+    --input: 222 47% 13.5%;
+    --ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+/* Glassmorphism utility classes */
+.glass-panel {
+  @apply bg-white/75 dark:bg-slate-950/65 backdrop-blur-lg border border-slate-200/50 dark:border-slate-800/40 shadow-sm transition-all duration-300;
+}
+
+.glass-card {
+  @apply bg-white/85 dark:bg-card/75 backdrop-blur-lg border border-border/80 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-300;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/30;
+}
