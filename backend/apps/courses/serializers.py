@@ -25,6 +25,24 @@ class CourseSerializer(serializers.ModelSerializer):
             'progress_percentage', 'is_mentoring_track', 'created_by_name'
         ]
 
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            data = data.copy()
+            category_val = data.get('category')
+            if not category_val or category_val == '':
+                from apps.categories.models import Category
+                is_track = str(data.get('is_mentoring_track', '')).lower() in ['true', '1']
+                cat_type = 'LIVE' if is_track else 'COURSE'
+                first_cat = Category.objects.filter(category_type=cat_type).first() or Category.objects.first()
+                if not first_cat:
+                    first_cat = Category.objects.create(name='General', slug='general', category_type=cat_type)
+                data['category'] = first_cat.id
+            if not data.get('slug') and data.get('title'):
+                import re, time
+                clean_slug = re.sub(r'[^a-z0-9]+', '-', str(data['title']).lower()).strip('-')
+                data['slug'] = clean_slug if clean_slug else f"course-{int(time.time())}"
+        return super().to_internal_value(data)
+
     def get_mentor_name(self, obj):
         if obj.mentor:
             return f"{obj.mentor.first_name} {obj.mentor.last_name}".strip() or obj.mentor.email

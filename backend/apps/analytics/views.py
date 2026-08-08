@@ -96,13 +96,16 @@ class DashboardStatsView(views.APIView):
             
             if live_mode:
                 from apps.users.models import StudentAttendance
-                dummy_counts = [15, 12, 18, 22, 19, 25, 24]
                 for i in range(6, -1, -1):
                     d = today - timezone.timedelta(days=i)
-                    count = StudentAttendance.objects.filter(date=d, status='PRESENT').count()
+                    count = StudentAttendance.objects.filter(
+                        date=d,
+                        status='PRESENT',
+                        student__student_profile__student_type__in=['LIVE_CLASS', 'BOTH']
+                    ).count()
                     trend_data.append({
                         "date": d.strftime('%a'),
-                        "count": count + dummy_counts[6 - i]
+                        "count": count
                     })
                 
                 upcoming_sessions = LiveClass.objects.filter(
@@ -124,11 +127,6 @@ class DashboardStatsView(views.APIView):
                         "date": d.strftime('%a'),
                         "count": count
                     })
-                
-                if sum(item["count"] for item in activity_trend_data) == 0:
-                    dummy_counts = [12, 19, 15, 25, 22, 30, 45]
-                    for idx, item in enumerate(activity_trend_data):
-                        item["count"] = dummy_counts[idx % len(dummy_counts)]
 
             return response.Response({
                 "total_staff": user_stats['total_staff'] or 0,
@@ -206,7 +204,7 @@ class DashboardStatsView(views.APIView):
             )
             if category:
                 live_classes_query = live_classes_query.filter(
-                    Q(course__category=category) | Q(mentor=user)
+                    Q(course__category=category) | Q(course__mentor=user) | Q(created_by=user)
                 ).distinct()
             live_classes_today = live_classes_query.count()
             
@@ -236,7 +234,7 @@ class DashboardStatsView(views.APIView):
                 )
                 week_num = 5 - i
                 growth_data.append({
-                    "week": f"W{week_num}",
+                    "week": f"Week {week_num}",
                     "count": count
                 })
             
@@ -284,7 +282,7 @@ class DashboardStatsView(views.APIView):
             staff = (student_profile.assigned_live_staff if live_mode else student_profile.assigned_staff) if student_profile else None
             staff_cat = getattr(getattr(staff, 'staff_profile', None), 'category', None)
             
-            assigned_courses = Course.objects.filter(is_published=True)
+            assigned_courses = Course.objects.filter(is_published=True, is_mentoring_track=live_mode)
             if student_courses or staff_cat or staff:
                 filters = Q()
                 if student_courses:
@@ -304,7 +302,18 @@ class DashboardStatsView(views.APIView):
                 status='UPCOMING'
             ).distinct().count()
             
-            sub_stats = AssignmentSubmission.objects.filter(student=user).aggregate(
+            sub_qs = AssignmentSubmission.objects.filter(student=user)
+            if live_mode:
+                sub_qs = sub_qs.filter(
+                    Q(assignment__course__is_mentoring_track=True) |
+                    Q(assignment__module__course__is_mentoring_track=True)
+                )
+            else:
+                sub_qs = sub_qs.filter(
+                    Q(assignment__course__is_mentoring_track=False) |
+                    Q(assignment__module__course__is_mentoring_track=False)
+                )
+            sub_stats = sub_qs.aggregate(
                 total=Count('id'),
                 graded=Count('id', filter=Q(status='GRADED'))
             )
@@ -318,18 +327,55 @@ class DashboardStatsView(views.APIView):
             study_hours_data = []
             total_hours_sum = 0
             seven_days_ago = today_date - timezone.timedelta(days=6)
+            
+            # 1. Lesson watch duration & completion minutes
             from apps.lessons.models import LessonProgress
-            completed_records = LessonProgress.objects.filter(
-                student=user,
-                completed=True,
-                completed_at__date__gte=seven_days_ago
+            progress_records = LessonProgress.objects.filter(
+                student=user
             ).select_related('lesson')
 
+            if live_mode:
+                progress_records = progress_records.filter(lesson__module__course__is_mentoring_track=True)
+            else:
+                progress_records = progress_records.filter(lesson__module__course__is_mentoring_track=False)
+
             duration_by_date = {}
-            for lp in completed_records:
-                if lp.completed_at:
-                    d_key = lp.completed_at.date()
-                    duration_by_date[d_key] = duration_by_date.get(d_key, 0) + (lp.lesson.estimated_duration if lp.lesson else 0)
+            for lp in progress_records:
+                d_key = lp.completed_at.date() if lp.completed_at else (lp.updated_at.date() if hasattr(lp, 'updated_at') and lp.updated_at else today_date)
+                watch_mins = int((lp.resume_time or 0) // 60)
+                lesson_est = (lp.lesson.estimated_duration if lp.lesson and lp.lesson.estimated_duration else 15) if lp.completed else 0
+                dur = max(watch_mins, lesson_est)
+                if dur > 0:
+                    duration_by_date[d_key] = duration_by_date.get(d_key, 0) + dur
+
+            # 2. Attendance & Live Session (at least 30 minutes logged on any present attendance date in 7-day window)
+            from apps.users.models import StudentAttendance
+            attendance_records = StudentAttendance.objects.filter(
+                student=user,
+                date__gte=seven_days_ago,
+                status='PRESENT'
+            )
+            for att in attendance_records:
+                duration_by_date[att.date] = max(duration_by_date.get(att.date, 0), 30)
+
+            # 3. Exercises: Submissions & Quiz attempts (20 mins per assignment, 15 mins per quiz)
+            submissions = AssignmentSubmission.objects.filter(
+                student=user,
+                submitted_at__date__gte=seven_days_ago
+            )
+            for sub in submissions:
+                if sub.submitted_at:
+                    s_date = sub.submitted_at.date()
+                    duration_by_date[s_date] = duration_by_date.get(s_date, 0) + 20
+
+            attempts = QuizAttempt.objects.filter(
+                student=user,
+                completed_at__date__gte=seven_days_ago
+            )
+            for att in attempts:
+                if att.completed_at:
+                    a_date = att.completed_at.date()
+                    duration_by_date[a_date] = duration_by_date.get(a_date, 0) + 15
 
             for i in range(6, -1, -1):
                 d = today_date - timezone.timedelta(days=i)
@@ -337,7 +383,8 @@ class DashboardStatsView(views.APIView):
                 hours = round(duration_mins / 60.0, 1)
                 study_hours_data.append({
                     "day": d.strftime('%a'),
-                    "hours": hours
+                    "hours": hours,
+                    "minutes": duration_mins
                 })
                 total_hours_sum += hours
 

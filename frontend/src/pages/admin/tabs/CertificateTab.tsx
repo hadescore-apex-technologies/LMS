@@ -100,8 +100,26 @@ export const CertificateTab: React.FC = () => {
     mutationFn: async (id: number) => {
       await api.delete(`certificates/${id}/`);
     },
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ['certificates-list'] });
+      const previousCerts = queryClient.getQueryData<Certificate[]>(['certificates-list']);
+      if (previousCerts) {
+        queryClient.setQueryData<Certificate[]>(
+          ['certificates-list'],
+          previousCerts.filter(c => c.id !== id)
+        );
+      }
+      return { previousCerts };
+    },
+    onError: (err, id, context) => {
+      if (context?.previousCerts) {
+        queryClient.setQueryData(['certificates-list'], context.previousCerts);
+      }
+      toast.error('Failed to revoke certificate.');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['certificates-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       toast.success('Certificate credentials revoked.');
     }
   });

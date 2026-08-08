@@ -2,9 +2,10 @@ import axios from 'axios';
 import { store } from '../store';
 import { loginSuccess, logout } from '../features/authSlice';
 
-const getBaseURL = () => {
+export const getBaseURL = () => {
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+    const url = import.meta.env.VITE_API_URL;
+    return url.endsWith('/') ? url : `${url}/`;
   }
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   return `http://${hostname}:8000/api/`;
@@ -12,6 +13,7 @@ const getBaseURL = () => {
 
 const api = axios.create({
   baseURL: getBaseURL(),
+  timeout: 45000, // 45 second timeout for large file uploads & queries
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,9 +32,12 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle Token Refreshing & Unauthorized errors
+// Response Interceptor: Handle Token Refreshing, Auto-Retries & Network Resilience
 let isRefreshing = false;
-let failedQueue: any[] = [];
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: any) => void;
+}> = [];
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -49,10 +54,23 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
+    // 1. Automatic Network / Transient Error Retry (Exponential Backoff)
+    const isNetworkError = !error.response && Boolean(error.code);
+    const isTransientServerError = error.response?.status >= 502 && error.response?.status <= 504;
     
-    // Check for 401 Unauthorized and that we haven't already retried this request
+    if ((isNetworkError || isTransientServerError) && (originalRequest._retryCount || 0) < 3) {
+      originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
+      const delayMs = Math.min(1000 * Math.pow(2, originalRequest._retryCount), 3000);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return api(originalRequest);
+    }
+
+    // 2. Token Refreshing for 401 Unauthorized errors
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // If it's a direct login call, don't try to refresh, return the error
       if (originalRequest.url?.includes('auth/login/')) {
         return Promise.reject(error);
       }
@@ -78,8 +96,8 @@ api.interceptors.response.use(
       }
 
       try {
-        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-        const res = await axios.post(`http://${hostname}:8000/api/auth/refresh/`, {
+        const refreshUrl = `${getBaseURL()}auth/refresh/`;
+        const res = await axios.post(refreshUrl, {
           refresh: refreshToken,
         });
 
@@ -98,12 +116,30 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
         store.dispatch(logout());
         const loginPath = localStorage.getItem('loginPath') || '/student/login';
-        window.location.href = loginPath;
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('login')) {
+          window.location.href = loginPath;
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
     }
+
+    // 3. User-friendly error message extraction
+    const data = error.response?.data;
+    let friendlyMessage = error.message || 'An unexpected error occurred.';
+    if (data) {
+      if (typeof data === 'string') friendlyMessage = data;
+      else if (data.detail) friendlyMessage = data.detail;
+      else if (data.error) friendlyMessage = data.error;
+      else {
+        const firstKey = Object.keys(data)[0];
+        if (firstKey && Array.isArray(data[firstKey])) {
+          friendlyMessage = `${firstKey}: ${data[firstKey][0]}`;
+        }
+      }
+    }
+    error.userFriendlyMessage = friendlyMessage;
 
     return Promise.reject(error);
   }

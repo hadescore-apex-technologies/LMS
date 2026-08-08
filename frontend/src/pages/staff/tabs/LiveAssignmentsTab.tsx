@@ -283,7 +283,7 @@ export const LiveAssignmentsTab: React.FC = () => {
           <h1 className="text-3xl font-extrabold tracking-tight">Live Mentoring Assignments</h1>
           <p className="text-muted-foreground text-sm mt-1">Review mentee homework submissions, grade deliverables, and assign custom tasks.</p>
           {activeSubTab === 'submissions' && (
-            <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700/50 text-[10px] font-extrabold uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-950 dark:text-violet-100 border border-violet-300 dark:border-violet-800 text-[10px] font-extrabold uppercase tracking-wider">
               <Users size={11} />
               Mentee Submissions Inbox
             </span>
@@ -353,7 +353,7 @@ export const LiveAssignmentsTab: React.FC = () => {
                 <ArrowLeft size={13} />
                 <span>Back to All Mentees</span>
               </button>
-              <span className="text-xs font-bold px-3 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/40 rounded-full">
+              <span className="text-xs font-bold px-3 py-1 bg-violet-100 dark:bg-violet-950 text-violet-950 dark:text-violet-100 border border-violet-300 dark:border-violet-800 rounded-full">
                 Domain: {selectedStudentData.category}
               </span>
             </div>
@@ -446,7 +446,7 @@ export const LiveAssignmentsTab: React.FC = () => {
                       <div className="min-w-0">
                         <h4 className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">{stu.name}</h4>
                         <p className="text-[10px] text-muted-foreground truncate font-mono">{stu.email}</p>
-                        <span className="inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 border border-violet-200 dark:border-violet-800/40">
+                        <span className="inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded-md bg-violet-100 dark:bg-violet-950 text-violet-950 dark:text-violet-100 border border-violet-300 dark:border-violet-800">
                           Domain: {stu.category}
                         </span>
                       </div>

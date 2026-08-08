@@ -541,7 +541,6 @@ export const StudentManagementTab: React.FC = () => {
                   <th className="py-3 px-4">Type</th>
                   <th className="py-3 px-4">Duration</th>
                   {liveMode && <th className="py-3 px-4">Live Mentor</th>}
-                  {!liveMode && <th className="py-3 px-4 text-center">Certificate</th>}
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -586,18 +585,7 @@ export const StudentManagementTab: React.FC = () => {
                         )}
                       </td>
                     )}
-                    {!liveMode && (
-                      <td className="py-3.5 px-4 text-center">
-                        {s.has_certificate ? (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25" title="Certificate uploaded / attached">
-                            <Award size={10} />
-                            <span>Attached</span>
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground/60 italic">None</span>
-                        )}
-                      </td>
-                    )}
+
                     <td className="py-3.5 px-4 text-center">
                       <button
                         onClick={() => toggleStatusMutation.mutate(s)}

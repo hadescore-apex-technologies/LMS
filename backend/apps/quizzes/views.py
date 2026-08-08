@@ -162,8 +162,10 @@ class QuizViewSet(viewsets.ModelViewSet):
         )
 
         if passed:
-            from apps.certificates.utils import check_and_generate_certificate
-            check_and_generate_certificate(user, quiz.module.course)
+            course = getattr(getattr(quiz, 'module', None), 'course', None)
+            if course:
+                from apps.certificates.utils import check_and_generate_certificate
+                check_and_generate_certificate(user, course)
 
         return response.Response({
             "message": "Quiz graded successfully",

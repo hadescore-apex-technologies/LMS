@@ -52,12 +52,17 @@ class AssignmentViewSet(viewsets.ModelViewSet):
                 ))
             ).distinct()
         elif user.role == 'STAFF':
-            # Staff members manage assignments created by themselves or targeted to their assigned mentees
-            qs = Assignment.objects.filter(
+            category = getattr(user, 'staff_profile', None) and user.staff_profile.category
+            filters = (
                 Q(created_by=user) | 
                 Q(students__student_profile__assigned_live_staff=user) |
-                Q(students__student_profile__assigned_staff=user)
-            ).distinct()
+                Q(students__student_profile__assigned_staff=user) |
+                Q(course__mentor=user) |
+                Q(module__course__mentor=user)
+            )
+            if category:
+                filters |= Q(course__category=category) | Q(module__course__category=category)
+            qs = Assignment.objects.filter(filters).distinct()
         else:
             qs = Assignment.objects.all()
 
@@ -115,8 +120,13 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         submission = serializer.save()
-        from apps.certificates.utils import check_and_generate_certificate
-        check_and_generate_certificate(submission.student, submission.assignment.module.course)
+        course = submission.assignment.course
+        if not course and submission.assignment.module:
+            course = submission.assignment.module.course
+            
+        if course:
+            from apps.certificates.utils import check_and_generate_certificate
+            check_and_generate_certificate(submission.student, course)
         
         # Log this submission event
         AuditLog.objects.create(
@@ -160,8 +170,12 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
 
         # Try to auto-generate certificate if GRADED
         if submission.status == 'GRADED':
-            from apps.certificates.utils import check_and_generate_certificate
-            check_and_generate_certificate(submission.student, submission.assignment.module.course)
+            course = submission.assignment.course
+            if not course and submission.assignment.module:
+                course = submission.assignment.module.course
+            if course:
+                from apps.certificates.utils import check_and_generate_certificate
+                check_and_generate_certificate(submission.student, course)
 
         # Log this grading event
         AuditLog.objects.create(

@@ -22,6 +22,34 @@ class LessonSerializer(serializers.ModelSerializer):
             'locked', 'completed', 'resume_time'
         ]
 
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            data = data.copy()
+            if not data.get('title') or str(data.get('title')).strip() == '':
+                data['title'] = 'Untitled Lesson'
+            
+            for key in ['cf_stream_id', 'pdf_ppt_url', 'zip_source_url', 'additional_notes', 'thumbnail']:
+                if data.get(key) == '':
+                    data[key] = None
+
+            if not data.get('module'):
+                course_id = data.get('course')
+                from apps.modules.models import Module
+                if course_id:
+                    mod = Module.objects.filter(course_id=course_id).first()
+                    if not mod:
+                        from apps.courses.models import Course
+                        course_obj = Course.objects.filter(id=course_id).first()
+                        if course_obj:
+                            mod = Module.objects.create(title="General Module", course=course_obj, order=1)
+                    if mod:
+                        data['module'] = mod.id
+                if not data.get('module'):
+                    first_mod = Module.objects.first()
+                    if first_mod:
+                        data['module'] = first_mod.id
+        return super().to_internal_value(data)
+
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if hasattr(instance, 'video') and instance.video:

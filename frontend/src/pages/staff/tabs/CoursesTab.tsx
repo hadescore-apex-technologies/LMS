@@ -272,7 +272,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
         status: courseStatus,
         requirements: courseReqs,
         outcomes: courseOuts,
-        slug: courseTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        slug: courseTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || `course-${Date.now()}`,
         is_mentoring_track: isRecordingsMode
       };
       if (selectedCourse) {
@@ -311,29 +311,29 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
 
   // Module CRUD
   const saveModuleMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedCourse) return;
-      if (editingModule) {
-        await api.put(`modules/${editingModule.id}/`, { title: modTitle, course: selectedCourse.id });
+    mutationFn: async (payload: { title: string; courseId: number; editingModuleId?: number; isEdit: boolean }) => {
+      if (!payload.courseId) return;
+      if (payload.isEdit) {
+        await api.put(`modules/${payload.editingModuleId}/`, { title: payload.title, course: payload.courseId });
       } else {
-        await api.post('modules/', { title: modTitle, course: selectedCourse.id, order: modules.length + 1 });
+        await api.post('modules/', { title: payload.title, course: payload.courseId, order: modules.length + 1 });
       }
     },
-    onMutate: async () => {
-      if (!selectedCourse || !modTitle.trim()) return;
-      await queryClient.cancelQueries({ queryKey: ['modules', selectedCourse.id] });
-      const previousModules = queryClient.getQueryData(['modules', selectedCourse.id]);
+    onMutate: async (payload) => {
+      if (!payload.title.trim()) return;
+      await queryClient.cancelQueries({ queryKey: ['modules', payload.courseId] });
+      const previousModules = queryClient.getQueryData(['modules', payload.courseId]);
       
       const newModule = {
-        id: editingModule ? editingModule.id : Math.random(),
-        title: modTitle,
-        course: selectedCourse.id,
+        id: payload.isEdit ? payload.editingModuleId! : Math.random(),
+        title: payload.title,
+        course: payload.courseId,
         order: modules.length + 1
       };
       
-      queryClient.setQueryData(['modules', selectedCourse.id], (old: any) => {
-        if (editingModule) {
-          return (old || []).map((m: any) => m.id === editingModule.id ? newModule : m);
+      queryClient.setQueryData(['modules', payload.courseId], (old: any) => {
+        if (payload.isEdit) {
+          return (old || []).map((m: any) => m.id === payload.editingModuleId ? newModule : m);
         } else {
           return [...(old || []), newModule];
         }
@@ -342,11 +342,11 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
       setShowModModal(false);
       setModTitle('');
       setEditingModule(null);
-      return { previousModules };
+      return { previousModules, courseId: payload.courseId };
     },
     onError: (err, variables, context: any) => {
-      if (context?.previousModules && selectedCourse) {
-        queryClient.setQueryData(['modules', selectedCourse.id], context.previousModules);
+      if (context?.previousModules) {
+        queryClient.setQueryData(['modules', context.courseId], context.previousModules);
       }
       toast.error('Failed to save module.');
     },
@@ -389,11 +389,11 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
       if (!selectedCourse || !targetModuleId) return;
       const payload = {
         title: lesTitle,
-        content: lesContent,
+        content: isRecordingsMode ? (lesContent.trim() || 'Recorded Playback Session') : lesContent,
         module: targetModuleId,
         cf_stream_id: lesVideoUrl || undefined,
         pdf_ppt_url: lesPdf || undefined,
-        zip_source_url: lesZip || undefined,
+        zip_source_url: isRecordingsMode ? undefined : (lesZip || undefined),
         additional_notes: lesNotes || undefined,
         order: lessons.filter(l => l.module === targetModuleId).length + 1
       };
@@ -411,11 +411,11 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
       const newLesson = {
         id: editingLesson ? editingLesson.id : Math.random(),
         title: lesTitle,
-        content: lesContent,
+        content: isRecordingsMode ? (lesContent.trim() || 'Recorded Playback Session') : lesContent,
         module: targetModuleId,
         cf_stream_id: lesVideoUrl || null,
         pdf_ppt_url: lesPdf || null,
-        zip_source_url: lesZip || null,
+        zip_source_url: isRecordingsMode ? null : (lesZip || null),
         additional_notes: lesNotes || null,
         order: lessons.filter(l => l.module === targetModuleId).length + 1
       };
@@ -863,7 +863,11 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                           </div>
                           <div>
                             <h4 className="font-bold text-sm text-foreground">{mod.title}</h4>
-                            <span className="text-[10px] text-muted-foreground font-semibold">{modLessons.length} lessons, {modQuiz ? '1 quiz' : 'no quiz'}, {modAssign ? '1 assignment' : 'no assignment'}</span>
+                            <span className="text-[10px] text-muted-foreground font-semibold">
+                              {isRecordingsMode 
+                                ? `${modLessons.length} ${modLessons.length === 1 ? 'recording' : 'recordings'}` 
+                                : `${modLessons.length} lessons, ${modQuiz ? '1 quiz' : 'no quiz'}, ${modAssign ? '1 assignment' : 'no assignment'}`}
+                            </span>
                           </div>
                         </div>
 
@@ -1038,7 +1042,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                 <h3 className="font-bold text-sm">{editingModule ? 'Modify Module Title' : 'New Outline Module'}</h3>
                 <button onClick={() => setShowModModal(false)}><X size={16} /></button>
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); saveModuleMutation.mutate(); }} className="space-y-4">
+              <form onSubmit={(e) => { e.preventDefault(); if (selectedCourse) saveModuleMutation.mutate({ title: modTitle, courseId: selectedCourse.id, editingModuleId: editingModule?.id, isEdit: !!editingModule }); }} className="space-y-4">
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Module Title *</label>
                   <input type="text" value={modTitle} onChange={(e) => setModTitle(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
@@ -1058,7 +1062,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
               className="bg-card border border-border w-full max-w-lg rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center border-b border-border pb-3">
-                <h3 className="font-bold text-sm">{editingLesson ? 'Edit Lesson Parameters' : 'Add Module Lesson'}</h3>
+                <h3 className="font-bold text-sm">{editingLesson ? (isRecordingsMode ? 'Edit Recording Session' : 'Edit Lesson Parameters') : (isRecordingsMode ? 'Add Recording Session' : 'Add Module Lesson')}</h3>
                 <button onClick={() => setShowLesModal(false)}><X size={16} /></button>
               </div>
               <form onSubmit={(e) => { e.preventDefault(); saveLessonMutation.mutate(); }} className="space-y-4">
@@ -1066,10 +1070,12 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Lesson Title *</label>
                   <input type="text" value={lesTitle} onChange={(e) => setLesTitle(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
                 </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Markdown Lesson Content *</label>
-                  <textarea value={lesContent} onChange={(e) => setLesContent(e.target.value)} required rows={6} className="w-full p-3 bg-muted/40 border border-border rounded-xl outline-none resize-none font-mono text-[11px]" />
-                </div>
+                {!isRecordingsMode && (
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Markdown Lesson Content *</label>
+                    <textarea value={lesContent} onChange={(e) => setLesContent(e.target.value)} required rows={6} className="w-full p-3 bg-muted/40 border border-border rounded-xl outline-none resize-none font-mono text-[11px]" />
+                  </div>
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Cloudflare Stream Video</label>
@@ -1104,22 +1110,24 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                     )}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Project template (.zip files)</label>
-                  {lesZip ? (
-                    <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-xl">
-                      <Layers size={13} className="shrink-0" />
-                      <span className="truncate flex-1">{lesZip.split('/').pop()}</span>
-                      <button onClick={() => setLesZip('')} className="text-destructive"><X size={12} /></button>
-                    </div>
-                  ) : (
-                    <label className="flex items-center justify-center gap-1.5 h-10 px-3 bg-muted/40 border border-dashed border-border rounded-xl cursor-pointer">
-                      {uploadingField === 'zip' ? <Loader2 size={13} className="animate-spin text-primary" /> : <Upload size={13} />}
-                      <span>Select Code/Project template</span>
-                      <input type="file" onChange={(e) => handleFileUpload(e, 'zip')} className="hidden" />
-                    </label>
-                  )}
-                </div>
+                {!isRecordingsMode && (
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Project template (.zip files)</label>
+                    {lesZip ? (
+                      <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-xl">
+                        <Layers size={13} className="shrink-0" />
+                        <span className="truncate flex-1">{lesZip.split('/').pop()}</span>
+                        <button onClick={() => setLesZip('')} className="text-destructive"><X size={12} /></button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-1.5 h-10 px-3 bg-muted/40 border border-dashed border-border rounded-xl cursor-pointer">
+                        {uploadingField === 'zip' ? <Loader2 size={13} className="animate-spin text-primary" /> : <Upload size={13} />}
+                        <span>Select Code/Project template</span>
+                        <input type="file" onChange={(e) => handleFileUpload(e, 'zip')} className="hidden" />
+                      </label>
+                    )}
+                  </div>
+                )}
                 <button type="submit" disabled={saveLessonMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl">Save Lesson</button>
               </form>
             </motion.div>

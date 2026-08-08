@@ -25,6 +25,7 @@ interface CoursesTabProps {
 }
 
 export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
+  const liveMode = localStorage.getItem('studentLiveMode') === 'true';
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [sortBy, setSortBy] = useState<'title' | 'category' | 'progress'>('title');
@@ -34,7 +35,6 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
     queryKey: ['courses-list'],
     placeholderData: (prev) => prev,
     queryFn: async () => {
-      const liveMode = localStorage.getItem('studentLiveMode') === 'true';
       const res = await api.get(`courses/list/?live_mode=${liveMode}`);
       return res.data;
     }
@@ -78,46 +78,67 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
               <span>Personalized Learning Hub</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
-              Assigned Training Paths
+              {liveMode ? 'Live Session Videos' : 'Assigned Training Paths'}
             </h1>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Explore your active curriculum tracks, video modules, and skill certifications allocated for your career growth.
+              {liveMode 
+                ? 'Replay recorded webinar classes, missed mentor sessions, and playback video lectures.' 
+                : 'Explore your active curriculum tracks, video modules, and skill certifications allocated for your career growth.'}
             </p>
           </div>
 
           {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white/5 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl shrink-0">
-            <div className="space-y-1 p-2 text-center">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Assigned</span>
-              <div className="text-lg font-black text-white flex items-center justify-center gap-1">
-                <BookOpen size={14} className="text-primary" />
-                <span>{totalCourses}</span>
+          {liveMode ? (
+            <div className="grid grid-cols-2 gap-3 bg-white/5 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl shrink-0">
+              <div className="space-y-1 p-2 text-center">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Playback Tracks</span>
+                <div className="text-lg font-black text-white flex items-center justify-center gap-1">
+                  <BookOpen size={14} className="text-primary" />
+                  <span>{totalCourses}</span>
+                </div>
+              </div>
+              <div className="space-y-1 p-2 text-center border-l border-white/10">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Access Status</span>
+                <div className="text-lg font-black text-emerald-400 flex items-center justify-center gap-1">
+                  <CheckCircle2 size={14} />
+                  <span>Unlimited</span>
+                </div>
               </div>
             </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white/5 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl shrink-0">
+              <div className="space-y-1 p-2 text-center">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Assigned</span>
+                <div className="text-lg font-black text-white flex items-center justify-center gap-1">
+                  <BookOpen size={14} className="text-primary" />
+                  <span>{totalCourses}</span>
+                </div>
+              </div>
 
-            <div className="space-y-1 p-2 text-center border-l border-white/10">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">In Progress</span>
-              <div className="text-lg font-black text-amber-400 flex items-center justify-center gap-1">
-                <TrendingUp size={14} />
-                <span>{inProgressCourses}</span>
+              <div className="space-y-1 p-2 text-center border-l border-white/10">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">In Progress</span>
+                <div className="text-lg font-black text-amber-400 flex items-center justify-center gap-1">
+                  <TrendingUp size={14} />
+                  <span>{inProgressCourses}</span>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1 p-2 text-center border-l border-white/10">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Completed</span>
-              <div className="text-lg font-black text-emerald-400 flex items-center justify-center gap-1">
-                <CheckCircle2 size={14} />
-                <span>{completedCourses}</span>
+              <div className="space-y-1 p-2 text-center border-l border-white/10">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Completed</span>
+                <div className="text-lg font-black text-emerald-400 flex items-center justify-center gap-1">
+                  <CheckCircle2 size={14} />
+                  <span>{completedCourses}</span>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1 p-2 text-center border-l border-white/10">
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Avg Progress</span>
-              <div className="text-lg font-black text-indigo-400 flex items-center justify-center gap-1 font-mono">
-                <span>{avgProgress}%</span>
+              <div className="space-y-1 p-2 text-center border-l border-white/10">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Avg Progress</span>
+                <div className="text-lg font-black text-indigo-400 flex items-center justify-center gap-1 font-mono">
+                  <span>{avgProgress}%</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -145,55 +166,57 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
       </div>
 
       {/* Search, Sort, and View Controls */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card border border-border p-4 rounded-2xl shadow-sm">
-        <div className="relative w-full md:max-w-md">
-          <Search className="absolute left-3.5 top-3 text-muted-foreground" size={14} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search course tracks, modules, skills..."
-            className="w-full h-10 pl-10 pr-9 bg-muted/30 border border-border rounded-xl outline-none focus:border-primary/50 text-xs transition-all"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-3 text-muted-foreground hover:text-foreground">
-              <X size={13} />
-            </button>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2 flex-1 md:flex-initial">
-            <span className="text-[10px] font-bold uppercase text-muted-foreground shrink-0">Sort:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="h-10 px-3 bg-muted/30 border border-border rounded-xl outline-none focus:border-primary/50 text-xs font-semibold text-foreground cursor-pointer"
-            >
-              <option value="title">Course Title</option>
-              <option value="category">Domain Category</option>
-              <option value="progress">Highest Progress</option>
-            </select>
+      {!liveMode && (
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-card border border-border p-4 rounded-2xl shadow-sm">
+          <div className="relative w-full md:max-w-md">
+            <Search className="absolute left-3.5 top-3 text-muted-foreground" size={14} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search course tracks, modules, skills..."
+              className="w-full h-10 pl-10 pr-9 bg-muted/30 border border-border rounded-xl outline-none focus:border-primary/50 text-xs transition-all"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-3 text-muted-foreground hover:text-foreground">
+                <X size={13} />
+              </button>
+            )}
           </div>
+          
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="flex items-center gap-2 flex-1 md:flex-initial">
+              <span className="text-[10px] font-bold uppercase text-muted-foreground shrink-0">Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="h-10 px-3 bg-muted/30 border border-border rounded-xl outline-none focus:border-primary/50 text-xs font-semibold text-foreground cursor-pointer"
+              >
+                <option value="title">Course Title</option>
+                <option value="category">Domain Category</option>
+                <option value="progress">Highest Progress</option>
+              </select>
+            </div>
 
-          <div className="flex items-center bg-muted/40 border border-border p-1 rounded-xl">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Grid View"
-            >
-              <LayoutGrid size={14} />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="List View"
-            >
-              <List size={14} />
-            </button>
+            <div className="flex items-center bg-muted/40 border border-border p-1 rounded-xl">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                title="Grid View"
+              >
+                <LayoutGrid size={14} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                title="List View"
+              >
+                <List size={14} />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Course List / Grid View */}
       {isLoading && courses.length === 0 ? (
@@ -236,14 +259,16 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
                     <span className="text-[9px] px-2.5 py-1 rounded-xl bg-primary/10 border border-primary/20 text-primary font-bold uppercase tracking-wider">
                       {course.category_name}
                     </span>
-                    {isCompleted ? (
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-extrabold uppercase tracking-wider flex items-center gap-1">
-                        <CheckCircle2 size={10} /> Completed
-                      </span>
-                    ) : course.status && (
-                      <span className="text-[9px] px-2 py-0.5 rounded bg-muted border border-border text-muted-foreground font-semibold uppercase tracking-wider">
-                        {course.status}
-                      </span>
+                    {!liveMode && (
+                      isCompleted ? (
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-extrabold uppercase tracking-wider flex items-center gap-1">
+                          <CheckCircle2 size={10} /> Completed
+                        </span>
+                      ) : course.status && (
+                        <span className="text-[9px] px-2 py-0.5 rounded bg-muted border border-border text-muted-foreground font-semibold uppercase tracking-wider">
+                          {course.status}
+                        </span>
+                      )
                     )}
                   </div>
 
@@ -262,29 +287,31 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
                     </div>
                   )}
 
-                  {/* Progress Indicator */}
-                  <div className="space-y-1.5 pt-3 border-t border-border/30">
-                    <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground">
-                      <span>Curriculum Track Progress</span>
-                      <span className="font-mono text-primary font-extrabold">{pct}%</span>
+                  {/* Progress Indicator (only if not in Live Mode) */}
+                  {!liveMode && (
+                    <div className="space-y-1.5 pt-3 border-t border-border/30">
+                      <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground">
+                        <span>Curriculum Track Progress</span>
+                        <span className="font-mono text-primary font-extrabold">{pct}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden border border-border/30 p-0.5">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500' : 'bg-gradient-to-r from-primary to-indigo-500'}`}
+                          style={{ width: `${pct}%` }} 
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden border border-border/30 p-0.5">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${isCompleted ? 'bg-emerald-500' : 'bg-gradient-to-r from-primary to-indigo-500'}`}
-                        style={{ width: `${pct}%` }} 
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 pt-2 relative z-10">
                   <div className="flex items-center justify-between text-[10px] text-muted-foreground font-semibold">
                     <div className="flex items-center gap-1 text-primary">
-                      <Award size={13} />
-                      <span>Certified Track</span>
+                      <PlayCircle size={13} className="text-emerald-600 dark:text-emerald-400" />
+                      <span>{liveMode ? 'Recorded Playbacks' : 'Certified Track'}</span>
                     </div>
                     {course.instructor_name && (
-                      <span className="truncate max-w-[120px]">By {course.instructor_name}</span>
+                      <span className="truncate max-w-[120px]">{liveMode ? 'Mentor' : 'By'}: {course.instructor_name}</span>
                     )}
                   </div>
                   
@@ -293,7 +320,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
                     className="w-full py-2.5 bg-primary text-primary-foreground font-extrabold text-xs rounded-xl hover:brightness-110 transition-all shadow-md shadow-primary/20 flex items-center justify-center gap-1.5 group-hover:shadow-primary/30"
                   >
                     <PlayCircle size={14} />
-                    <span>{pct > 0 ? 'Resume Curriculum' : 'Start Learning Track'}</span>
+                    <span>{liveMode ? 'Explore Recorded Sessions' : (pct > 0 ? 'Resume Curriculum' : 'Start Learning Track')}</span>
                     <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                   </button>
                 </div>
@@ -326,15 +353,22 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
                 </div>
 
                 <div className="flex items-center gap-6 shrink-0 border-t md:border-t-0 border-border pt-3 md:pt-0">
-                  <div className="w-32 space-y-1">
-                    <div className="flex justify-between text-[10px] font-bold">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span className="font-mono text-primary">{pct}%</span>
+                  {liveMode ? (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
+                      <PlayCircle size={14} className="text-primary" />
+                      <span>Recorded Playbacks</span>
                     </div>
-                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                  ) : (
+                    <div className="w-32 space-y-1">
+                      <div className="flex justify-between text-[10px] font-bold">
+                        <span className="text-muted-foreground">Progress</span>
+                        <span className="font-mono text-primary">{pct}%</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <button
                     onClick={() => onOpenCourse(course)}

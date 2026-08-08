@@ -98,8 +98,10 @@ class LessonViewSet(viewsets.ModelViewSet):
             if not progress.completed_at:
                 progress.completed_at = timezone.now()
                 progress.save()
-            from apps.certificates.utils import check_and_generate_certificate
-            check_and_generate_certificate(user, lesson.module.course)
+            course = getattr(getattr(lesson, 'module', None), 'course', None)
+            if course:
+                from apps.certificates.utils import check_and_generate_certificate
+                check_and_generate_certificate(user, course)
             
         return response.Response({
             "message": "Lesson progress updated successfully",

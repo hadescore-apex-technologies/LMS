@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import api from '../../../services/api';
 import { 
   BookOpen, Award, FileCheck, RefreshCw, Calendar, Clock, 
-  TrendingUp, Compass, Zap, Target, BookOpenCheck 
+  TrendingUp, Compass, Zap, Target, BookOpenCheck, Video
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -53,12 +53,14 @@ interface DashboardTabProps {
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
+  const liveMode = localStorage.getItem('studentLiveMode') === 'true';
+  
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<DashboardStats>({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', liveMode],
     placeholderData: (prev) => prev,
-    staleTime: 600000,
+    staleTime: 0,
+    refetchOnMount: true,
     queryFn: async () => {
-      const liveMode = localStorage.getItem('studentLiveMode') === 'true';
       const res = await api.get(`analytics/dashboard/?live_mode=${liveMode}`);
       return res.data;
     },
@@ -75,9 +77,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
   });
 
   const { data: achievements } = useQuery<Achievements>({
-    queryKey: ['user-achievements'],
+    queryKey: ['user-achievements', liveMode],
     placeholderData: (prev) => prev,
-    staleTime: 600000,
+    staleTime: 0,
+    refetchOnMount: true,
     queryFn: async () => {
       const res = await api.get('users/profile/achievements/');
       return res.data;
@@ -111,9 +114,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
     { day: 'Sun', hours: 0.0 },
   ];
 
-  const studyMinutes = studyHours.map(d => ({
+  const studyMinutes = studyHours.map((d: any) => ({
     day: d.day,
-    minutes: Math.round(d.hours * 60)
+    minutes: typeof d.minutes === 'number' ? d.minutes : Math.round((d.hours || 0) * 60)
   }));
 
   const maxMinutes = Math.max(...studyMinutes.map(d => d.minutes), 120);
@@ -172,13 +175,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="grid flex-none gap-2.5 sm:grid-cols-2 lg:grid-cols-4"
+        className={`grid flex-none gap-2.5 sm:grid-cols-2 ${liveMode ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}
       >
         {[
-          { label: 'Courses', value: `${stats?.assigned_courses_count || 0}`, desc: 'Enrolled curriculums', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-          { label: 'Live Q&A', value: `${stats?.upcoming_live_classes || 0}`, desc: 'Scheduled webinars', icon: Calendar, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-          { label: 'Assignments', value: `${stats?.assignments_submitted || 0}`, desc: 'Completed tasks', icon: FileCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-          { label: 'Certificates', value: `${stats?.certificates_count || 0}`, desc: 'Verified credentials', icon: Award, color: 'text-indigo-500', bg: 'bg-indigo-500/10' }
+          { label: liveMode ? 'Live Videos' : 'Courses', value: `${stats?.assigned_courses_count || 0}`, desc: liveMode ? 'Recorded playbacks' : 'Enrolled curriculums', icon: liveMode ? Video : BookOpen, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+          { label: liveMode ? 'Live Sessions' : 'Live Q&A', value: `${stats?.upcoming_live_classes || 0}`, desc: liveMode ? 'Scheduled webinars' : 'Scheduled webinars', icon: Calendar, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+          { label: liveMode ? 'Submissions' : 'Assignments', value: `${stats?.assignments_submitted || 0}`, desc: liveMode ? 'Homework submitted' : 'Completed tasks', icon: FileCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+          ...(!liveMode ? [{ label: 'Certificates', value: `${stats?.certificates_count || 0}`, desc: 'Verified credentials', icon: Award, color: 'text-indigo-500', bg: 'bg-indigo-500/10' }] : [])
         ].map((stat, i) => (
           <motion.div
             variants={itemVariants}
@@ -187,10 +190,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
           >
             <div className="flex justify-between items-start mb-1">
               <div className="flex items-center gap-2.5">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${stat.bg}`}>
-                  <stat.icon size={16} className={stat.color} />
-                </div>
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+                <stat.icon size={18} className={`${stat.color} shrink-0`} />
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                   {stat.label}
                 </span>
               </div>
@@ -296,15 +297,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
                 <BookOpenCheck size={16} className="text-muted-foreground shrink-0" />
                 <span className="truncate">
                   {studyMinutes.some(d => d.minutes > 0)
-                    ? 'Great momentum! Resume lecture videos to increase your weekly study minutes.'
-                    : 'No study minutes logged today. Click below to start your active lesson track.'}
+                    ? (liveMode ? 'Great momentum! Keep replaying class recordings and video sessions.' : 'Great momentum! Resume lecture videos to increase your weekly study minutes.')
+                    : (liveMode ? 'No watch minutes logged today. Click below to watch recorded live classes.' : 'No study minutes logged today. Click below to start your active lesson track.')}
                 </span>
               </div>
               <button 
                 onClick={() => onNavigate('courses')}
                 className="px-4 py-1.5 bg-primary text-primary-foreground font-semibold rounded-lg text-xs hover:bg-primary/90 transition-colors shrink-0"
               >
-                Study Now
+                {liveMode ? 'Watch Recordings' : 'Study Now'}
               </button>
             </div>
           </div>
@@ -350,10 +351,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
         </h3>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { title: 'Resume Lecture', desc: 'Pick up last active lesson', target: 'courses', icon: BookOpenCheck },
-            { title: 'Q&A Streams', desc: 'Join live doubt rooms', target: 'live', icon: Clock },
-            { title: 'Homework Logs', desc: 'Review submission feedback', target: 'assignments', icon: FileCheck },
-            { title: 'Queries', desc: 'Ask questions and get help', target: 'forum', icon: Compass }
+            { title: liveMode ? 'Play Recordings' : 'Resume Lecture', desc: liveMode ? 'Watch missed class playbacks' : 'Pick up last active lesson', target: 'courses', icon: BookOpenCheck },
+            { title: liveMode ? 'Live Sessions' : 'Q&A Streams', desc: liveMode ? 'Join scheduled webinars' : 'Join live doubt rooms', target: 'live', icon: Clock },
+            { title: liveMode ? 'Submissions' : 'Homework Logs', desc: liveMode ? 'Review mentor feedback' : 'Review submission feedback', target: 'assignments', icon: FileCheck },
+            { title: liveMode ? 'Live Q&A Forum' : 'Queries', desc: liveMode ? 'Discuss questions with mentors' : 'Ask questions and get help', target: 'forum', icon: Compass }
           ].map((act, i) => (
             <button
               key={i}

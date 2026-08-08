@@ -19,6 +19,10 @@ export const SettingsTab: React.FC = () => {
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [pushAlerts, setPushAlerts] = useState(true);
   const [forumAlerts, setForumAlerts] = useState(false);
+  
+  // Password States
+  const [newPassword, setNewPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   // 1. Fetch Login History
   const { data: sessions = [], isLoading } = useQuery<LoginRecord[]>({
@@ -31,6 +35,27 @@ export const SettingsTab: React.FC = () => {
 
   const handleSavePreferences = () => {
     toast.success('Notification preferences updated!');
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword.trim()) {
+      toast.error('Password cannot be empty');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    try {
+      setIsUpdatingPassword(true);
+      await api.put('users/profile/', { password: newPassword });
+      toast.success('Password updated successfully');
+      setNewPassword('');
+    } catch (err: any) {
+      toast.error('Failed to update password');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
   };
 
   return (
@@ -92,8 +117,36 @@ export const SettingsTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Side: Security sessions */}
-        <div className="p-6 glass-card rounded-2xl border border-border/50 flex flex-col justify-between space-y-4">
+        {/* Right Side: Security sessions & Password */}
+        <div className="space-y-6">
+          {/* Change Password Card */}
+          <div className="p-6 glass-card rounded-2xl border border-border/50 space-y-4">
+            <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+              <Shield size={15} className="text-primary" />
+              <span>Update Password</span>
+            </h3>
+            <p className="text-[10px] text-muted-foreground leading-normal">
+              Ensure your account is using a long, random password to stay secure.
+            </p>
+            <div className="space-y-3">
+              <input 
+                type="password" 
+                placeholder="New Password" 
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full bg-background border border-input rounded-xl px-4 py-2.5 text-xs text-foreground focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+              />
+              <button 
+                onClick={handleUpdatePassword}
+                disabled={isUpdatingPassword}
+                className="w-full py-2 bg-primary text-primary-foreground font-bold rounded-xl shadow-md hover:brightness-110 transition-all text-xs disabled:opacity-50"
+              >
+                {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 glass-card rounded-2xl border border-border/50 flex flex-col justify-between space-y-4">
           <div className="space-y-1 border-b border-border/50 pb-3">
             <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
               <Shield size={15} className="text-primary" />

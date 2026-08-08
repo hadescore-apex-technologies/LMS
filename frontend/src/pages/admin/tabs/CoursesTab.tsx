@@ -240,14 +240,14 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
       const payload = {
         title: courseTitle,
         description: courseDesc,
-        category: courseCategory,
+        category: courseCategory ? Number(courseCategory) : null,
         thumbnail: courseThumb,
         instructor_name: instructorName,
         instructor_role: instructorRole,
         status: courseStatus,
         requirements: courseReqs,
         outcomes: courseOuts,
-        slug: courseTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        slug: courseTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || `course-${Date.now()}`,
         is_mentoring_track: isRecordingsMode
       };
       if (selectedCourse) {
@@ -260,14 +260,14 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
       const payload = {
         title: courseTitle,
         description: courseDesc,
-        category: courseCategory,
+        category: courseCategory ? Number(courseCategory) : null,
         thumbnail: courseThumb,
         instructor_name: instructorName,
         instructor_role: instructorRole,
         status: courseStatus,
         requirements: courseReqs,
         outcomes: courseOuts,
-        slug: courseTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        slug: courseTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || `course-${Date.now()}`,
         is_mentoring_track: isRecordingsMode
       };
       await queryClient.cancelQueries({ queryKey: ['courses-list'] });

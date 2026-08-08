@@ -11,6 +11,24 @@ class AssignmentSerializer(serializers.ModelSerializer):
         model = Assignment
         fields = ['id', 'module', 'module_title', 'course', 'course_title', 'students', 'students_details', 'title', 'description', 'file_attachment', 'due_date', 'created_by', 'created_by_name', 'created_at']
 
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            data = data.copy()
+            if not data.get('title') or str(data.get('title')).strip() == '':
+                data['title'] = 'Assignment Checkpoint'
+            if not data.get('module'):
+                course_id = data.get('course')
+                from apps.modules.models import Module
+                if course_id:
+                    mod = Module.objects.filter(course_id=course_id).first()
+                    if mod:
+                        data['module'] = mod.id
+                if not data.get('module'):
+                    m = Module.objects.first()
+                    if m:
+                        data['module'] = m.id
+        return super().to_internal_value(data)
+
     def get_created_by_name(self, obj):
         if obj.created_by:
             name = f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()

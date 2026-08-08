@@ -148,7 +148,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
       const finalRecordingUrl = overrideData?.recording_url ?? liveRecordingUrl;
       const payload = {
         title: finalTitle,
-        course: null,
+        course: liveCourse ? Number(liveCourse) : null,
         scheduled_time: finalTime,
         meeting_url: finalUrl,
         recording_url: finalRecordingUrl,

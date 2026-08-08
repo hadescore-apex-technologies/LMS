@@ -21,9 +21,11 @@ class CustomJWTAuthentication(JWTAuthentication):
                 iat = validated_token.get('iat')
                 if iat and iat < revocation_time:
                     raise InvalidToken("Session has been revoked by platform administrator.")
-        except InvalidToken:
+        except InvalidToken as e:
+            print("INVALID TOKEN EXCEPTION:", e)
             raise
-        except Exception:
+        except Exception as e:
+            print("EXCEPTION IN AUTH:", e)
             pass
             
         return validated_token

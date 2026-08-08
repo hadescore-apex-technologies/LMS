@@ -14,7 +14,7 @@ interface Notification {
 }
 
 const NotificationCenter: React.FC = () => {
-  const { accessToken } = useSelector((state: RootState) => state.auth);
+  const { accessToken, user } = useSelector((state: RootState) => state.auth);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -23,7 +23,7 @@ const NotificationCenter: React.FC = () => {
 
   const fetchNotifications = async (isFirstLoad = false) => {
     // Don't poll if not authenticated — avoids 401 spam from the interval
-    if (!accessToken) return;
+    if (!accessToken || user?.role === 'SUPER_ADMIN') return;
     try {
       const res = await api.get('notifications/');
       const fetched = res.data;
@@ -99,6 +99,10 @@ const NotificationCenter: React.FC = () => {
       console.error('Failed to mark notification read', err);
     }
   };
+
+  if (user?.role === 'SUPER_ADMIN') {
+    return null;
+  }
 
   return (
     <div className="relative text-xs" ref={dropdownRef}>

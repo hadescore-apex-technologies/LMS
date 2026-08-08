@@ -33,6 +33,18 @@ class QuizSerializer(serializers.ModelSerializer):
         model = Quiz
         fields = ['id', 'module', 'module_title', 'course_title', 'title', 'passing_score', 'timer_minutes', 'max_retries', 'randomize_questions', 'questions']
 
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            data = data.copy()
+            if not data.get('title') or str(data.get('title')).strip() == '':
+                data['title'] = 'Checkpoint Quiz'
+            if not data.get('module'):
+                from apps.modules.models import Module
+                m = Module.objects.first()
+                if m:
+                    data['module'] = m.id
+        return super().to_internal_value(data)
+
     def get_module_title(self, obj):
         return obj.module.title if obj.module else None
 

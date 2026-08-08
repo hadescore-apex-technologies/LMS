@@ -211,6 +211,11 @@ class UserProfileViewSet(viewsets.ViewSet):
         user = request.user
         user.first_name = request.data.get('first_name', user.first_name)
         user.last_name = request.data.get('last_name', user.last_name)
+        
+        new_password = request.data.get('password')
+        if new_password and str(new_password).strip():
+            user.set_password(str(new_password).strip())
+            
         user.save()
 
         if user.role == 'STUDENT' and hasattr(user, 'student_profile'):

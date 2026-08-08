@@ -169,12 +169,23 @@ export const QuizzesTab: React.FC = () => {
     mutationFn: async (id: number) => {
       await api.delete(`quizzes/attempts/${id}/`);
     },
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ['staff-quiz-attempts-list'] });
+      const previousAttempts = queryClient.getQueryData(['staff-quiz-attempts-list']);
+      queryClient.setQueryData(['staff-quiz-attempts-list'], (old: any) => 
+        (old || []).filter((a: any) => a.id !== id)
+      );
+      return { previousAttempts };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousAttempts) {
+        queryClient.setQueryData(['staff-quiz-attempts-list'], context.previousAttempts);
+      }
+      toast.error('Failed to delete attempt.');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-quiz-attempts-list'] });
       toast.success('Quiz attempt record deleted.');
-    },
-    onError: () => {
-      toast.error('Failed to delete attempt.');
     }
   });
 
@@ -182,13 +193,24 @@ export const QuizzesTab: React.FC = () => {
     mutationFn: async (email: string) => {
       await api.delete(`quizzes/attempts/delete_student/?email=${email}`);
     },
+    onMutate: async (email: string) => {
+      await queryClient.cancelQueries({ queryKey: ['staff-quiz-attempts-list'] });
+      const previousAttempts = queryClient.getQueryData(['staff-quiz-attempts-list']);
+      queryClient.setQueryData(['staff-quiz-attempts-list'], (old: any) => 
+        (old || []).filter((a: any) => a.student_email !== email)
+      );
+      return { previousAttempts };
+    },
+    onError: (err: any, email, context: any) => {
+      if (context?.previousAttempts) {
+        queryClient.setQueryData(['staff-quiz-attempts-list'], context.previousAttempts);
+      }
+      const errMsg = err.response?.data?.error || 'Failed to delete student attempts.';
+      toast.error(errMsg);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-quiz-attempts-list'] });
       toast.success('Student quiz attempts deleted.');
-    },
-    onError: (err: any) => {
-      const errMsg = err.response?.data?.error || 'Failed to delete student attempts.';
-      toast.error(errMsg);
     }
   });
 

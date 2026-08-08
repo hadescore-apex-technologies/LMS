@@ -135,13 +135,15 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
-        # Auto-assign category and mentor if user is STAFF
-        # pyrefly: ignore [missing-attribute]
+        save_kwargs = {'created_by': user}
         if user.role == 'STAFF':
-            category = getattr(user, 'staff_profile', None) and user.staff_profile.category
-            course = serializer.save(category=category, mentor=user, created_by=user)
-        else:
-            course = serializer.save(created_by=user)
+            save_kwargs['mentor'] = user
+            if not serializer.validated_data.get('category'):
+                category = getattr(getattr(user, 'staff_profile', None), 'category', None)
+                if category:
+                    save_kwargs['category'] = category
+        
+        course = serializer.save(**save_kwargs)
         AuditLog.objects.create(
             user=user,
             action=f"Created Course: {course.title}",
@@ -269,7 +271,10 @@ class LiveClassViewSet(viewsets.ModelViewSet):
                 role='STUDENT',
                 is_active=True,
                 student_profile__courses=live_class.course
-            ).distinct()
+            )
+            if live_class.students.exists():
+                targeted_students = targeted_students.filter(id__in=live_class.students.all())
+            targeted_students = targeted_students.distinct()
         else:
             # Live Mentoring Class: Target specific mentees or all mentees assigned to this staff mentor
             targeted_students = live_class.students.all()

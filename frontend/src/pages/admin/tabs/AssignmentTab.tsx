@@ -149,8 +149,24 @@ export const AssignmentTab: React.FC = () => {
     mutationFn: async (id: number) => {
       await api.delete(`assignments/submissions/${id}/`);
     },
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ['staff-submissions-list'] });
+      const previousSubmissions = queryClient.getQueryData(['staff-submissions-list']);
+      queryClient.setQueryData(['staff-submissions-list'], (old: any) =>
+        (old || []).filter((s: any) => s.id !== id)
+      );
+      return { previousSubmissions };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousSubmissions) {
+        queryClient.setQueryData(['staff-submissions-list'], context.previousSubmissions);
+      }
+      toast.error('Failed to delete submission.');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff-submissions-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Submission deleted.');
     }
   });
@@ -158,6 +174,20 @@ export const AssignmentTab: React.FC = () => {
   const deleteAssignmentMutation = useMutation({
     mutationFn: async (id: number) => {
       await api.delete(`assignments/list/${id}/`);
+    },
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ['admin-assignments-list'] });
+      const previousAssignments = queryClient.getQueryData(['admin-assignments-list']);
+      queryClient.setQueryData(['admin-assignments-list'], (old: any) =>
+        (old || []).filter((a: any) => a.id !== id)
+      );
+      return { previousAssignments };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousAssignments) {
+        queryClient.setQueryData(['admin-assignments-list'], context.previousAssignments);
+      }
+      toast.error('Failed to delete assignment.');
     },
     onSuccess: () => {
       refetchAssignments();
@@ -363,7 +393,7 @@ export const AssignmentTab: React.FC = () => {
               Manage Tasks
             </button>
           </div>
-          {activeSubTab === 'manage' && (
+          {activeSubTab === 'manage' && liveMode && (
             <button
               onClick={handleOpenCreateAssign}
               className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground rounded-xl font-bold hover:brightness-110 transition-all"

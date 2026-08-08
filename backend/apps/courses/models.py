@@ -6,7 +6,7 @@ class Course(models.Model):
     slug = models.SlugField(max_length=220, unique=True)
     description = models.TextField(blank=True, null=True)
     thumbnail = models.TextField(blank=True, null=True)
-    category = models.ForeignKey('categories.Category', on_delete=models.CASCADE, related_name='courses')
+    category = models.ForeignKey('categories.Category', on_delete=models.SET_NULL, null=True, blank=True, related_name='courses')
     mentor = models.ForeignKey(
         'users.CustomUser',
         on_delete=models.SET_NULL,

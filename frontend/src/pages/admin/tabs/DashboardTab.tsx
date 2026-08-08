@@ -112,7 +112,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
       return res.data;
     },
     placeholderData: (prev) => prev,
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnMount: true,
     refetchInterval: 30000,
   });
 
@@ -259,10 +260,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
             >
               <div className="flex justify-between items-start mb-1">
                 <div className="flex items-center gap-2.5">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${c.iconBg}`}>
-                    <c.icon size={16} className={c.iconColor} />
-                  </div>
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+                  <c.icon size={18} className={`${c.iconColor} shrink-0`} />
+                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                     {c.label}
                   </span>
                 </div>

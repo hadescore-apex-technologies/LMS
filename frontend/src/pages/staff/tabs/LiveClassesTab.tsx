@@ -33,6 +33,7 @@ interface Student {
 }
 
 export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LIVE' | 'COMPLETED' }> = ({ defaultFilter = 'ALL' }) => {
+  const isRecordingsView = defaultFilter === 'COMPLETED';
   const queryClient = useQueryClient();
 
   const getInitialLiveMode = () => {

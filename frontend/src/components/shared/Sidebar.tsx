@@ -168,8 +168,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       ];
       const liveMenu = [
         { label: 'Live Portal Home', path: '/student', icon: Home },
-        { label: 'Upcoming Live Classes', path: '/student/live', icon: Video },
-        { label: 'Session Resources', path: '/student/downloads', icon: FileText },
+        { label: 'Live Videos', path: '/student/courses', icon: Video },
+        { label: 'Live Sessions', path: '/student/live', icon: Video },
+        { label: 'Assignments', path: '/student/assignments', icon: FileCheck },
+        { label: 'Study Notes', path: '/student/notes', icon: FileText },
         { label: 'Live Q&A Forum', path: '/student/forum', icon: MessageSquare },
       ];
       return isStudentLive ? liveMenu : courseMenu;
@@ -206,7 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       {/* Sidebar container */}
       <aside className={`
         fixed bottom-0 top-0 left-0 z-50 flex w-72 flex-col
-        bg-white border-r border-slate-200/80 shadow-sm transition-transform duration-300 ease-in-out lg:translate-x-0
+        bg-white border-r border-slate-200/80 shadow-sm transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Header */}
@@ -272,7 +274,11 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               <Link
                 key={item.label}
                 to={item.path}
-                onClick={() => setSidebarOpen(false)}
+                onClick={() => {
+                  if (window.innerWidth < 1024) {
+                    setSidebarOpen(false);
+                  }
+                }}
                 className={`
                   flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group relative
                   ${active 

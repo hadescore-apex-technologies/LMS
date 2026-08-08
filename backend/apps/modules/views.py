@@ -12,6 +12,13 @@ class ModuleViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         return [IsSuperAdminOrStaff()]
 
+    def create(self, request, *args, **kwargs):
+        print("DEBUG MODULE CREATE - Request Data:", request.data)
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print("DEBUG MODULE CREATE - Serializer Errors:", serializer.errors)
+        return super().create(request, *args, **kwargs)
+
     def get_queryset(self):
         from typing import cast
         from rest_framework.request import Request

@@ -11,13 +11,15 @@ interface ProfileData {
   categories: string[];
 }
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const StudentProfile: React.FC = () => {
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
 
   const { data: profile } = useQuery<ProfileData>({
     queryKey: ['student-profile-tab'],
@@ -35,11 +37,20 @@ const StudentProfile: React.FC = () => {
     e.preventDefault();
     try {
       setSaving(true);
-      await api.post('users/profile/', {
+      const payload: any = {
         first_name: firstName,
         last_name: lastName,
         phone: phone,
-      });
+      };
+      if (password.trim().length >= 6) {
+        payload.password = password.trim();
+      } else if (password.trim().length > 0 && password.trim().length < 6) {
+        toast.error('Password must be at least 6 characters');
+        setSaving(false);
+        return;
+      }
+
+      await api.post('users/profile/', payload);
       toast.success('Profile updated successfully!');
       // Update local storage user name
       const stored = localStorage.getItem('user');
@@ -49,7 +60,9 @@ const StudentProfile: React.FC = () => {
         u.last_name = lastName;
         localStorage.setItem('user', JSON.stringify(u));
       }
-      fetchProfile();
+      
+      setPassword('');
+      queryClient.invalidateQueries({ queryKey: ['student-profile-tab'] });
     } catch (err) {
       toast.error('Failed to update profile.');
     } finally {
@@ -117,6 +130,19 @@ const StudentProfile: React.FC = () => {
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+91 XXXXX XXXXX"
                 className="w-full h-10 pl-10 pr-3.5 bg-background border border-border rounded-xl outline-none focus:border-primary/40 transition-all font-medium text-foreground"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-muted-foreground uppercase">Update Password (Optional)</label>
+            <div className="relative">
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter new password to change"
+                className="w-full h-10 px-3.5 bg-background border border-border rounded-xl outline-none focus:border-primary/40 transition-all font-medium text-foreground"
               />
             </div>
           </div>
