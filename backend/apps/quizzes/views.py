@@ -27,16 +27,28 @@ class QuizViewSet(viewsets.ModelViewSet):
         course_id = request.query_params.get('course')
 
         if user.role == 'STUDENT':
-            qs = Quiz.objects.filter(
-                module__course__category__student_profiles__user=user,
-                module__course__is_published=True
-            ).distinct()
+            profile = getattr(user, 'student_profile', None)
+            student_courses = list(profile.courses.all()) if profile else []
+            staff = profile.assigned_staff if profile else None
+            staff_cat = getattr(getattr(staff, 'staff_profile', None), 'category', None)
+            
+            qs = Quiz.objects.filter(module__course__is_published=True)
+            if student_courses or staff_cat or staff:
+                from django.db.models import Q
+                filters = Q()
+                if student_courses:
+                    filters |= Q(module__course__in=student_courses)
+                if staff_cat:
+                    filters |= Q(module__course__category=staff_cat)
+                if staff:
+                    filters |= Q(module__course__mentor=staff)
+                qs = qs.filter(filters).distinct()
         elif user.role == 'STAFF':
             category = getattr(user, 'staff_profile', None) and user.staff_profile.category
             if category:
                 qs = Quiz.objects.filter(module__course__category=category)
             else:
-                qs = Quiz.objects.none()
+                qs = Quiz.objects.all()
         else:
             qs = Quiz.objects.all()
 
@@ -79,6 +91,7 @@ class QuizViewSet(viewsets.ModelViewSet):
             )
 
         # Enforce retry rules limit check
+
         previous_attempts = QuizAttempt.objects.filter(student=user, quiz=quiz).count()
         if previous_attempts >= quiz.max_retries:
             return response.Response(
@@ -170,7 +183,7 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
     serializer_class = QuizAttemptSerializer
 
     def get_permissions(self):
-        if self.action == 'destroy':
+        if self.action in ['destroy', 'delete_student']:
             return [IsSuperAdminOrStaff()]
         return [IsAuthenticated()]
 
@@ -179,14 +192,55 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not isinstance(user, CustomUser):
             return QuizAttempt.objects.none()
-            
+
         qs = QuizAttempt.objects.select_related('student', 'quiz')
+
         if user.role == 'STUDENT':
             return qs.filter(student=user)
+
         elif user.role == 'STAFF':
-            category = getattr(user, 'staff_profile', None) and user.staff_profile.category
-            if category:
-                return qs.filter(student__student_profile__categories=category).distinct()
-            return qs.none()
-        return qs  # SUPER_ADMIN sees all
+            # Filter by directly assigned students only
+            from django.db.models import Q
+            return qs.filter(
+                Q(student__student_profile__assigned_staff=user) |
+                Q(student__student_profile__assigned_live_staff=user)
+            ).distinct()
+
+        # SUPER_ADMIN sees all — optionally filter by student email
+        student_email = self.request.query_params.get('student_email', '').strip()
+        if student_email:
+            qs = qs.filter(student__email__icontains=student_email)
+        return qs
+
+    @decorators.action(detail=False, methods=['delete'], url_path='delete_student')
+    def delete_student(self, request):
+        email = request.query_params.get('email')
+        if not email:
+            return response.Response({"error": "Email parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from apps.users.models import CustomUser
+        user = request.user
+        if not isinstance(user, CustomUser) or user.role not in ['SUPER_ADMIN', 'STAFF']:
+            return response.Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        attempts = QuizAttempt.objects.filter(student__email=email)
+        
+        if user.role == 'STAFF':
+            # Only delete attempts for students directly assigned to this staff
+            from django.db.models import Q
+            attempts = attempts.filter(
+                Q(student__student_profile__assigned_staff=user) |
+                Q(student__student_profile__assigned_live_staff=user)
+            )
+                
+        count = attempts.count()
+        attempts.delete()
+        
+        AuditLog.objects.create(
+            user=user,
+            action=f"Deleted all {count} quiz attempts for student {email}",
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        
+        return response.Response({"message": f"Successfully deleted {count} quiz attempts for {email}."}, status=status.HTTP_200_OK)
 

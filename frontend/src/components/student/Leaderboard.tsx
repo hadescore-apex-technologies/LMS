@@ -12,33 +12,17 @@ interface LeaderboardUser {
   score: number;
 }
 
+import { useQuery } from '@tanstack/react-query';
+
 const Leaderboard: React.FC = () => {
-  const [board, setBoard] = useState<LeaderboardUser[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchLeaderboard = async () => {
-    try {
-      setLoading(true);
+  const { data: board = [], isLoading: loading } = useQuery<LeaderboardUser[]>({
+    queryKey: ['student-leaderboard'],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
       const res = await api.get('users/profile/leaderboard/');
-      setBoard(res.data);
-    } catch (err) {
-      toast.error('Failed to load leaderboard statistics.');
-    } finally {
-      setLoading(false);
+      return res.data;
     }
-  };
-
-  useEffect(() => {
-    fetchLeaderboard();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="animate-spin text-primary" size={28} />
-      </div>
-    );
-  }
+  });
 
   // Extract top performers
   const top1 = board[0];

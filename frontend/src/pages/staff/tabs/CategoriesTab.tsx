@@ -21,10 +21,11 @@ export const CategoriesTab: React.FC = () => {
   const [editingCat, setEditingCat] = useState<Category | null>(null);
 
   // 1. Fetch Categories
-  const { data: categories = [], isLoading } = useQuery<Category[]>({
-    queryKey: ['categories-list'],
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['categories-list', 'LIVE'],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
-      const res = await api.get('courses/categories/');
+      const res = await api.get('courses/categories/?type=LIVE');
       return res.data;
     }
   });
@@ -35,13 +36,17 @@ export const CategoriesTab: React.FC = () => {
       if (!catName.trim()) return;
       const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
       if (editingCat) {
-        await api.put(`courses/categories/${editingCat.id}/`, { name: catName, slug });
+        await api.put(`courses/categories/${editingCat.id}/`, { name: catName, slug, category_type: 'LIVE' });
       } else {
-        await api.post('courses/categories/', { name: catName, slug });
+        await api.post('courses/categories/', { name: catName, slug, category_type: 'LIVE' });
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories-list'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-list'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-dropdown-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       setCatName('');
       setEditingCat(null);
       setShowCatModal(false);
@@ -58,6 +63,10 @@ export const CategoriesTab: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories-list'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-list'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-dropdown-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Category deleted successfully.');
     },
     onError: () => {
@@ -108,12 +117,7 @@ export const CategoriesTab: React.FC = () => {
       </div>
 
       {/* Categories Grid */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">
-          <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-          <span>Loading Domains...</span>
-        </div>
-      ) : (
+      
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredCategories.map(cat => (
             <div key={cat.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between">
@@ -138,7 +142,6 @@ export const CategoriesTab: React.FC = () => {
             </div>
           )}
         </div>
-      )}
 
       {/* Category Creation / Edit Modal */}
       <AnimatePresence>

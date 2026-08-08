@@ -1,5 +1,6 @@
 from rest_framework import viewsets, status, decorators, response
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
 from apps.users.models import CustomUser, StudentProfile
 from apps.students.serializers import StudentSerializer
 from apps.core.permissions import IsSuperAdminOrStaff, IsStaff
@@ -12,12 +13,34 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = CustomUser.objects.filter(role='STUDENT').select_related('student_profile')
+        from django.db.models import Exists, OuterRef
+        from apps.certificates.models import Certificate
+        
+        qs = CustomUser.objects.filter(role='STUDENT').select_related(
+            'student_profile', 
+            'student_profile__assigned_staff',
+            'student_profile__assigned_live_staff'
+        ).prefetch_related('student_profile__courses').annotate(
+            has_cert=Exists(Certificate.objects.filter(student=OuterRef('pk')))
+        )
+        
+        live_mode = self.request.query_params.get('live_mode') == 'true'
+        
         if user.role == 'STAFF':
-            category = getattr(user, 'staff_profile', None) and user.staff_profile.category
-            if category:
-                return qs.filter(student_profile__categories=category).distinct()
-            return qs.none()
+            from django.db.models import Q
+            # Staff members strictly manage ONLY students directly assigned to them (not all domain students)
+            return qs.filter(
+                Q(student_profile__assigned_live_staff=user) | 
+                Q(student_profile__assigned_staff=user)
+            ).distinct()
+        
+        elif user.role == 'SUPER_ADMIN' and self.request.query_params.get('live_mode') is not None:
+            from django.db.models import Q
+            if live_mode:
+                return qs.filter(Q(student_profile__student_type='LIVE_CLASS') | Q(student_profile__student_type='BOTH'))
+            else:
+                return qs.filter(Q(student_profile__student_type='COURSE') | Q(student_profile__student_type='BOTH'))
+
         return qs
 
     def list(self, request, *args, **kwargs):
@@ -25,53 +48,130 @@ class StudentViewSet(viewsets.ModelViewSet):
         page = self.paginate_queryset(queryset)
         
         target_date_str = request.query_params.get('date')
-        from django.utils import timezone
-        target_date = timezone.now().date()
+        today = timezone.now().date()
+        target_date = today
         if target_date_str:
             try:
                 from datetime import datetime
-                target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+                parsed_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+                if parsed_date <= today:
+                    target_date = parsed_date
             except ValueError:
                 pass
                 
-        from apps.users.models import StudentAttendance
-        attendance_map = {
-            att.student_id: att.status 
-            for att in StudentAttendance.objects.filter(date=target_date)
-        }
+        from apps.users.models import StudentAttendance, CustomUser
         
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            for item in serializer.data:
-                item['attendance_status'] = attendance_map.get(item['id'], None)
-            return self.get_paginated_response(serializer.data)
+        # 1. Create missing attendance records ONLY for the students being displayed on this page
+        students_to_process = page if page is not None else queryset
+        student_ids = [u.id for u in students_to_process]
+        
+        if student_ids:
+            existing_att_ids = set(StudentAttendance.objects.filter(date=target_date, student_id__in=student_ids).values_list('student_id', flat=True))
+            missing_ids = set(student_ids) - existing_att_ids
+            
+            if missing_ids:
+                new_absent_records = [
+                    StudentAttendance(student_id=s_id, date=target_date, status='ABSENT')
+                    for s_id in missing_ids
+                ]
+                StudentAttendance.objects.bulk_create(new_absent_records, ignore_conflicts=True)
 
-        serializer = self.get_serializer(queryset, many=True)
+        # 2. Fetch attendance only for the current page's students
+        attendance_map = dict(
+            StudentAttendance.objects.filter(date=target_date, student_id__in=student_ids)
+            .values_list('student_id', 'status')
+        )
+
+        from collections import defaultdict
+        attendance_logs_map = defaultdict(list)
+        # Fetching all historical logs but restricted to the current page's students
+        for att in StudentAttendance.objects.filter(student_id__in=student_ids, date__lte=today).order_by('-date'):
+            d_str = att.date.strftime("%Y-%m-%d") if hasattr(att.date, "strftime") else str(att.date)
+            t_str = att.first_login.strftime("%H:%M:%S") if (att.first_login and hasattr(att.first_login, "strftime")) else (str(att.first_login) if att.first_login else None)
+            attendance_logs_map[att.student_id].append({
+                "date": d_str,
+                "status": att.status,
+                "first_login": t_str
+            })
+        
+        serializer = self.get_serializer(students_to_process, many=True)
         data = serializer.data
         for item in data:
             item['attendance_status'] = attendance_map.get(item['id'], None)
+            item['attendance_logs'] = attendance_logs_map.get(item['id'], [])
+            
+        if page is not None:
+            return self.get_paginated_response(data)
         return response.Response(data)
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'bulk_import', 'toggle_status', 'reset_password', 'extend_duration', 'change_categories']:
+        if self.action == 'bulk_import':
             from apps.core.permissions import IsSuperAdmin
             return [IsSuperAdmin()]
         return [IsSuperAdminOrStaff()]
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print(f"\n============================================================")
+            print(f"STUDENT CREATION VALIDATION ERROR:")
+            print(serializer.errors)
+            print(f"============================================================\n")
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if not serializer.is_valid():
+            print(f"\n============================================================")
+            print(f"STUDENT UPDATE VALIDATION ERROR:")
+            print(serializer.errors)
+            print(f"============================================================\n")
+            return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        # Re-fetch with full select_related + annotation so response matches GET list exactly
+        from django.db.models import Exists, OuterRef
+        from apps.certificates.models import Certificate
+        refreshed = CustomUser.objects.filter(pk=instance.pk).select_related(
+            'student_profile',
+            'student_profile__assigned_staff',
+            'student_profile__assigned_live_staff',
+        ).prefetch_related('student_profile__courses').annotate(
+            has_cert=Exists(Certificate.objects.filter(student=OuterRef('pk')))
+        ).first()
+        return response.Response(self.get_serializer(refreshed).data)
+
     def perform_create(self, serializer):
+        # Check if this is a re-activation before saving
+        email = self.request.data.get('email', '').strip().lower()
+        is_reactivation = CustomUser.objects.filter(email=email).exists()
+
         user = serializer.save()
         # Send welcome email with login credentials
         from apps.core.emails import send_welcome_email
-        raw_password = self.request.data.get('password', 'apex123')
+        from django.conf import settings
+        raw_pwd = self.request.data.get('password')
+        password_to_send = raw_pwd.strip() if (raw_pwd and isinstance(raw_pwd, str) and raw_pwd.strip()) else 'apex123'
+        
+        prof = getattr(user, 'student_profile', None)
+        stype = getattr(prof, 'student_type', 'COURSE') if prof else 'COURSE'
+        role_label = 'LIVE_STUDENT' if stype == 'LIVE_CLASS' else 'STUDENT'
+        frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        login_url = f"{frontend_base}/student/live-login" if stype == 'LIVE_CLASS' else f"{frontend_base}/student/login"
+
         send_welcome_email(
             first_name=user.first_name,
             last_name=user.last_name,
             email=user.email,
-            password=raw_password,
+            password=password_to_send,
+            role=role_label,
+            login_url=login_url,
         )
+        action = f"Re-enrolled student: {user.email}" if is_reactivation else f"Enrolled student: {user.email}"
         AuditLog.objects.create(
             user=self.request.user,
-            action=f"Enrolled student: {user.email}",
+            action=action,
             ip_address=self.request.META.get('REMOTE_ADDR')
         )
 
@@ -149,6 +249,10 @@ class StudentViewSet(viewsets.ModelViewSet):
 
         profile.save()
 
+        # Auto-reactivate student account if extended date is valid
+        student.is_active = True
+        student.save(update_fields=['is_active'])
+
         AuditLog.objects.create(
             user=request.user,
             action=f"Extended student course duration: {student.email} to {duration} (Ends: {profile.end_date})",
@@ -163,22 +267,27 @@ class StudentViewSet(viewsets.ModelViewSet):
     @decorators.action(detail=True, methods=['post'], url_path='change-categories')
     def change_categories(self, request, pk=None):
         student = self.get_object()
-        category_ids = request.data.get('categories', [])
+        course_or_cat_ids = request.data.get('categories', []) or request.data.get('courses', [])
         
         profile = student.student_profile
-        categories = Category.objects.filter(id__in=category_ids)
-        profile.categories.set(categories)
+        from apps.courses.models import Course
+        courses = Course.objects.filter(Q(id__in=course_or_cat_ids) | Q(category_id__in=course_or_cat_ids))
+        profile.courses.set(courses)
         profile.save()
 
         AuditLog.objects.create(
             user=request.user,
-            action=f"Changed category assignments for student: {student.email}",
+            action=f"Changed course assignments for student: {student.email}",
             ip_address=request.META.get('REMOTE_ADDR')
         )
         return response.Response({
-            "message": "Student categories updated successfully",
-            "categories": [c.name for c in categories]
+            "message": "Student courses updated successfully",
+            "courses": [c.title for c in courses]
         })
+
+    @decorators.action(detail=True, methods=['get'], url_path='detail')
+    def get_detail(self, request, pk=None):
+        return self.get_progress(request, pk=pk)
 
     @decorators.action(detail=True, methods=['get'], url_path='progress')
     def get_progress(self, request, pk=None):
@@ -209,7 +318,8 @@ class StudentViewSet(viewsets.ModelViewSet):
             } for log in login_logs],
             "attendance": [{
                 "date": att.date,
-                "status": att.status
+                "status": att.status,
+                "first_login": att.first_login.strftime("%H:%M:%S") if (att.first_login and hasattr(att.first_login, "strftime")) else (str(att.first_login) if att.first_login else None)
             } for att in attendance],
             "assignments": [{
                 "id": sub.id,
@@ -352,3 +462,26 @@ class StudentViewSet(viewsets.ModelViewSet):
             "date": attendance.date,
             "status": attendance.status
         })
+
+    @decorators.action(detail=True, methods=['delete'], url_path='delete-attendance')
+    def delete_attendance(self, request, pk=None):
+        student = self.get_object()
+        date_str = request.query_params.get('date') or request.data.get('date')
+        
+        if not date_str:
+            return response.Response({"error": "Date is required to delete attendance."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            from datetime import datetime
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return response.Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        from apps.users.models import StudentAttendance
+        try:
+            attendance = StudentAttendance.objects.get(student=student, date=target_date)
+            attendance.delete()
+            return response.Response({"message": "Attendance record deleted successfully."})
+        except StudentAttendance.DoesNotExist:
+            return response.Response({"error": "Attendance record not found for the given date."}, status=status.HTTP_404_NOT_FOUND)
+

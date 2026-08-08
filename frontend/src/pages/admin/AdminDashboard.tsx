@@ -15,6 +15,7 @@ import { AssignmentTab } from './tabs/AssignmentTab';
 import { CertificateTab } from './tabs/CertificateTab';
 import { AttendanceTab } from './tabs/AttendanceTab';
 import { LiveClassesTab } from './tabs/LiveClassesTab';
+import { LiveAssignmentsTab } from './tabs/LiveAssignmentsTab';
 import { AnnouncementsTab } from './tabs/AnnouncementsTab';
 import { NotificationsTab } from './tabs/NotificationsTab';
 import { DiscussionTab } from './tabs/DiscussionTab';
@@ -24,6 +25,8 @@ import { EmailTemplatesTab } from './tabs/EmailTemplatesTab';
 import { SecurityCenterTab } from './tabs/SecurityCenterTab';
 import { ProfileTab } from './tabs/ProfileTab';
 import { SettingsTab } from './tabs/SettingsTab';
+import { MentorAssignmentsTab } from './tabs/MentorAssignmentsTab';
+import { AdminManagerTab } from './tabs/AdminManagerTab';
 
 const AdminDashboard: React.FC = () => {
   const location = useLocation();
@@ -33,60 +36,73 @@ const AdminDashboard: React.FC = () => {
     navigate(`/admin/${tab}`);
   };
 
-  const renderActiveTab = () => {
-    const path = location.pathname.replace(/\/$/, '');
-    switch (path) {
-      case '/admin/staff':
-        return <StaffManagementTab />;
-      case '/admin/students':
-        return <StudentManagementTab />;
-      case '/admin/categories':
-        return <CategoriesTab />;
-      case '/admin/courses':
-        return <CoursesTab />;
-      case '/admin/modules':
-        return <ModulesTab />;
-      case '/admin/lessons':
-        return <LessonsTab />;
-      case '/admin/videos':
-        return <VideoLibraryTab />;
-      case '/admin/quizzes':
-        return <QuizTab />;
-      case '/admin/assignments':
-        return <AssignmentTab />;
-      case '/admin/certificates':
-        return <CertificateTab />;
-      case '/admin/attendance':
-        return <AttendanceTab />;
-      case '/admin/live':
-        return <LiveClassesTab />;
-      case '/admin/announcements':
-        return <AnnouncementsTab />;
-      case '/admin/notifications':
-        return <NotificationsTab />;
-      case '/admin/forum':
-        return <DiscussionTab />;
-      case '/admin/reports':
-        return <ReportsTab />;
-      case '/admin/settings':
-        return <SystemSettingsTab />;
-      case '/admin/email-templates':
-        return <EmailTemplatesTab />;
-      case '/admin/security':
-        return <SecurityCenterTab />;
-      case '/admin/profile':
-        return <ProfileTab />;
-      case '/admin/preferences':
-        return <SettingsTab />;
-      case '/admin':
-      default:
-        return <DashboardTab onNavigate={handleNavigate} />;
-    }
-  };
+  const [isLiveClassMode, setIsLiveClassMode] = React.useState(localStorage.getItem('super_adminLiveMode') === 'true');
+
+  React.useEffect(() => {
+    const handleStorage = () => {
+      setIsLiveClassMode(localStorage.getItem('super_adminLiveMode') === 'true');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const path = location.pathname.replace(/\/$/, '');
+
+  const isHome = path === '/admin' || path === '/admin/' || path === '';
+  const isStaff = path === '/admin/staff' && isLiveClassMode;
+  const isStudents = path === '/admin/students';
+  const isCategories = path === '/admin/categories';
+  const isCourses = path === '/admin/courses';
+  const isModules = path === '/admin/modules';
+  const isLessons = path === '/admin/lessons';
+  const isVideos = path === '/admin/videos';
+  const isQuizzes = path === '/admin/quizzes';
+  const isAssignments = path === '/admin/assignments';
+  const isCertificates = path === '/admin/certificates';
+  const isAttendance = path === '/admin/attendance';
+  const isLive = path === '/admin/live';
+  const isRecordings = path === '/admin/recordings' && isLiveClassMode;
+  const isLiveAssignments = path === '/admin/live-assignments' && isLiveClassMode;
+  const isAnnouncements = path === '/admin/announcements';
+  const isNotifications = path === '/admin/notifications';
+  const isForum = path === '/admin/forum';
+  const isReports = path === '/admin/reports';
+  const isSettings = path === '/admin/settings';
+  const isEmailTemplates = path === '/admin/email-templates';
+  const isSecurity = path === '/admin/security';
+  const isProfile = path === '/admin/profile';
+  const isPreferences = path === '/admin/preferences';
+  const isMentorAssignments = path === '/admin/mentor-assignments' && isLiveClassMode;
+  const isAdminManager = path === '/admin/admin-manager';
 
   return (
     <div className="relative">
-      {renderActiveTab()}
+      {isHome && <DashboardTab onNavigate={handleNavigate} />}
+      {isStaff && <StaffManagementTab />}
+      {isStudents && <StudentManagementTab />}
+      {isCategories && <CategoriesTab type={isLiveClassMode ? 'LIVE' : 'COURSE'} />}
+      {isCourses && <CoursesTab />}
+      {isModules && <ModulesTab />}
+      {isLessons && <LessonsTab />}
+      {isVideos && <VideoLibraryTab />}
+      {isQuizzes && <QuizTab />}
+      {isAssignments && <AssignmentTab />}
+      {isCertificates && <CertificateTab />}
+      {isAttendance && <AttendanceTab />}
+      {isLive && <LiveClassesTab />}
+      {isRecordings && <CoursesTab isRecordingsMode={true} />}
+      {isLiveAssignments && <LiveAssignmentsTab />}
+      {isAnnouncements && <AnnouncementsTab />}
+      {isNotifications && <NotificationsTab />}
+      {isForum && <DiscussionTab />}
+      {isReports && <ReportsTab />}
+      {isSettings && <SystemSettingsTab />}
+      {isEmailTemplates && <EmailTemplatesTab />}
+      {isSecurity && <SecurityCenterTab />}
+      {isProfile && <ProfileTab />}
+      {isPreferences && <SettingsTab />}
+      {isMentorAssignments && <MentorAssignmentsTab />}
+      {isAdminManager && <AdminManagerTab />}
     </div>
   );
 };

@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { 
   Plus, Trash2, Video, ChevronRight, ChevronDown, 
   X, PlusCircle, Edit, Upload, Loader2,
-  ClipboardList, FileText, Calendar, HelpCircle 
+  ClipboardList, FileText, HelpCircle 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -733,44 +733,6 @@ const CourseBuilder: React.FC = () => {
       toast.error("Failed to delete assignment.");
     }
   };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="h-8 w-64 bg-muted rounded-lg animate-pulse" />
-            <div className="h-4 w-96 bg-muted/60 rounded mt-2 animate-pulse" />
-          </div>
-          <div className="h-10 w-48 bg-muted rounded-xl animate-pulse" />
-        </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="h-5 w-20 bg-muted rounded animate-pulse" />
-                  <div className="h-4 w-16 bg-muted rounded-full animate-pulse" />
-                </div>
-                <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
-                <div className="space-y-1.5">
-                  <div className="h-3 w-full bg-muted/50 rounded animate-pulse" />
-                  <div className="h-3 w-2/3 bg-muted/50 rounded animate-pulse" />
-                </div>
-              </div>
-              <div className="p-4 border-t border-border bg-muted/20 flex items-center justify-between">
-                <div className="h-4 w-28 bg-muted rounded animate-pulse" />
-                <div className="flex gap-2">
-                  <div className="h-7 w-7 bg-muted rounded-lg animate-pulse" />
-                  <div className="h-7 w-7 bg-muted rounded-lg animate-pulse" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -1508,14 +1470,17 @@ const CourseBuilder: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-muted-foreground mb-1">Additional Notes</label>
+                  <label className="block font-bold text-primary mb-1 flex items-center gap-1">
+                    <span>AI Tutor Knowledge Base / Transcripts (Used for AI Training)</span>
+                  </label>
                   <textarea 
                     value={lesNotes} 
                     onChange={(e) => setLesNotes(e.target.value)}
-                    rows={2}
-                    className="w-full p-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 resize-none"
-                    placeholder="Enter any additional side notes or warnings for the student..."
+                    rows={3}
+                    className="w-full p-3 bg-muted/50 border border-primary/30 rounded-xl outline-none focus:border-primary font-mono text-xs placeholder:text-muted-foreground/50"
+                    placeholder="Paste lecture transcript, study notes, Q&A pairs, formulas, or key concepts here to train the AI tutor for this lesson..."
                   />
+                  <p className="text-[10px] text-muted-foreground mt-1">The AI Tutor dynamically reads this knowledge base to answer student questions accurately for this video lesson.</p>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-3 border-t border-border">
@@ -1582,24 +1547,11 @@ const CourseBuilder: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="flex items-center gap-1.5 font-semibold text-muted-foreground mb-1">
-                      <Calendar size={11} />
-                      Due Date
-                    </label>
-                    <input 
-                      type="datetime-local" 
-                      value={assignDueDate} 
-                      onChange={(e) => setAssignDueDate(e.target.value)}
-                      className="w-full h-10 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="flex items-center gap-1.5 font-semibold text-muted-foreground mb-1">
-                      <Upload size={11} />
-                      Attachment File
-                    </label>
+                <div>
+                  <label className="flex items-center gap-1.5 font-semibold text-muted-foreground mb-1">
+                    <Upload size={11} />
+                    Attachment File
+                  </label>
                     {assignFileUrl ? (
                       <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                         <FileText size={13} className="text-emerald-500 shrink-0" />
@@ -1642,7 +1594,6 @@ const CourseBuilder: React.FC = () => {
                       </label>
                     )}
                   </div>
-                </div>
 
                 <div className="flex justify-end gap-3 pt-3 border-t border-border">
                   <button type="button" onClick={() => { setShowAssignModal(false); setEditingAssignment(null); }} className="px-4 py-2 bg-muted rounded-xl font-medium">Cancel</button>

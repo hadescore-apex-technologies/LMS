@@ -1,6 +1,6 @@
 # Apex LMS - Project Overview & Technical Documentation
 
-Welcome to **Apex LMS**, a premium, feature-rich Learning Management System (LMS) built with a modern stack designed for high performance, visual excellence, and instant responsiveness.
+Welcome to **Apex LMS**, a premium, feature-rich Learning Management System (LMS) built with a modern stack designed for high performance, visual excellence, instant responsiveness, and AI-powered learning.
 
 ---
 
@@ -10,18 +10,20 @@ The project uses a split architecture (decoupled frontend and backend) managed u
 
 | Layer | Technology | Details / Purpose |
 | :--- | :--- | :--- |
-| **Frontend Core** | **React 19** & **TypeScript** | Structured and typed frontend application. |
-| **Frontend Tooling** | **Vite** & **Oxlint** | High-performance bundler and extremely fast linting. |
-| **State Management** | **Redux Toolkit** & **React Query** | Global client state management (Redux) and server cache sync (React Query). |
-| **Styling & Animation** | **Tailwind CSS** & **Framer Motion** | Utility-first styling with smooth, hardware-accelerated animations. |
+| **Frontend Core** | **React 19** & **TypeScript** | Highly typed, structured, and performant frontend client. |
+| **Frontend Tooling** | **Vite** & **Oxlint** | High-performance build tooling, fast HMR, and ultra-fast linting. |
+| **State Management** | **Redux Toolkit** & **React Query** | Redux Toolkit for global/theme state; TanStack React Query for server cache sync & instant Optimistic UI updates. |
+| **Styling & Aesthetics**| **Tailwind CSS** & **Framer Motion** | Utility-first styling with sleek dark/light mode glassmorphism and smooth, hardware-accelerated animations. |
+| **AI Assistant** | **Apex AI Tutor Core** | Built-in LLM learning assistant drawer with context-aware Q&A, voice input (Web Speech API), and rich code formatting. |
 | **Backend Core** | **Python** & **Django 5.x** | Enterprise-grade backend framework. |
-| **API Framework** | **Django REST Framework (DRF)** | RESTful API design. |
-| **Authentication** | **SimpleJWT** (Custom Auth Backend) | JWT Token authentication with custom roles (`SUPER_ADMIN`, `STAFF`, `STUDENT`). |
-| **Database** | **Supabase PostgreSQL** | Cloud-hosted relational database connected via Supavisor Connection Pooler (Port 5432) for IPv4 support. |
-| **Task Queue** | **Celery** & **Redis** | Background jobs (e.g. daily cron tasks) and task caching. |
-| **Realtime** | **Django Channels** & **Channels Redis** | WebSocket support for notifications or live updates. |
-| **Storage & Video** | **Cloudflare R2** & **Cloudflare Stream** | S3-compatible cloud storage for attachments/certificates, and secure video streaming. |
-| **Orchestration** | **Docker** & **Nginx** | Docker-compose for service management and Nginx as a reverse proxy. |
+| **API Framework** | **Django REST Framework (DRF)** | RESTful API architecture with typed serializers and custom permissions. |
+| **Authentication** | **SimpleJWT** & **OTP Reset** | JWT Bearer authentication with custom role guards (`SUPER_ADMIN`, `STAFF`/`MENTOR`, `STUDENT`) and OTP-based password resets. |
+| **Database** | **Supabase PostgreSQL** | Cloud-hosted relational database connected via Supavisor Connection Pooler (Port 5432) for IPv4 network compatibility. |
+| **Task Queue & Cron** | **Celery** & **Redis** | Background task processing (e.g. daily subscription deactivations, heavy tasks) and Redis caching. |
+| **Email Engine** | **Async SMTP Deliverability Engine** | Non-blocking background thread plain-text email delivery optimized for 100% inbox placement (spam avoidance). |
+| **Storage & Video** | **Cloudflare R2** & **Cloudflare Stream** | Cloudflare R2 for S3-compatible file/PDF/homework storage; Cloudflare Stream for secure adaptive HLS/DASH video playback. |
+| **PDF Generation** | **ReportLab** | Dynamic backend generation of verified course completion certificates. |
+| **Orchestration** | **Docker** & **Nginx** | Docker Compose orchestration for Web, Redis, Worker, Beat, and Nginx reverse proxy. |
 
 ---
 
@@ -30,41 +32,50 @@ The project uses a split architecture (decoupled frontend and backend) managed u
 ```text
 LLM/
 ├── backend/                  # Django Backend Application
-│   ├── apps/                 # Custom Django apps implementing LMS features
-│   │   ├── core/             # Project settings, URL routing, Celery config, Audit logs
-│   │   ├── authentication/   # JWT authentication backends and token logic
-│   │   ├── users/            # Custom user models, Student Profiles, Attendance, Login logs
-│   │   ├── categories/       # Course categorization
-│   │   ├── courses/          # Course definition and Live Classes
+│   ├── apps/                 # Custom Django feature modules
+│   │   ├── core/             # Project settings, URL routing, Celery config, Audit logs, emails.py engine
+│   │   ├── authentication/   # JWT auth backends, OTP password resets, login serializers
+│   │   ├── users/            # Custom user models, Student Profiles, PasswordResetOTP, Attendance
+│   │   ├── categories/       # Course categorization and tag mapping
+│   │   ├── courses/          # Course definitions, Live Classes, and mentor assignments
 │   │   ├── modules/          # Course modules
-│   │   ├── lessons/          # Lessons (Markdown, PDFs, links) and Progress tracking
-│   │   ├── videos/           # Cloudflare Stream integration details
-│   │   ├── quizzes/          # Quizzes, Questions, and Student quiz attempts
-│   │   ├── assignments/      # Assignments and Homework submissions
-│   │   ├── certificates/     # PDF Certificate generation and issuance
+│   │   ├── lessons/          # Lessons (Markdown, PDFs, attachments, FAQs) and Progress tracking
+│   │   ├── videos/           # Cloudflare Stream integration and playback position tracking
+│   │   ├── quizzes/          # Quizzes, randomized questions, timers, and attempt tracking
+│   │   ├── assignments/      # Homework assignments and submissions (Cloudflare R2)
+│   │   ├── certificates/     # PDF Certificate generation (ReportLab) and verification logic
 │   │   ├── notifications/    # User in-app notifications
-│   │   └── analytics/        # Role-based dashboard performance analytics
-│   ├── db.sqlite3            # SQLite DB (fallback/local testing)
-│   ├── seed.py               # Seed script to prepopulate database
-│   ├── Dockerfile            # Container definition for Backend
+│   │   ├── analytics/        # Role-based dashboard analytics and reporting
+│   │   ├── staff/            # Mentor profile management
+│   │   └── students/         # Student leaderboards, badges, attendance check-ins
+│   ├── db.sqlite3            # SQLite DB (local testing fallback)
+│   ├── seed.py               # Database seed script for default users & sample data
+│   ├── Dockerfile            # Backend container specification
 │   └── requirements.txt      # Python dependencies
 │
 ├── frontend/                 # React Frontend Application
 │   ├── src/
-│   │   ├── components/       # Reusable components (Student profile, Managers, etc.)
-│   │   ├── features/         # Feature-specific components and UI blocks
-│   │   ├── layouts/          # Page layouts (e.g., DashboardLayout)
-│   │   ├── pages/            # View pages (Login, Dashboard, Admin, Staff, Student)
-│   │   ├── routes/           # Routing and Protected Routes (Role guards)
-│   │   ├── services/         # API HTTP services (Axios configuration)
-│   │   ├── store/            # Redux store and slices (auth, UI)
-│   │   ├── index.css         # Custom core CSS
+│   │   ├── components/       # Reusable components
+│   │   │   ├── ApexAITutorCore.tsx  # Interactive AI Tutor with Voice & Code rendering
+│   │   │   ├── shared/       # Sidebar, TopHeader navigation
+│   │   │   └── student/      # StudentProfile, CalendarView, NotesManager, Leaderboard, Badges, Notifications
+│   │   ├── features/         # Redux slices (themeSlice, authSlice)
+│   │   ├── layouts/          # Layout wrappers (DashboardLayout)
+│   │   ├── pages/            # Role-specific application views & tab panels
+│   │   │   ├── admin/        # Admin Dashboard & tabs (StaffManagement, StudentManagement, MentorAssignments, SecurityCenter, etc.)
+│   │   │   ├── staff/        # Staff/Mentor Dashboard & tabs (CourseBuilder, StudentManager, Quizzes, Assignments, LiveClasses, etc.)
+│   │   │   ├── student/      # Student Dashboard & tabs (Courses, CoursePlayer, Assignments, Discussion, LiveClasses, Certificates, etc.)
+│   │   │   └── auth/         # LoginPage, Password Reset
+│   │   ├── routes/           # Protected routes & role-based access control guards
+│   │   ├── services/         # Axios API instance with JWT interceptors
+│   │   ├── store/            # Redux Toolkit store setup
+│   │   ├── index.css         # Custom core styling & CSS variables
 │   │   └── App.tsx           # Entry React Component
 │   ├── tailwind.config.js    # Tailwind styling config
-│   ├── vite.config.ts        # Vite configuration
-│   └── package.json          # Node dependencies and scripts
+│   ├── vite.config.ts        # Vite build & dev server config
+│   └── package.json          # Node dependencies
 │
-├── docker-compose.yml        # Orchestration file (db, redis, web, worker, beat, nginx)
+├── docker-compose.yml        # Orchestration (db, redis, web, worker, beat, nginx)
 └── nginx.conf                # Nginx proxy routing frontend and backend
 ```
 
@@ -75,57 +86,54 @@ LLM/
 The platform employs **Role-Based Access Control (RBAC)** across three distinct profiles:
 
 ### 👑 A. Super Admin (Owner / Administrator)
-*   **Mentor Management**: Create, view, update, and toggle active status of Mentors (Staff).
-*   **Audit Logging**: Monitor all administrative and staff actions chronologically to ensure operational compliance.
-*   **Global Dashboard Stats**: Monitor total courses, total active/inactive students, active mentors, and recent system actions.
+*   **Mentor Management & Mentor Assignments**: Create, edit, toggle active status, and assign Mentors/Staff to specific Student cohorts and Categories.
+*   **Security Center & Audit Logging**: Track all administrative and staff actions chronologically to ensure operational compliance and system security.
+*   **Email Templates & System Announcements**: Create and broadcast global announcements and customize transactional email communications.
+*   **Global System Analytics**: Real-time stats on total active/inactive students, active mentors, course metrics, system health, and activity logs.
+*   **System Settings**: Configure global application preferences, security policies, and maintenance toggles.
 
 ### 🧑‍🏫 B. Mentor (Instructors & Domain Coordinators)
-*   **Role Identification**: Formerly referred to as "Operations Staff", now unified as **Mentor**. The UI dynamically displays the mentor's specific domain/category name (e.g. *Mentor - Data Analytics*).
-*   **Student Manager**: Create student accounts, edit profiles, attach category tags, set course duration/expiration dates (30, 60, 90, 180, 365 days, or custom durations).
-*   **Course Builder**: Design courses, modules, lessons, and drag-and-drop ordering.
-*   **Category management**: Create and map tags (e.g., *Data Analytics*, *Python*, *AI*) to group courses and filter student access.
-*   **Video Manager**: Securely stream and organize lectures using Cloudflare Stream.
-*   **Live Class Scheduler**: Create scheduled Google Meet/Zoom/Teams classes mapped to specific courses.
-*   **Assignment Grading**: Review student homework files (stored in R2), write rich feedback, input grades, and view automated plagiarism scores.
-*   **Certificate Issuer**: Manually generate and issue official completion PDF certificates.
-*   **Operational Insights**: Tracks pending submissions, upcoming expiring students (within 7 days), and today's live classes.
+*   **Domain Identification**: Displays the mentor's specific category domain (e.g. *Mentor - Data Analytics*).
+*   **Student Manager**: Create student accounts, edit profiles, attach category tags, set course duration/expiration dates (30, 60, 90, 180, 365 days, or custom end dates), and bind certificate codes.
+*   **Course Builder**: Design courses, modules, lessons, drag-and-drop order, add Markdown content, PDF attachments, source code files, and lesson FAQs.
+*   **Quiz & Assignment Manager**: Build quizzes with randomized question ordering, timers, and attempt limits; review homework uploads, grade submissions, and provide rich written feedback.
+*   **Live Class Scheduler**: Schedule Doubt Clearing / Live sessions (Google Meet, Zoom, Teams) mapped to specific courses/categories with automated email alerts to enrolled students.
+*   **Forum & Discussion Moderation**: Moderate student Q&A discussions and answer course-related queries.
+*   **Certificate Issuer**: Manually trigger or verify completion certificates for qualified students.
+*   **Operational Insights**: Monitor pending homework submissions, expiring student accounts (within 7 days), and daily schedule.
 
 ### 🎓 C. Student
-*   **Interactive Learning Dashboard**: Lists course progress, completed lessons, assignments submitted/graded, and achievements.
-*   **Category-Based Course Access**: Students only see courses belonging to the categories assigned to them by Staff.
-*   **Rich Lessons**: Interact with markdown course content, download supporting files (PDF, PPT, ZIP source code), and view FAQs.
-*   **Custom Video Player (Cloudflare Stream)**: Play lecture videos with features like:
-    *   *Resume Playback*: Automatically saves video playback position so students can resume from where they left off.
-    *   *Progress Tracking*: Tracks percentage of video watched to determine overall lesson completion.
-*   **In-Video Notes & Bookmarks**: Add notes and bookmark specific seconds of the video to quickly jump back to that timestamp later.
-*   **Quiz Engine**: Attempt module-level quizzes. Features:
-    *   Timers (automatically submits on expiration).
-    *   Question types (MCQ, True/False, Multiple Select).
-    *   Sequence randomization.
-    *   Defined passing scores & retries limits.
-*   **Homework Submissions**: Upload homework solutions (stored in Cloudflare R2) and monitor grading status.
-*   **Live Class Finder**: Directly find and join live streams/meetings.
-*   **Achievements, Leaderboard & Attendance**: Check daily attendance, check achievements, and view leaderboard position.
-*   **Digital Certificates**: Download verification PDFs when course requirements are satisfied.
+*   **Interactive Learning Dashboard**: Overview of enrolled courses, completion percentages, submitted assignments, live classes, and achievements.
+*   **Apex AI Tutor Drawer**: Built-in AI learning assistant available directly inside the Course Player. Features include:
+    *   *Voice Command Support*: Speech-to-text input using Web Speech API.
+    *   *Rich Markdown & Syntax Highlighting*: Renders clean code blocks with one-click copy buttons and bold formatting.
+    *   *Context-Aware Guidance*: Answers questions specific to the active lesson.
+*   **Course Player & Cloudflare Stream Video Player**:
+    *   *Resume Playback*: Automatically saves video playback position so students resume right where they left off.
+    *   *In-Video Notes & Timestamp Bookmarks*: Add notes at exact video timestamps to jump back anytime.
+*   **Interactive Quizzes**: Complete timed quizzes with sequence randomization, immediate automated scoring, and retries limit enforcement.
+*   **Homework Submissions**: Upload solution files to Cloudflare R2 and track review status and mentor feedback.
+*   **Discussion Board & Live Class Finder**: Engage with peers/mentors in discussions and join live sessions with direct meeting links.
+*   **Achievements, Leaderboard & Attendance**: Check daily attendance check-ins, earn badges, and view global student leaderboard standings.
+*   **Digital Certificates**: Instant PDF certificate download upon fulfilling course requirements.
 
 ---
 
 ## 4. Key Workflows & Backend Functionality
 
-### 🔐 1. Authentication Flow
-Authentication is handled via JWT. The custom authenticator:
-1.  Verifies the bearer token.
-2.  Ensures that the token user is currently active (`is_active=True`).
-3.  Injects the user's role into the request context.
-On the frontend, **React Router guards** block unauthorised routes:
-*   `/admin/*` -> Requires `SUPER_ADMIN`
-*   `/staff/*` -> Requires `STAFF` or `SUPER_ADMIN`
-*   `/student/*` -> Requires `STUDENT`
+### 🔐 1. Authentication & Security (JWT & OTP)
+*   **JWT Token Backend**: Custom SimpleJWT implementation enforcing active user status (`is_active=True`) and role validation.
+*   **OTP Password Reset Flow**: Secure 6-digit OTP generation and verification (`PasswordResetOTP` model) delivered directly via transactional email.
+*   **Frontend Route Guards**: React Router guards dynamically restrict access based on authenticated user role (`SUPER_ADMIN`, `STAFF`, `STUDENT`).
 
-### ⏰ 2. Subscription Expiry Automation (Celery + Redis)
+### 📧 2. Email Deliverability Engine (`emails.py`)
+To prevent outgoing emails from hitting spam filters:
+*   **Plain-Text Deliverability**: Emails are generated in clean plain-text format (avoiding promotional HTML flags).
+*   **Non-Blocking Async Execution**: Emails are dispatched in background threads using an in-memory cached SMTP connection (refreshed every 5 minutes), ensuring API responses remain sub-second.
+
+### ⏰ 3. Subscription Expiry Automation (Celery + Redis)
 In `backend/apps/core/tasks.py`, a scheduled Celery Beat task runs daily:
 ```python
-# deactivate-expired-students-daily
 @shared_task
 def deactivate_expired_students():
     today = timezone.now().date()
@@ -133,42 +141,37 @@ def deactivate_expired_students():
     for profile in expired_profiles:
         profile.user.is_active = False
         profile.user.save()
-        # Log action under System AuditLog
 ```
-If a student's end date is older than today, they are automatically set to inactive, blocking them from logging in.
+If a student's subscription end date passes, their account is set to inactive automatically, denying login until renewed.
 
-### 📂 3. File & Video Management
-*   **Documents & PDFs**: Uploaded directly to a secure **Cloudflare R2 Bucket** via signed URLs or back-end orchestration.
-*   **Videos**: Integrated with **Cloudflare Stream** API. Videos are processed and transcoded into adaptive-bitrate streams, providing robust copy protection and smooth playback on all devices.
-
----
-
-## 5. Recent Enhancements & Performance Optimizations
-
-### ⚡ 1. Instant CRUD Operations (Optimistic UI)
-*   **Cache Mutation Hijacking**: The application uses TanStack React Query to implement optimistic updates.
-*   **Zero Page Freezes & Spinner Removal**: When creating, modifying, toggling status, or deleting records (for Students, Mentors, and Live Sessions), the cache is modified immediately on user action. If the backend fails, React Query triggers a **graceful rollback** to restore the previous state.
-*   **NoIntrusive Loaders**: Spinners are hidden during CRUD operations, leaving only seamless inline transitions.
-
-### 🔗 2. Simplified Certificate Enrollment
-*   **Direct File Upload**: The "Select Course Track" step in Student Creation/Modification is removed. Certificate code input and PDF file upload are shown directly.
-*   **Auto Course Selection**: The frontend automatically binds the student certificate to the first available course track via React `useEffect` in the background.
-
-### 🌐 3. IPv4 database connection compatibility
-*   **Supavisor Pooler Integration**: Configured Django's database client to connect to `aws-0-ap-northeast-1.pooler.supabase.com` on port `5432` with regional tenant prefix `postgres.scltqowxstewytlvixtw`. This resolves connection refusal / name translation issues on IPv4-only networks.
+### 📂 4. File & Video Management
+*   **Cloudflare R2**: Secure object storage for homework uploads, downloadable attachments, and generated PDF certificates.
+*   **Cloudflare Stream**: Transcodes lectures into adaptive-bitrate streams (HLS/DASH), providing secure video delivery and precise playback progress tracking.
 
 ---
 
-## 6. Seed Users (For Verification)
+## 5. Key Recent Enhancements & Performance Optimizations
 
-If you are running the project locally or setting up the database for the first time, you can run `python seed.py` inside the `backend/` folder to create the following default credentials:
+### ⚡ 1. Instant CRUD Operations & Optimistic UI
+*   **TanStack React Query Cache Mutation**: Creating, updating, toggling status, or deleting records (Students, Mentors, Courses, Live Classes, Quizzes) updates local UI state instantly.
+*   **Zero-Freezes & Graceful Rollback**: Full background sync with automatic cache rollback if an API network call encounters an error. Intrusive full-screen loaders have been replaced with inline feedback.
 
-*   **Super Admin**:
-    *   Email: `admin@apex.com`
-    *   Password: `admin123`
-*   **Staff / Mentor**:
-    *   Email: `staff@apex.com`
-    *   Password: `staff123`
-*   **Student**:
-    *   Email: `student@apex.com`
-    *   Password: `student123`
+### 🤖 2. Apex AI Tutor Core Integration
+*   Integrated a full-featured AI Tutor drawer within the Student Course Player supporting real-time Q&A, voice recognition, and formatted code blocks.
+
+### ✉️ 3. Optimized Transactional Email System
+*   Re-architected `emails.py` with threaded non-blocking execution, cached SMTP credentials, clean header structure, and OTP password recovery.
+
+### 🌐 4. Supavisor Connection Pooler Integration (IPv4 Support)
+*   Configured Django's database client to connect via Supavisor pooler (`aws-0-ap-northeast-1.pooler.supabase.com:5432`), resolving IPv4 connection issues seamlessly.
+
+---
+
+## 6. Seed Credentials (For Verification)
+
+To populate sample data and default test accounts, execute `python seed.py` inside the `backend/` directory:
+
+*   **Root Super Admin**:
+    *   Email: `hadescore.apex.technologies@gmail.com`
+    *   Password: `@Hadescore.com`
+.\venv\Scripts\Activate.ps1

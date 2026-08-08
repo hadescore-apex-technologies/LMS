@@ -58,6 +58,16 @@ export const DiscussionTab: React.FC = () => {
     }
   });
 
+  const [liveMode, setLiveMode] = React.useState(localStorage.getItem('studentLiveMode') === 'true');
+
+  React.useEffect(() => {
+    const handleStorage = () => {
+      setLiveMode(localStorage.getItem('studentLiveMode') === 'true');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   React.useEffect(() => {
     if (courses.length > 0 && !newPostCourseId) {
       setNewPostCourseId(courses[0].id.toString());
@@ -67,9 +77,13 @@ export const DiscussionTab: React.FC = () => {
 
   // 2. Fetch Discussion Posts
   const { data: posts = [], isLoading } = useQuery<DiscussionPost[]>({
-    queryKey: ['discussion-posts', selectedCourse],
+    queryKey: ['discussion-posts', selectedCourse, liveMode],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
-      const url = selectedCourse ? `courses/discussions/posts/?course=${selectedCourse}` : 'courses/discussions/posts/';
+      let url = `courses/discussions/posts/?live_mode=${liveMode}`;
+      if (selectedCourse) {
+        url += `&course=${selectedCourse}`;
+      }
       const res = await api.get(url);
       return res.data;
     }
@@ -78,14 +92,19 @@ export const DiscussionTab: React.FC = () => {
   // Create Post Mutation
   const createPostMutation = useMutation({
     mutationFn: async () => {
-      if (!newPostCourseId || !newPostTitle.trim() || !newPostContent.trim()) {
-        throw new Error('Please fill in all post details.');
+      if (!newPostTitle.trim() || !newPostContent.trim()) {
+        throw new Error('Please fill in both query title and detailed question.');
       }
-      await api.post('courses/discussions/posts/', {
-        course: Number(newPostCourseId),
-        title: newPostTitle,
-        content: newPostContent
-      });
+      const payload: any = {
+        title: newPostTitle.trim(),
+        content: newPostContent.trim()
+      };
+      if (newPostCourseId) {
+        payload.course = Number(newPostCourseId);
+      } else if (courses.length > 0) {
+        payload.course = courses[0].id;
+      }
+      await api.post('courses/discussions/posts/', payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discussion-posts'] });
@@ -93,10 +112,10 @@ export const DiscussionTab: React.FC = () => {
       setNewPostTitle('');
       setNewPostContent('');
       setNewPostCourseId('');
-      toast.success('Question posted successfully!');
+      toast.success('Query submitted to your mentor successfully!');
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to post question.');
+      toast.error(err.response?.data?.detail || err.message || 'Failed to post query.');
     }
   });
 
@@ -128,7 +147,7 @@ export const DiscussionTab: React.FC = () => {
     <div className="space-y-6 text-xs">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Discussion Boards</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Queries</h1>
           <p className="text-muted-foreground text-sm mt-1">Interact with your peers, clarify technical concepts, and review staff feedbacks.</p>
         </div>
         <button
@@ -136,32 +155,22 @@ export const DiscussionTab: React.FC = () => {
           className="px-4 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl flex items-center gap-1.5 shadow-md shadow-primary/10 hover:brightness-110 transition-all transform active:scale-95"
         >
           <Plus size={14} />
-          <span>Ask a Question</span>
+          <span>Submit a Query</span>
         </button>
       </div>
 
       {/* Filter and search inputs */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-muted/20 border border-border/50 p-4 rounded-2xl">
-        <div className="relative w-full md:max-w-md">
+        <div className="relative w-full">
           <Search className="absolute left-3.5 top-3 text-muted-foreground" size={14} />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search discussion threads..."
+            placeholder="Search queries..."
             className="w-full h-10 pl-10 pr-4 bg-background border border-border rounded-xl outline-none focus:border-primary/45 text-xs transition-all"
           />
         </div>
-        <select
-          value={selectedCourse}
-          onChange={(e) => setSelectedCourse(e.target.value)}
-          className="w-full md:w-56 h-10 px-3 bg-background border border-border rounded-xl outline-none focus:border-primary/45 text-xs transition-all font-semibold"
-        >
-          <option value="">All Course Discussions</option>
-          {courses.map(c => (
-            <option key={c.id} value={c.id}>{c.title}</option>
-          ))}
-        </select>
       </div>
 
       {/* Create Post Modal */}
@@ -169,26 +178,14 @@ export const DiscussionTab: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-card text-card-foreground border border-border w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-border pb-2.5">
-              <h3 className="font-bold text-sm">Ask a Question / Post Topic</h3>
+              <h3 className="font-bold text-sm">Submit a Query</h3>
               <button onClick={() => setIsCreatingPost(false)} className="text-muted-foreground hover:text-foreground"><X size={16} /></button>
             </div>
             
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[10px] text-muted-foreground uppercase font-bold mb-1">Select Course</label>
-                <select
-                  value={newPostCourseId}
-                  onChange={(e) => setNewPostCourseId(e.target.value)}
-                  className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none text-xs font-semibold"
-                >
-                  {courses.map(c => (
-                    <option key={c.id} value={c.id}>{c.title}</option>
-                  ))}
-                </select>
-              </div>
+              <div className="space-y-3">
               
               <div>
-                <label className="block text-[10px] text-muted-foreground uppercase font-bold mb-1">Headline / Question Title</label>
+                <label className="block text-[10px] text-muted-foreground uppercase font-bold mb-1">Query Title</label>
                 <input
                   type="text"
                   value={newPostTitle}
@@ -215,7 +212,7 @@ export const DiscussionTab: React.FC = () => {
                 className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
               >
                 {createPostMutation.isPending && <Loader2 size={13} className="animate-spin" />}
-                <span>Post Question</span>
+                <span>Submit Query</span>
               </button>
             </div>
           </div>
@@ -224,14 +221,19 @@ export const DiscussionTab: React.FC = () => {
 
       {/* Posts list */}
       <div className="space-y-6">
-        {isLoading ? (
-          <div className="py-20 text-center text-muted-foreground bg-card border border-border rounded-2xl">
-            <Loader2 className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <span>Loading Forums...</span>
+        {isLoading && posts.length === 0 ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="p-6 bg-card/60 border border-border/50 rounded-2xl animate-pulse space-y-3">
+                <div className="h-4 bg-muted/50 rounded-lg w-1/3" />
+                <div className="h-6 bg-muted/60 rounded-xl w-3/4" />
+                <div className="h-4 bg-muted/40 rounded-lg w-1/2" />
+              </div>
+            ))}
           </div>
         ) : filteredPosts.length === 0 ? (
           <div className="py-20 text-center text-muted-foreground font-medium bg-card border border-dashed border-border rounded-2xl">
-            No questions posted yet in this forum channel. Be the first to ask!
+            No questions posted yet in this queries channel. Be the first to ask!
           </div>
         ) : (
           filteredPosts.map(post => (
@@ -275,7 +277,7 @@ export const DiscussionTab: React.FC = () => {
                       <div key={comment.id} className="p-3 bg-card border border-border/60 rounded-xl space-y-1">
                         <div className="flex justify-between text-[10px] text-muted-foreground font-semibold">
                           <span className="flex items-center gap-1.5">
-                            <span>User: <span className="text-foreground/90 font-bold">{comment.user_details?.name || comment.user_details?.email}</span></span>
+                            <span><span className="text-foreground/90 font-bold">{comment.user_details?.name || comment.user_details?.email}</span></span>
                             {(comment.user_details?.role === 'STAFF' || comment.user_details?.role === 'SUPER_ADMIN') && (
                               <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-md font-bold uppercase text-[7px]">
                                 Mentor / Staff

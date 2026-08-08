@@ -3,14 +3,14 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { RootState } from '../../store';
 import { logout } from '../../features/authSlice';
-import { toggleTheme } from '../../features/themeSlice';
 import api from '../../services/api';
 import { 
   Users, BookOpen, Layers, Video, FileCheck, Award, 
-  LogOut, Sun, Moon, 
+  LogOut, UserCheck, Film, Crown,
   X, Home, FileText, MessageSquare,
-  HelpCircle, BarChart2, Mail
+  HelpCircle, BarChart2, Mail, Calendar, FileEdit
 } from 'lucide-react';
+
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -19,13 +19,26 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { mode } = useSelector((state: RootState) => state.theme);
+
   const dispatch = useDispatch();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [studentCategories, setStudentCategories] = React.useState<string[]>(user?.categories || []);
-  const [staffCategoryName, setStaffCategoryName] = React.useState<string | null>(user?.category_name || null);
+  const [, setStudentCategories] = React.useState<string[]>(user?.categories || []);
+  const [, setStaffCategoryName] = React.useState<string | null>(user?.category_name || null);
+  
+  const liveModeKey = user?.role === 'SUPER_ADMIN' ? 'super_adminLiveMode' : 'staffLiveMode';
+
+  const [isLiveClassMode, setIsLiveClassMode] = React.useState<boolean>(
+    localStorage.getItem(liveModeKey) === 'true'
+  );
+
+  const toggleLiveClassMode = () => {
+    const newVal = !isLiveClassMode;
+    setIsLiveClassMode(newVal);
+    localStorage.setItem(liveModeKey, String(newVal));
+    window.location.reload(); // Refresh to apply context
+  };
 
   React.useEffect(() => {
     if (user?.role === 'STUDENT' && (!user.categories || user.categories.length === 0)) {
@@ -60,8 +73,12 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   }, [user]);
 
   const handleLogout = () => {
+    // Capture role BEFORE dispatch clears user from state
+    const role = user?.role;
     dispatch(logout());
-    navigate('/login');
+    if (role === 'SUPER_ADMIN') navigate('/admin/login');
+    else if (role === 'STAFF') navigate('/staff/login');
+    else navigate('/student/login');
   };
 
   const profilePath = React.useMemo(() => {
@@ -78,53 +95,95 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     const staffMenu = [
       { label: 'Staff Home', path: '/staff', icon: Home },
       { label: 'Student Management', path: '/staff/students', icon: Users },
+      { label: 'Student Attendance', path: '/staff/attendance', icon: Calendar },
       { label: 'Course Builder', path: '/staff/courses', icon: BookOpen },
-      { label: 'Live Classes', path: '/staff/live', icon: Video },
       { label: 'Student Submissions', path: '/staff/assignments', icon: FileCheck },
       { label: 'Quizzes Evaluation', path: '/staff/quizzes', icon: HelpCircle },
       { label: 'Issue Certificates', path: '/staff/certificates', icon: Award },
-      { label: 'Discussion Forum', path: '/staff/forum', icon: MessageSquare },
+      { label: 'Queries Manage', path: '/staff/forum', icon: MessageSquare },
       { label: 'Reports & Analytics', path: '/staff/reports', icon: BarChart2 },
     ];
 
+    const liveClassStaffMenu = [
+      { label: 'Mentoring Dashboard', path: '/staff', icon: Home },
+      { label: 'Live Mentees Roster', path: '/staff/students', icon: Users },
+      { label: 'Live Sessions', path: '/staff/live', icon: Video },
+      { label: 'Manage Recordings', path: '/staff/recordings', icon: Film },
+      { label: 'Assignments', path: '/staff/live-assignments', icon: FileEdit },
+      { label: 'Class Attendance', path: '/staff/attendance', icon: Calendar },
+      { label: 'Queries Manage', path: '/staff/forum', icon: MessageSquare },
+    ];
+
+    const liveClassAdminMenu = [
+      { label: 'Admin Home', path: '/admin', icon: Home },
+      { label: 'Staff Management', path: '/admin/staff', icon: Users },
+      { label: 'Mentoring Domains', path: '/admin/categories', icon: Layers },
+      { label: 'Student Management', path: '/admin/students', icon: Users },
+      { label: 'Live Mentoring Sessions', path: '/admin/live', icon: Video },
+      { label: 'Manage Recordings', path: '/admin/recordings', icon: Film },
+      { label: 'Assignments', path: '/admin/live-assignments', icon: FileEdit },
+      { label: 'Class Attendance', path: '/admin/attendance', icon: Calendar },
+      { label: 'Live Mentor Assignments', path: '/admin/mentor-assignments', icon: UserCheck },
+      { label: 'Queries Manage', path: '/admin/forum', icon: MessageSquare },
+      { label: 'Email Templates', path: '/admin/email-templates', icon: Mail },
+    ];
+
+    const courseAdminMenu = [
+      { label: 'Admin Home', path: '/admin', icon: Home },
+      { label: 'Student Management', path: '/admin/students', icon: Users },
+      { label: 'Student Attendance', path: '/admin/attendance', icon: Calendar },
+      { label: 'Course Categories', path: '/admin/categories', icon: Layers },
+      { label: 'Courses Catalog', path: '/admin/courses', icon: BookOpen },
+      { label: 'Doubt Clearing Sessions', path: '/admin/live', icon: Video },
+      { label: 'Quiz Management', path: '/admin/quizzes', icon: HelpCircle },
+      { label: 'Assignment Inbox', path: '/admin/assignments', icon: FileCheck },
+      { label: 'Certificates Issued', path: '/admin/certificates', icon: Award },
+      { label: 'Queries Manage', path: '/admin/forum', icon: MessageSquare },
+      { label: 'Course Analytics', path: '/admin/reports', icon: FileText },
+      { label: 'Email Templates', path: '/admin/email-templates', icon: Mail },
+    ];
+
     if (user?.role === 'SUPER_ADMIN') {
-      return [
-        { label: 'Admin Home', path: '/admin', icon: Home },
-        { label: 'Staff Management', path: '/admin/staff', icon: Users },
-        { label: 'Student Management', path: '/admin/students', icon: Users },
-        { label: 'Course Categories', path: '/admin/categories', icon: Layers },
-        { label: 'Courses catalog', path: '/admin/courses', icon: BookOpen },
-        { label: 'Quiz Management', path: '/admin/quizzes', icon: HelpCircle },
-        { label: 'Assignment Inbox', path: '/admin/assignments', icon: FileCheck },
-        { label: 'Certificates issued', path: '/admin/certificates', icon: Award },
-        { label: 'Live Classes slots', path: '/admin/live', icon: Video },
-        { label: 'Forum moderation', path: '/admin/forum', icon: MessageSquare },
-        { label: 'Reports reports', path: '/admin/reports', icon: FileText },
-        { label: 'Email Templates', path: '/admin/email-templates', icon: Mail },
-      ];
-    } else if (user.role === 'STAFF') {
-      return staffMenu;
+      const isRoot = user?.email?.toLowerCase().trim() === 'hadescore.apex.technologies@gmail.com';
+      if (isLiveClassMode) {
+        return liveClassAdminMenu;
+      }
+      // Course admin mode
+      if (isRoot) {
+        return [...courseAdminMenu, { label: 'Admin Manager', path: '/admin/admin-manager', icon: Crown }];
+      }
+      return courseAdminMenu;
+    } else if (user?.role === 'STAFF') {
+      return liveClassStaffMenu;
     } else {
       // Student Menu
-      return [
+      const isStudentLive = localStorage.getItem('studentLiveMode') === 'true';
+      const courseMenu = [
         { label: 'Student Home', path: '/student', icon: Home },
         { label: 'My Courses', path: '/student/courses', icon: BookOpen },
-        { label: 'Live Classes', path: '/student/live', icon: Video },
         { label: 'Certificates', path: '/student/certificates', icon: Award },
+        { label: 'Doubt Clearing Sessions', path: '/student/live', icon: Video },
         { label: 'Study Notes', path: '/student/notes', icon: FileText },
-        { label: 'Discussion Board', path: '/student/forum', icon: MessageSquare },
+        { label: 'Queries', path: '/student/forum', icon: MessageSquare },
       ];
+      const liveMenu = [
+        { label: 'Live Portal Home', path: '/student', icon: Home },
+        { label: 'Upcoming Live Classes', path: '/student/live', icon: Video },
+        { label: 'Session Resources', path: '/student/downloads', icon: FileText },
+        { label: 'Live Q&A Forum', path: '/student/forum', icon: MessageSquare },
+      ];
+      return isStudentLive ? liveMenu : courseMenu;
     }
-  }, [user]);
+  }, [user, isLiveClassMode]);
 
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'SUPER_ADMIN':
-        return 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 dark:bg-indigo-500/20 dark:text-indigo-400';
+        return 'bg-cyan-50 text-cyan-700 border border-cyan-200/80 font-bold';
       case 'STAFF':
-        return 'bg-cyan-500/10 text-cyan-600 border border-cyan-500/20 dark:bg-cyan-500/20 dark:text-cyan-400';
+        return 'bg-teal-50 text-teal-700 border border-teal-200/80 font-bold';
       default:
-        return 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400';
+        return 'bg-sky-50 text-sky-700 border border-sky-200/80 font-bold';
     }
   };
 
@@ -139,7 +198,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       {/* Mobile Drawer Backdrop */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-black/60 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 z-40 bg-slate-900/60 lg:hidden backdrop-blur-sm transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -147,120 +206,110 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       {/* Sidebar container */}
       <aside className={`
         fixed bottom-0 top-0 left-0 z-50 flex w-72 flex-col
-        glass-panel border-r border-border/50 transition-transform duration-300 ease-in-out lg:translate-x-0
+        bg-white border-r border-slate-200/80 shadow-sm transition-transform duration-300 ease-in-out lg:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Header */}
-        <div className="flex h-16 items-center justify-between px-6 border-b border-border">
-          <div className="flex items-center gap-2.5">
-            <img src="/logo.png?v=2" alt="Hadescore Logo" className="h-9 w-9 object-contain" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,200,255,0.3))' }} />
+        <div className="flex h-16 items-center justify-between px-6 border-b border-slate-200/80 bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <img 
+              src="/logo.png" 
+              alt="Hadescore Apex Logo" 
+              className="h-9 w-9 object-contain drop-shadow-md"
+            />
             <div>
-              <span className="font-display font-bold text-xs tracking-tight block whitespace-nowrap">HADESCORE APEX & TECHNOLOGIES</span>
+              <span className="font-display font-extrabold text-xs tracking-wider uppercase text-slate-800 block whitespace-nowrap leading-tight">HADESCORE APEX</span>
+              <span className="text-[9px] text-cyan-600 font-extrabold uppercase tracking-widest block">&amp; TECHNOLOGIES</span>
             </div>
           </div>
           <button 
             onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-1.5 hover:bg-muted lg:hidden"
+            className="rounded-lg p-1.5 hover:bg-slate-200/60 text-slate-500 lg:hidden"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Profile Card Summary */}
-        <div className="p-5 border-b border-border">
+        <div className="p-4 border-b border-slate-200/80 bg-gradient-to-b from-cyan-50/30 to-transparent">
           {profilePath ? (
             <Link 
               to={profilePath} 
-              className="flex items-center gap-3 bg-muted/40 p-3.5 rounded-xl border border-border/50 hover:bg-primary/5 hover:border-primary/30 transition-all duration-300 group block"
+              className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-cyan-400 transition-all duration-300 group block"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 text-primary font-semibold text-sm border border-primary/20 group-hover:scale-105 transition-transform">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 font-black text-sm border border-cyan-100 group-hover:bg-cyan-600 group-hover:text-white transition-all">
                 {user?.first_name?.charAt(0) || 'U'}
               </div>
               <div className="overflow-hidden flex-1">
-                <h4 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{user?.first_name} {user?.last_name}</h4>
-                <span className={`inline-block text-[10px] px-2 py-0.5 mt-1 rounded-full font-medium ${getRoleBadge(user?.role || '')}`}>
+                <h4 className="font-extrabold text-xs text-slate-800 truncate group-hover:text-cyan-600 transition-colors">{user?.first_name} {user?.last_name}</h4>
+                <span className={`inline-block text-[9px] px-2 py-0.5 mt-1 rounded-md font-bold uppercase tracking-wide ${getRoleBadge(user?.role || '')}`}>
                   {getRoleLabel(user?.role || '')}
                 </span>
-                {user?.role === 'STUDENT' && studentCategories.length > 0 && (
-                  <div className="text-[11px] text-muted-foreground mt-1 truncate font-medium" title={studentCategories.join(', ')}>
-                    {studentCategories.join(', ')}
-                  </div>
-                )}
-                {user?.role === 'STAFF' && staffCategoryName && (
-                  <div className="text-[11px] text-muted-foreground mt-1 truncate font-medium" title={staffCategoryName}>
-                    {staffCategoryName}
-                  </div>
-                )}
               </div>
             </Link>
           ) : (
-            <div className="flex items-center gap-3 bg-muted/40 p-3.5 rounded-xl border border-border/50">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-primary/20 to-primary/10 text-primary font-semibold text-sm border border-primary/20">
+            <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 font-black text-sm border border-cyan-100">
                 {user?.first_name?.charAt(0) || 'U'}
               </div>
               <div className="overflow-hidden flex-1">
-                <h4 className="font-semibold text-sm truncate">{user?.first_name} {user?.last_name}</h4>
-                <span className={`inline-block text-[10px] px-2 py-0.5 mt-1 rounded-full font-medium ${getRoleBadge(user?.role || '')}`}>
+                <h4 className="font-extrabold text-xs text-slate-800 truncate">{user?.first_name} {user?.last_name}</h4>
+                <span className={`inline-block text-[9px] px-2 py-0.5 mt-1 rounded-md font-bold uppercase tracking-wide ${getRoleBadge(user?.role || '')}`}>
                   {getRoleLabel(user?.role || '')}
                 </span>
-                {user?.role === 'STAFF' && staffCategoryName && (
-                  <div className="text-[11px] text-muted-foreground mt-1 truncate font-medium" title={staffCategoryName}>
-                    {staffCategoryName}
-                  </div>
-                )}
               </div>
             </div>
           )}
         </div>
 
         {/* Nav list */}
-        <nav className="flex-1 space-y-1.5 px-4 py-6 overflow-y-auto">
+        <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const active = (item.path === '/admin' || item.path === '/staff' || item.path === '/student')
-              ? location.pathname === item.path
-              : location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
+            const active = location.pathname === item.path || 
+              (item.path !== '/admin' && item.path !== '/staff' && item.path !== '/student' && item.path !== '/' && location.pathname.startsWith(`${item.path}/`));
             return (
               <Link
                 key={item.label}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={`
-                  flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
+                  flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group relative
                   ${active 
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]' 
-                    : 'text-muted-foreground hover:bg-white/10 dark:hover:bg-white/5 hover:text-foreground hover:translate-x-1'}
+                    ? 'bg-cyan-600 text-white shadow-md shadow-cyan-500/25 font-bold scale-[1.01]' 
+                    : 'text-slate-600 hover:bg-cyan-50/70 hover:text-cyan-700'}
                 `}
               >
-                <Icon size={18} />
+                <Icon size={17} className={`${active ? 'text-white' : 'text-slate-400 group-hover:text-cyan-600'}`} />
                 <span>{item.label}</span>
+                {active && (
+                  <span className="absolute right-2.5 h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                )}
               </Link>
             );
           })}
         </nav>
 
         {/* Footer actions */}
-        <div className="p-4 border-t border-border space-y-2">
-          {/* Theme switcher */}
-          <button 
-            onClick={() => dispatch(toggleTheme())}
-            className="flex w-full items-center justify-between px-4 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              {mode === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
-              <span>{mode === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
-            </div>
-            <div className="h-5 w-9 rounded-full bg-muted border border-border relative flex items-center px-0.5">
-              <div className={`h-4 w-4 rounded-full bg-foreground shadow-sm transition-transform duration-200 ${mode === 'dark' ? 'translate-x-4' : 'translate-x-0'}`} />
-            </div>
-          </button>
-
-          {/* Logout */}
+        <div className="p-4 border-t border-slate-200/80 bg-slate-50/40 space-y-2">
+          {user?.role === 'SUPER_ADMIN' && (
+            <button
+              onClick={toggleLiveClassMode}
+              className={`flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm ${
+                isLiveClassMode 
+                  ? 'text-white bg-violet-600 hover:bg-violet-700 shadow-violet-500/25' 
+                  : 'text-violet-600 bg-violet-50 border border-violet-200/60 hover:bg-violet-100/80'
+              }`}
+            >
+              <Video size={15} />
+              <span>{isLiveClassMode ? 'Exit Live Class Mode' : 'Live Class Mentoring'}</span>
+            </button>
+          )}
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+            className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100/80 border border-rose-200/60 transition-all active:scale-95 shadow-sm"
           >
-            <LogOut size={18} />
+            <LogOut size={15} />
             <span>Sign Out</span>
           </button>
         </div>

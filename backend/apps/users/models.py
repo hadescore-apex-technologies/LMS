@@ -49,6 +49,11 @@ class StudentProfile(models.Model):
         ('365', '365 Days'),
         ('CUSTOM', 'Custom Dates'),
     )
+    STUDENT_TYPE_CHOICES = (
+        ('COURSE', 'Course Student'),
+        ('LIVE_CLASS', 'Live Class Student'),
+        ('BOTH', 'Both'),
+    )
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='student_profile')
     phone = models.CharField(max_length=20, blank=True, null=True)
     profile_photo = models.TextField(blank=True, null=True)
@@ -56,13 +61,22 @@ class StudentProfile(models.Model):
     start_date = models.DateField(blank=True, null=True)
     end_date = models.DateField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
-    categories = models.ManyToManyField('categories.Category', related_name='student_profiles', blank=True)
+    student_type = models.CharField(max_length=20, choices=STUDENT_TYPE_CHOICES, default='COURSE')
+    courses = models.ManyToManyField('courses.Course', related_name='enrolled_students', blank=True)
     assigned_staff = models.ForeignKey(
         CustomUser,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='assigned_students',
+        limit_choices_to={'role': 'STAFF'}
+    )
+    assigned_live_staff = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_live_students',
         limit_choices_to={'role': 'STAFF'}
     )
 
@@ -92,6 +106,7 @@ class StudentAttendance(models.Model):
     # pyrefly: ignore [implicit-import]
     date = models.DateField(default=models.functions.Now)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PRESENT')
+    first_login = models.TimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ('student', 'date')
@@ -110,3 +125,16 @@ class LoginHistory(models.Model):
 
     def __str__(self):
         return f"{self.user.email} logged in at {self.timestamp}"
+
+
+class PasswordResetOTP(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='password_reset_otps')
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def is_valid(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        return not self.is_used and self.created_at >= timezone.now() - timedelta(minutes=10)
+

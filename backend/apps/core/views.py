@@ -1,4 +1,6 @@
+# pyrefly: ignore [missing-import]
 from django.utils import timezone
+# pyrefly: ignore [missing-import]
 from rest_framework import viewsets, views, status, response
 from apps.core.models import AuditLog, PlatformSettings
 from apps.core.serializers import AuditLogSerializer, PlatformSettingsSerializer
@@ -34,9 +36,13 @@ class TriggerBackupView(views.APIView):
 
 import os
 import uuid
+# pyrefly: ignore [missing-import]
 from django.conf import settings
+# pyrefly: ignore [missing-import]
 from django.core.files.storage import default_storage
+# pyrefly: ignore [missing-import]
 from rest_framework.parsers import MultiPartParser, FormParser
+# pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
 
 class FileUploadView(views.APIView):
@@ -51,8 +57,13 @@ class FileUploadView(views.APIView):
         ext = os.path.splitext(uploaded_file.name)[1]
         filename = f"{uuid.uuid4().hex}{ext}"
         
-        path = default_storage.save(os.path.join('uploads', filename), uploaded_file)
-        url = request.build_absolute_uri(settings.MEDIA_URL + path)
+        # Temporarily bypassing Google Drive: Save file locally in media folder
+        file_path = default_storage.save(os.path.join('certificates', filename), uploaded_file)
+        
+        try:
+            url = request.build_absolute_uri(default_storage.url(file_path))
+        except Exception:
+            url = f"/media/{file_path}"
         
         return response.Response({
             "url": url,

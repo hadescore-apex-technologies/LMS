@@ -22,7 +22,7 @@ export const DownloadsTab: React.FC = () => {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'pdf' | 'zip'>('all');
 
-  const { data: lessons = [], isLoading: lessonsLoading } = useQuery<Lesson[]>({
+  const { data: lessons = [] } = useQuery<Lesson[]>({
     queryKey: ['downloads-lessons'],
     queryFn: async () => {
       const res = await api.get('lessons/');
@@ -30,7 +30,7 @@ export const DownloadsTab: React.FC = () => {
     }
   });
 
-  const { data: assignments = [], isLoading: assignLoading } = useQuery<Assignment[]>({
+  const { data: assignments = [] } = useQuery<Assignment[]>({
     queryKey: ['downloads-assignments'],
     queryFn: async () => {
       const res = await api.get('assignments/list/');
@@ -76,18 +76,6 @@ export const DownloadsTab: React.FC = () => {
     const matchesFilter = filterType === 'all' || res.type === filterType;
     return matchesSearch && matchesFilter;
   });
-
-  const isLoading = lessonsLoading || assignLoading;
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-16 bg-muted/40 animate-pulse rounded-2xl border border-border/30" />
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 text-xs">

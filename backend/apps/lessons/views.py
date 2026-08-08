@@ -38,16 +38,26 @@ class LessonViewSet(viewsets.ModelViewSet):
         )
 
         if user.role == 'STUDENT':
-            qs = qs.filter(
-                module__course__category__student_profiles__user=user,
-                module__course__is_published=True
-            ).distinct()
+            profile = getattr(user, 'student_profile', None)
+            student_courses = list(profile.courses.all()) if profile else []
+            staff = profile.assigned_staff if profile else None
+            staff_cat = getattr(getattr(staff, 'staff_profile', None), 'category', None)
+            
+            qs = qs.filter(module__course__is_published=True)
+            if student_courses or staff_cat or staff:
+                from django.db.models import Q
+                filters = Q()
+                if student_courses:
+                    filters |= Q(module__course__in=student_courses)
+                if staff_cat:
+                    filters |= Q(module__course__category=staff_cat)
+                if staff:
+                    filters |= Q(module__course__mentor=staff)
+                qs = qs.filter(filters).distinct()
         elif user.role == 'STAFF':
             category = getattr(user, 'staff_profile', None) and user.staff_profile.category
             if category:
                 qs = qs.filter(module__course__category=category)
-            else:
-                qs = qs.none()
 
         if module_id:
             qs = qs.filter(module_id=module_id)

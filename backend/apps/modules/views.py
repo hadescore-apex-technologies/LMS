@@ -24,11 +24,22 @@ class ModuleViewSet(viewsets.ModelViewSet):
             return Module.objects.none()
             
         if user.role == 'STUDENT':
-            # Verify module belongs to a course in the student's categories
-            qs = Module.objects.filter(
-                course__category__student_profiles__user=user,
-                course__is_published=True
-            ).distinct()
+            profile = getattr(user, 'student_profile', None)
+            student_courses = list(profile.courses.all()) if profile else []
+            staff = profile.assigned_staff if profile else None
+            staff_cat = getattr(getattr(staff, 'staff_profile', None), 'category', None)
+            
+            qs = Module.objects.filter(course__is_published=True)
+            if student_courses or staff_cat or staff:
+                from django.db.models import Q
+                filters = Q()
+                if student_courses:
+                    filters |= Q(course__in=student_courses)
+                if staff_cat:
+                    filters |= Q(course__category=staff_cat)
+                if staff:
+                    filters |= Q(course__mentor=staff)
+                qs = qs.filter(filters).distinct()
         elif user.role == 'STAFF':
             category = getattr(user, 'staff_profile', None) and user.staff_profile.category
             if category:

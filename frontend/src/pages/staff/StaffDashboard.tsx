@@ -6,10 +6,8 @@ import { DashboardTab } from './tabs/DashboardTab';
 import { StudentsTab } from './tabs/StudentsTab';
 import { CoursesTab } from './tabs/CoursesTab';
 import { LiveClassesTab } from './tabs/LiveClassesTab';
-import { AssignmentsTab } from './tabs/AssignmentsTab';
-import { QuizzesTab } from './tabs/QuizzesTab';
+import { LiveAssignmentsTab } from './tabs/LiveAssignmentsTab';
 import { AttendanceTab } from './tabs/AttendanceTab';
-import { CertificatesTab } from './tabs/CertificatesTab';
 import { AnnouncementsTab } from './tabs/AnnouncementsTab';
 import { ForumTab } from './tabs/ForumTab';
 import { DownloadsTab } from './tabs/DownloadsTab';
@@ -26,49 +24,37 @@ const StaffDashboard: React.FC = () => {
     navigate(`/staff/${tab}`);
   };
 
-  const renderActiveTab = () => {
-    const path = location.pathname.replace(/\/$/, '');
-    switch (path) {
-      case '/staff/students':
-        return <StudentsTab />;
-      case '/staff/courses':
-      case '/staff/modules':
-      case '/staff/lessons':
-      case '/staff/videos':
-        return <CoursesTab />;
-      case '/staff/live':
-        return <LiveClassesTab />;
-      case '/staff/assignments':
-        return <AssignmentsTab />;
-      case '/staff/quizzes':
-        return <QuizzesTab />;
-      case '/staff/attendance':
-        return <AttendanceTab />;
-      case '/staff/certificates':
-        return <CertificatesTab />;
-      case '/staff/announcements':
-        return <AnnouncementsTab />;
-      case '/staff/forum':
-        return <ForumTab />;
-      case '/staff/downloads':
-        return <DownloadsTab />;
-      case '/staff/reports':
-        return <ReportsTab />;
-      case '/staff/notifications':
-        return <NotificationsTab />;
-      case '/staff/profile':
-        return <ProfileTab />;
-      case '/staff/settings':
-        return <SettingsTab />;
-      case '/staff':
-      default:
-        return <DashboardTab onNavigate={handleNavigate} />;
-    }
-  };
+  const path = location.pathname.replace(/\/$/, '');
+
+  const isHome = path === '/staff' || path === '/staff/' || path === '';
+  const isStudents = path === '/staff/students';
+  const isLive = path === '/staff/live';
+  const isRecordings = path === '/staff/recordings';
+  const isLiveAssignments = path === '/staff/live-assignments';
+  const isAttendance = path === '/staff/attendance';
+  const isAnnouncements = path === '/staff/announcements';
+  const isForum = path === '/staff/forum';
+  const isDownloads = path === '/staff/downloads';
+  const isReports = path === '/staff/reports';
+  const isNotifications = path === '/staff/notifications';
+  const isProfile = path === '/staff/profile';
+  const isSettings = path === '/staff/settings';
 
   return (
     <div className="relative">
-      {renderActiveTab()}
+      {isHome && <DashboardTab onNavigate={handleNavigate} />}
+      {isStudents && <StudentsTab />}
+      {isLive && <LiveClassesTab />}
+      {isRecordings && <CoursesTab isRecordingsMode={true} />}
+      {isLiveAssignments && <LiveAssignmentsTab />}
+      {isAttendance && <AttendanceTab />}
+      {isAnnouncements && <AnnouncementsTab />}
+      {isForum && <ForumTab />}
+      {isDownloads && <DownloadsTab />}
+      {isReports && <ReportsTab />}
+      {isNotifications && <NotificationsTab />}
+      {isProfile && <ProfileTab />}
+      {isSettings && <SettingsTab />}
     </div>
   );
 };

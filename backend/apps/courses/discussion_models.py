@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 
 class CourseDiscussionPost(models.Model):
-    course = models.ForeignKey('courses.Course', on_delete=models.CASCADE, related_name='discussions')
+    course = models.ForeignKey('courses.Course', on_delete=models.CASCADE, related_name='discussions', null=True, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='course_discussions')
     title = models.CharField(max_length=250)
     content = models.TextField()

@@ -2,8 +2,16 @@ import axios from 'axios';
 import { store } from '../store';
 import { loginSuccess, logout } from '../features/authSlice';
 
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+  return `http://${hostname}:8000/api/`;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/',
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -14,7 +22,7 @@ api.interceptors.request.use(
   (config) => {
     const state = store.getState();
     const token = state.auth.accessToken;
-    if (token) {
+    if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -70,7 +78,8 @@ api.interceptors.response.use(
       }
 
       try {
-        const res = await axios.post('http://localhost:8000/api/auth/refresh/', {
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+        const res = await axios.post(`http://${hostname}:8000/api/auth/refresh/`, {
           refresh: refreshToken,
         });
 
@@ -78,7 +87,8 @@ api.interceptors.response.use(
         const currentUser = store.getState().auth.user;
         
         if (currentUser) {
-          store.dispatch(loginSuccess({ user: currentUser, access, refresh }));
+          const loginPath = store.getState().auth.loginPath || '/student/login';
+          store.dispatch(loginSuccess({ user: currentUser, access, refresh, loginPath }));
         }
 
         processQueue(null, access);
@@ -87,6 +97,8 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         store.dispatch(logout());
+        const loginPath = localStorage.getItem('loginPath') || '/student/login';
+        window.location.href = loginPath;
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

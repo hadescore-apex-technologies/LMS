@@ -1,85 +1,644 @@
 """
 Apex LMS - Transactional Email Utilities
 Handles all outgoing email sends with the configured SMTP backend.
+
+DELIVERABILITY STRATEGY:
+- Plain text only — no HTML. Gmail treats plain-text emails like
+  person-to-person messages, not marketing/automated emails.
+- No custom headers (X-Mailer, X-Entity-Ref-ID, etc.)
+- Minimal, clean email that looks like a normal person sent it.
+
+PERFORMANCE:
+- SMTP settings cached in memory (refreshed every 5 minutes).
+- All DB queries and SMTP work run inside the background thread.
+- API response returns instantly — zero blocking.
 """
 import logging
-from django.core.mail import send_mail
+import threading
+import time
+from email.utils import formataddr
+
 from django.conf import settings
+from django.core.mail import get_connection
 
 logger = logging.getLogger(__name__)
 
 
-WELCOME_EMAIL_SUBJECT = "Welcome to Apex LMS – Your Account Has Been Created"
+# ── Default Templates ──────────────────────────────────────────────────────────
+
+# ── Default Templates ──────────────────────────────────────────────────────────
+
+WELCOME_EMAIL_SUBJECT = "Welcome to Apex LMS – Account Details & Getting Started"
 
 WELCOME_EMAIL_BODY = """\
 Dear {full_name},
 
-Welcome to Apex LMS! 🎉
+Welcome to Apex LMS! Your learning account has been successfully provisioned.
 
-Your account has been successfully created. You can now log in to the Apex LMS portal using the credentials below.
+We are excited to have you join our platform. Below are your account access credentials and login details to help you get started:
 
---- Login Credentials ---
-
+ACCOUNT DETAILS
+--------------------------------------------------
 Name: {full_name}
-Email: {email}
+Email Address: {email}
+Account Role: {role}
 Temporary Password: {password}
 
-Login Portal:
+PORTAL ACCESS
+--------------------------------------------------
+You can log in to your learning dashboard here:
 {login_url}
 
-For security reasons, please change your password immediately after your first login.
+GETTING STARTED STEPS
+--------------------------------------------------
+1. Log in using your email and temporary password provided above.
+2. For security, update your password under your Profile Settings after first login.
+3. Explore your assigned courses, modules, live sessions, and progress tracking.
 
-Once you log in, you can:
-- Access your assigned courses
-- Watch video lessons
-- Attend live classes
-- Complete quizzes and assignments
-- Track your learning progress
-- Download certificates after successful course completion
+NEED ASSISTANCE?
+--------------------------------------------------
+If you have any questions or require support, please contact our team at support@apex.com.
 
-If you experience any issues while logging in, please contact our support team.
+Best regards,
 
-Support Email: support@apex.com
+Apex LMS Administration
+Hadescore Apex Technologies Team
+"""
 
-Thank you for choosing Apex LMS. We wish you a successful learning journey.
+LIVE_CLASS_EMAIL_SUBJECT = "Live Session Notification: {session_title}"
 
-Best Regards,
-Apex LMS Team
+LIVE_CLASS_EMAIL_BODY = """\
+Dear {student_name},
+
+A new Doubt Clearing Live Session has been scheduled by your mentor, {mentor_name}.
+
+SESSION DETAILS
+--------------------------------------------------
+Topic: {session_title}
+Mentor: {mentor_name}
+Date & Time: {scheduled_time}
+Meeting URL: {meeting_link}
+
+PREPARATION STEPS
+--------------------------------------------------
+1. Review your course materials prior to the session start time.
+2. Prepare any specific questions or doubts you would like to discuss with your mentor.
+3. Access the meeting link 5 minutes before the scheduled start time.
+
+NEED ASSISTANCE?
+--------------------------------------------------
+If you cannot attend or have trouble joining the meeting, please send a message to your mentor via the LMS portal.
+
+Best regards,
+
+Academic Support Team
+Hadescore Apex Technologies Team
+"""
+
+COURSE_COMPLETION_EMAIL_SUBJECT = "Course Completion Verification & Certificate: {course_title}"
+
+COURSE_COMPLETION_EMAIL_BODY = """\
+Dear {student_name},
+
+This email confirms that you have completed 100% of the coursework requirements for '{course_title}'.
+
+Your official Course Completion Certificate has been verified and issued by Hadescore Apex Technologies.
+
+CERTIFICATE DETAILS
+--------------------------------------------------
+Student Name: {student_name}
+Course Completed: {course_title}
+Certificate ID: {certificate_code}
+Date of Issue: {completion_date}
+
+HOW TO ACCESS YOUR CERTIFICATE
+--------------------------------------------------
+Your certificate is ready! Please log in to your student portal and navigate to the "Certificates" tab to view, share, and download your official certificate.
+
+Portal Link: {portal_url}
+
+Thank you for your hard work and dedication throughout this course track.
+
+Best regards,
+
+Academic Certification Office
+Hadescore Apex Technologies Team
 """
 
 
-def send_welcome_email(first_name: str, last_name: str, email: str, password: str, login_url: str = None):
+def convert_text_to_html(body_text, subject="Notification", brand_name="Apex LMS", login_url=None):
+    import re
+    import datetime
+
+    # Split text into paragraphs
+    paragraphs = []
+    lines = body_text.strip().split('\n')
+    current_para = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            if current_para:
+                paragraphs.append('\n'.join(current_para))
+                current_para = []
+        else:
+            current_para.append(line)
+    if current_para:
+        paragraphs.append('\n'.join(current_para))
+
+    html_paragraphs = []
+    for para in paragraphs:
+        para_html = para.replace('\n', '<br>')
+        html_paragraphs.append(f'<p style="margin-top: 0; margin-bottom: 14px; font-size: 15px; line-height: 1.6; color: #334155;">{para_html}</p>')
+
+    paragraphs_joined = "\n".join(html_paragraphs)
+
+    html_template = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{subject}</title>
+</head>
+<body style="margin: 0; padding: 0; width: 100%; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; line-height: 1.6;">
+  <div style="max-width: 580px; margin: 0 auto; padding: 24px;">
+    {paragraphs_joined}
+  </div>
+</body>
+</html>"""
+    return html_template
+
+
+
+# ── SMTP Settings Cache ───────────────────────────────────────────────────────
+# Cache SMTP settings in memory to avoid 5 DB queries per email.
+# Refreshes every 5 minutes automatically.
+
+_smtp_cache = {
+    'data': None,
+    'expires_at': 0,
+}
+_CACHE_TTL = 300  # 5 minutes
+
+
+def _get_cached_smtp_settings():
+    """
+    Fetch SMTP settings from DB, cached for 5 minutes.
+    Returns dict with keys: host, port, user, password, from_email
+    or None if no dynamic SMTP is configured.
+    """
+    now = time.time()
+    if _smtp_cache['data'] is not None and now < _smtp_cache['expires_at']:
+        return _smtp_cache['data']
+
+    from apps.core.models import PlatformSettings
+
+    try:
+        # Single query instead of 5 separate queries
+        smtp_keys = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'smtp_from_email']
+        rows = PlatformSettings.objects.filter(key__in=smtp_keys)
+        settings_map = {row.key: row.value for row in rows}
+
+        host = settings_map.get('smtp_host', '').strip()
+        user = settings_map.get('smtp_user', '').strip()
+        password = settings_map.get('smtp_password', '')
+
+        if host and user and password:
+            result = {
+                'host': host,
+                'port': int(settings_map.get('smtp_port', '587') or '587'),
+                'user': user,
+                'password': password,
+                'from_email': settings_map.get('smtp_from_email', '').strip(),
+            }
+        else:
+            result = None
+
+        # pyrefly: ignore [unsupported-operation]
+        _smtp_cache['data'] = result
+        # pyrefly: ignore [unsupported-operation]
+        _smtp_cache['expires_at'] = now + _CACHE_TTL
+        return result
+
+    except Exception as e:
+        logger.error(f"[Email] Error fetching SMTP settings: {e}")
+        return None
+
+
+def get_smtp_connection_and_sender():
+    """
+    Build an SMTP connection + sender address from cached settings.
+    Falls back to Django settings when no dynamic config exists.
+    Returns: (connection, sender_formatted, sender_email_addr)
+    """
+    from email.utils import parseaddr
+    smtp = _get_cached_smtp_settings()
+
+    if smtp:
+        connection = get_connection(
+            backend='django.core.mail.backends.smtp.EmailBackend',
+            host=smtp['host'],
+            port=smtp['port'],
+            username=smtp['user'],
+            password=smtp['password'],
+            use_tls=True,
+        )
+
+        from_email = smtp['from_email']
+        # pyrefly: ignore [bad-argument-type]
+        display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
+        
+        # Anti-Spam Check: Ensure From domain aligns with authenticated SMTP user
+        if not email_addr or '@' not in email_addr:
+            email_addr = smtp['user']
+        if not display_name:
+            display_name = 'Apex LMS'
+
+        # pyrefly: ignore [bad-argument-type]
+        sender = formataddr((display_name, email_addr))
+        return connection, sender, email_addr
+
+    # Fallback to Django settings
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
+    display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
+    if not email_addr or '@' not in email_addr:
+        email_addr = getattr(settings, 'EMAIL_HOST_USER', '')
+    if not display_name:
+        display_name = 'Apex LMS'
+    if not email_addr:
+        email_addr = 'noreply@apex-lms.com'
+
+    sender = formataddr((display_name, email_addr))
+    return None, sender, email_addr
+
+
+def send_lms_email(
+    to_email: str,
+    subject: str,
+    text_body: str,
+    # pyrefly: ignore [bad-function-definition]
+    html_body: str = None,
+    # pyrefly: ignore [bad-function-definition]
+    reply_to: str = None,
+):
+    """
+    Unified anti-spam transactional email sender.
+    Sends pure plain-text emails by default, or multipart emails if HTML is explicitly provided.
+    """
+    from django.core.mail import EmailMessage, EmailMultiAlternatives
+
+    connection, sender_formatted, sender_addr = get_smtp_connection_and_sender()
+
+    reply_to_addr = reply_to or sender_formatted
+
+    headers = {
+        'Reply-To': reply_to_addr,
+        'Auto-Submitted': 'auto-generated',
+        'X-Auto-Response-Suppress': 'OOF, AutoReply',
+    }
+
+    if html_body:
+        email_message = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            from_email=sender_formatted,
+            to=[to_email],
+            connection=connection,
+            headers=headers,
+        )
+        email_message.attach_alternative(html_body, "text/html")
+    else:
+        email_message = EmailMessage(
+            subject=subject,
+            body=text_body,
+            from_email=sender_formatted,
+            to=[to_email],
+            connection=connection,
+            headers=headers,
+        )
+
+    email_message.send(fail_silently=False)
+    logger.info(f"[Email] Successfully sent email to {to_email}")
+
+
+# ── Template Cache ─────────────────────────────────────────────────────────────
+
+_template_cache = {}
+_TEMPLATE_CACHE_TTL = 300  # 5 minutes
+
+
+def _get_cached_templates(role: str):
+    """
+    Fetch email templates from DB, cached for 5 minutes per role.
+    """
+    cache_key = (role or 'STUDENT').lower()
+    now = time.time()
+    cached = _template_cache.get(cache_key)
+    if cached and now < cached['expires_at']:
+        return cached['subject'], cached['body']
+
+    from apps.core.models import PlatformSettings
+
+    subject_key = f"welcome_email_{cache_key}_subject"
+    body_key = f"welcome_email_{cache_key}_body"
+
+    try:
+        rows = PlatformSettings.objects.filter(key__in=[subject_key, body_key])
+        templates = {row.key: row.value for row in rows}
+        subject_template = templates.get(subject_key, WELCOME_EMAIL_SUBJECT)
+        body_template = templates.get(body_key, WELCOME_EMAIL_BODY)
+    except Exception as exc:
+        logger.error(f"[Email] Failed to retrieve templates: {exc}")
+        subject_template = WELCOME_EMAIL_SUBJECT
+        body_template = WELCOME_EMAIL_BODY
+
+    _template_cache[cache_key] = {
+        'subject': subject_template,
+        'body': body_template,
+        'expires_at': now + _TEMPLATE_CACHE_TTL,
+    }
+    return subject_template, body_template
+
+
+# ── Background Email Worker ───────────────────────────────────────────────────
+
+def _send_email_thread(
+    first_name: str,
+    last_name: str,
+    email: str,
+    password: str,
+    role: str,
+    login_url: str,
+):
+    """
+    Runs entirely in background thread:
+    1. Fetch templates (cached)
+    2. Format the email
+    3. Connect to SMTP and send using anti-spam engine
+
+    This means ZERO DB queries block the API response.
+    """
+    subject = None
+    body = None
+    try:
+        full_name = f"{first_name or ''} {last_name or ''}".strip() or email.split('@')[0]
+
+        # Get templates (cached — usually instant)
+        subject_template, body_template = _get_cached_templates(role or 'STUDENT')
+
+        # Normalize {{placeholder}} → {placeholder}
+        for p in ['full_name', 'email', 'password', 'login_url', 'role']:
+            subject_template = subject_template.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+            body_template = body_template.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+
+        # Format role for display
+        display_role = (role or 'STUDENT').replace('_', ' ').title()
+        if display_role.lower() == 'super admin':
+            display_role = 'Administrator'
+
+        # Format
+        fmt_args = dict(
+            full_name=full_name,
+            email=email or '',
+            password=password or '',
+            login_url=login_url or '',
+            role=display_role
+        )
+        try:
+            subject = subject_template.format(**fmt_args)
+            body = body_template.format(**fmt_args)
+        except Exception:
+            subject = subject_template
+            body = body_template
+            for k, v in fmt_args.items():
+                # pyrefly: ignore [unnecessary-type-conversion]
+                subject = subject.replace(f'{{{k}}}', str(v))
+                # pyrefly: ignore [unnecessary-type-conversion]
+                body = body.replace(f'{{{k}}}', str(v))
+
+        # Send via anti-spam deliverability engine
+        send_lms_email(
+            to_email=email,
+            subject=subject,
+            text_body=body,
+        )
+
+    except Exception as exc:
+        logger.error(f"[Email] Failed to send welcome email to {email}: {exc}")
+        print(f"\n============================================================")
+        print(f"FALLBACK WELCOME EMAIL DUMP FOR {email}:")
+        print(f"Subject: {subject or 'N/A'}")
+        print(f"------------------------------------------------------------")
+        print(f"{body or 'N/A'}")
+        print(f"============================================================\n")
+
+
+# ── Public API ─────────────────────────────────────────────────────────────────
+
+def send_welcome_email(
+    first_name: str,
+    last_name: str,
+    email: str,
+    password: str,
+    role: str = 'STUDENT',
+    # pyrefly: ignore [bad-function-definition]
+    login_url: str = None,
+):
     """
     Send the welcome email to a newly created user (student or staff).
-    
-    Args:
-        first_name: User's first name
-        last_name:  User's last name
-        email:      User's login email address
-        password:   Plain-text temporary password to include in the email
-        login_url:  Optional login portal URL (defaults to a placeholder)
+    Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
     """
     if not login_url:
         login_url = getattr(settings, 'FRONTEND_URL', 'https://apex-lms.com/login')
 
-    full_name = f"{first_name} {last_name}".strip() or email.split('@')[0]
-
-    body = WELCOME_EMAIL_BODY.format(
-        full_name=full_name,
-        email=email,
-        password=password,
-        login_url=login_url,
+    thread = threading.Thread(
+        target=_send_email_thread,
+        args=(first_name, last_name, email, password, role, login_url),
+        daemon=True,
     )
+    thread.start()
 
+
+def _send_live_class_email_thread(live_class_id: int):
     try:
-        send_mail(
-            subject=WELCOME_EMAIL_SUBJECT,
-            message=body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False,
-        )
-        logger.info(f"[Email] Welcome email sent to: {email}")
+        from apps.courses.models import LiveClass
+        from apps.users.models import CustomUser
+        from apps.core.models import PlatformSettings
+
+        live_class = LiveClass.objects.select_related('created_by').filter(id=live_class_id).first()
+        if not live_class:
+            return
+
+        # Fetch students to notify
+        targeted_students = list(live_class.students.filter(is_active=True))
+        if not targeted_students and live_class.created_by:
+            from django.db.models import Q
+            mentor = live_class.created_by
+            targeted_students = list(CustomUser.objects.filter(
+                role='STUDENT',
+                is_active=True
+            ).filter(
+                Q(student_profile__assigned_live_staff=mentor) |
+                Q(student_profile__assigned_staff=mentor) |
+                Q(student_profile__category=getattr(mentor, 'staff_profile', None) and mentor.staff_profile.category)
+            ).distinct())
+
+        if not targeted_students and live_class.course:
+            from apps.courses.models import Enrollment
+            enrolled_user_ids = Enrollment.objects.filter(course=live_class.course).values_list('user_id', flat=True)
+            targeted_students = list(CustomUser.objects.filter(id__in=enrolled_user_ids, is_active=True))
+
+        if not targeted_students:
+            logger.info(f"[LiveClass Email] No active assigned students found for LiveClass #{live_class_id}")
+            return
+
+        # Fetch custom templates from DB or fallback
+        try:
+            rows = PlatformSettings.objects.filter(key__in=['live_class_email_subject', 'live_class_email_body'])
+            templates = {row.key: row.value for row in rows}
+            subj_tpl = templates.get('live_class_email_subject', LIVE_CLASS_EMAIL_SUBJECT)
+            body_tpl = templates.get('live_class_email_body', LIVE_CLASS_EMAIL_BODY)
+        except Exception as exc:
+            logger.error(f"[LiveClass Email] Failed to fetch template settings: {exc}")
+            subj_tpl = LIVE_CLASS_EMAIL_SUBJECT
+            body_tpl = LIVE_CLASS_EMAIL_BODY
+
+        # Format variables
+        mentor_name = f"{live_class.created_by.first_name} {live_class.created_by.last_name}".strip() if live_class.created_by else "Your Mentor"
+        if not mentor_name or mentor_name == "":
+            mentor_name = live_class.created_by.email if live_class.created_by else "Your Mentor"
+
+        session_title = live_class.title or "Doubt Clearing Session"
+        scheduled_time = live_class.scheduled_time.strftime("%b %d, %Y at %I:%M %p") if live_class.scheduled_time else "Scheduled Time"
+        meeting_link = getattr(live_class, 'meeting_url', None) or getattr(live_class, 'meeting_link', None) or "Check dashboard for link"
+
+        # Normalize {{placeholder}} → {placeholder}
+        for p in ['student_name', 'session_title', 'mentor_name', 'scheduled_time', 'meeting_link', 'full_name']:
+            subj_tpl = subj_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+            body_tpl = body_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+
+        for student in targeted_students:
+            student_name = f"{student.first_name} {student.last_name}".strip() or student.email.split('@')[0]
+            fmt_args = dict(
+                student_name=student_name,
+                full_name=student_name,
+                session_title=session_title,
+                mentor_name=mentor_name,
+                scheduled_time=scheduled_time,
+                meeting_link=meeting_link
+            )
+
+            try:
+                subject = subj_tpl.format(**fmt_args)
+                body = body_tpl.format(**fmt_args)
+            except Exception:
+                subject = subj_tpl
+                body = body_tpl
+                for k, v in fmt_args.items():
+                    subject = subject.replace(f'{{{k}}}', str(v))
+                    body = body.replace(f'{{{k}}}', str(v))
+
+            try:
+                send_lms_email(
+                    to_email=student.email,
+                    subject=subject,
+                    text_body=body,
+                )
+            except Exception as e:
+                logger.error(f"[LiveClass Email] Failed to send email to {student.email}: {e}")
+
     except Exception as exc:
-        # Non-blocking: log the error but do not raise — account is already created
-        logger.error(f"[Email] Failed to send welcome email to {email}: {exc}")
+        logger.error(f"[LiveClass Email] Thread error: {exc}")
+
+
+def send_live_class_email(live_class_id: int):
+    """
+    Send SMTP email notifications to assigned students for a Live Class.
+    Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
+    """
+    thread = threading.Thread(
+        target=_send_live_class_email_thread,
+        args=(live_class_id,),
+        daemon=True,
+    )
+    thread.start()
+
+
+def _send_course_completion_email_thread(certificate_id: int):
+    try:
+        from apps.certificates.models import Certificate
+        from apps.core.models import PlatformSettings
+
+        cert = Certificate.objects.select_related('student', 'course').filter(id=certificate_id).first()
+        if not cert or not cert.student or not cert.student.email:
+            return
+
+        # Fetch custom template settings from DB or fallback
+        try:
+            rows = PlatformSettings.objects.filter(key__in=['course_completion_email_subject', 'course_completion_email_body'])
+            templates = {row.key: row.value for row in rows}
+            subj_tpl = templates.get('course_completion_email_subject', COURSE_COMPLETION_EMAIL_SUBJECT)
+            body_tpl = templates.get('course_completion_email_body', COURSE_COMPLETION_EMAIL_BODY)
+        except Exception as exc:
+            logger.error(f"[Course Completion Email] Failed to fetch template settings: {exc}")
+            subj_tpl = COURSE_COMPLETION_EMAIL_SUBJECT
+            body_tpl = COURSE_COMPLETION_EMAIL_BODY
+
+        student_name = f"{cert.student.first_name} {cert.student.last_name}".strip() or cert.student.email.split('@')[0]
+        course_title = cert.course.title if cert.course else "Your Course Track"
+        certificate_code = cert.certificate_code or "N/A"
+        certificate_url = cert.file_url or "https://apex-lms.com/dashboard/certificates"
+        completion_date = cert.issued_at.strftime("%b %d, %Y") if cert.issued_at else time.strftime("%b %d, %Y")
+
+        portal_url = getattr(settings, 'FRONTEND_URL', 'https://apex-lms.com/login')
+        fmt_args = dict(
+            student_name=student_name,
+            full_name=student_name,
+            course_title=course_title,
+            course_name=course_title,
+            certificate_code=certificate_code,
+            certificate_url=certificate_url,
+            download_url=certificate_url,
+            completion_date=completion_date,
+            portal_url=portal_url,
+        )
+
+        # Normalize {{placeholder}} -> {placeholder}
+        for p in ['student_name', 'full_name', 'course_title', 'course_name', 'certificate_code', 'certificate_url', 'download_url', 'completion_date', 'portal_url']:
+            subj_tpl = subj_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+            body_tpl = body_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+
+        try:
+            subject = subj_tpl.format(**fmt_args)
+            body = body_tpl.format(**fmt_args)
+        except Exception:
+            subject = subj_tpl
+            body = body_tpl
+            for k, v in fmt_args.items():
+                subject = subject.replace(f'{{{k}}}', str(v))
+                body = body.replace(f'{{{k}}}', str(v))
+
+        send_lms_email(
+            to_email=cert.student.email,
+            subject=subject,
+            text_body=body,
+        )
+        logger.info(f"[Course Completion Email] Successfully sent completion email to {cert.student.email} for Certificate {cert.certificate_code}")
+
+    except Exception as exc:
+        logger.error(f"[Course Completion Email] Thread error: {exc}")
+
+
+def send_course_completion_email(certificate_id: int):
+    """
+    Triggers SMTP email notifications to a student upon course completion / certificate issuance.
+    Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
+    """
+    thread = threading.Thread(
+        target=_send_course_completion_email_thread,
+        args=(certificate_id,),
+        daemon=True,
+    )
+    thread.start()
+
+

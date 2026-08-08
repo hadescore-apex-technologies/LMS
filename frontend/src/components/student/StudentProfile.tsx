@@ -11,33 +11,25 @@ interface ProfileData {
   categories: string[];
 }
 
-const StudentProfile: React.FC = () => {
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+import { useQuery } from '@tanstack/react-query';
 
+const StudentProfile: React.FC = () => {
+  const [saving, setSaving] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
 
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
+  const { data: profile } = useQuery<ProfileData>({
+    queryKey: ['student-profile-tab'],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
       const res = await api.get('users/profile/');
-      setProfile(res.data);
       setFirstName(res.data.first_name || '');
       setLastName(res.data.last_name || '');
       setPhone(res.data.phone || '');
-    } catch (err) {
-      toast.error('Failed to load profile.');
-    } finally {
-      setLoading(false);
+      return res.data;
     }
-  };
-
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  });
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,14 +56,6 @@ const StudentProfile: React.FC = () => {
       setSaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="animate-spin text-primary" size={28} />
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in text-xs">

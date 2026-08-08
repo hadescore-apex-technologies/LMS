@@ -32,6 +32,13 @@ export const CertificateTab: React.FC = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
 
+  const [liveMode, setLiveMode] = React.useState(localStorage.getItem('super_adminLiveMode') === 'true');
+  React.useEffect(() => {
+    const handleStorage = () => setLiveMode(localStorage.getItem('super_adminLiveMode') === 'true');
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   // Modal States
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState('');
@@ -51,9 +58,9 @@ export const CertificateTab: React.FC = () => {
   });
 
   const { data: courses = [] } = useQuery<Course[]>({
-    queryKey: ['courses-dropdown-list'],
+    queryKey: ['courses-dropdown-list', liveMode],
     queryFn: async () => {
-      const res = await api.get('courses/list/');
+      const res = await api.get(`courses/list/?is_mentoring_track=${liveMode}`);
       return res.data;
     }
   });
@@ -167,12 +174,7 @@ export const CertificateTab: React.FC = () => {
       </div>
 
       {/* Credentials list */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">
-          <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-          <span>Fetching Credentials...</span>
-        </div>
-      ) : (
+      
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredCerts.map(cert => (
             <div key={cert.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm flex items-start justify-between gap-4">
@@ -211,7 +213,6 @@ export const CertificateTab: React.FC = () => {
             </div>
           )}
         </div>
-      )}
 
       {/* Issue Modal */}
       <AnimatePresence>

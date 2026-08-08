@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useDispatch, useSelector } from 'react-redux';
-import type { RootState } from '../../../store';
-import { toggleTheme } from '../../../features/themeSlice';
 import api from '../../../services/api';
 import { 
-  Shield, Bell, Moon, Sun, Smartphone, 
+  Shield, Bell, Settings, Smartphone, 
   MapPin, Clock 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -18,9 +15,6 @@ interface LoginRecord {
 }
 
 export const SettingsTab: React.FC = () => {
-  const dispatch = useDispatch();
-  const { mode } = useSelector((state: RootState) => state.theme);
-  
   // Notification States
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [pushAlerts, setPushAlerts] = useState(true);
@@ -43,29 +37,21 @@ export const SettingsTab: React.FC = () => {
     <div className="space-y-8 text-xs max-w-4xl">
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight">Security & Settings</h1>
-        <p className="text-muted-foreground text-sm mt-1">Configure layout themes, toggle email notification rules, and monitor active security sessions.</p>
+        <p className="text-muted-foreground text-sm mt-1">Configure notification rules and monitor active security sessions.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Left Side: Preferences */}
         <div className="space-y-6">
-          {/* Theme card */}
+          {/* Appearance card */}
           <div className="p-6 glass-card rounded-2xl border border-border/50 space-y-4">
             <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-              <Sun size={15} className="text-primary" />
-              <span>Theme Preferences</span>
+              <Settings size={15} className="text-primary" />
+              <span>Appearance</span>
             </h3>
             
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground font-semibold">Active Theme: <span className="text-foreground capitalize">{mode} mode</span></span>
-              
-              <button 
-                onClick={() => dispatch(toggleTheme())}
-                className="flex items-center gap-2 px-3 py-1.5 bg-muted hover:bg-muted/80 border border-border rounded-xl font-bold transition-all text-[11px]"
-              >
-                {mode === 'dark' ? <Sun size={12} className="text-yellow-500" /> : <Moon size={12} />}
-                <span>Toggle Theme</span>
-              </button>
+              <span className="text-muted-foreground font-semibold">Active Theme: <span className="text-foreground capitalize">Light mode</span></span>
             </div>
           </div>
 
@@ -80,7 +66,7 @@ export const SettingsTab: React.FC = () => {
               {[
                 { label: 'Academic Email Reports', desc: 'Recieve course outlines, grades, and certificates directly on your email.', value: emailAlerts, setter: setEmailAlerts },
                 { label: 'Push Notifications', desc: 'Recieve alerts about upcoming live webinars and task deadlines.', value: pushAlerts, setter: setPushAlerts },
-                { label: 'Forum Mentions', desc: 'Recieve updates when peers reply to your discussion posts.', value: forumAlerts, setter: setForumAlerts }
+                { label: 'Queries Mentions', desc: 'Recieve updates when staff reply to your queries.', value: forumAlerts, setter: setForumAlerts }
               ].map((opt, i) => (
                 <div key={i} className="flex items-start justify-between gap-4">
                   <div className="space-y-0.5">

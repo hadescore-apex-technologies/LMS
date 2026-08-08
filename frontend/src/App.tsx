@@ -9,8 +9,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
+      refetchOnMount: false,
       retry: 1,
-      staleTime: 1000 * 60 * 5, // 5 minutes cache
+      staleTime: 1000 * 60 * 10, // 10 Minutes - Instant memory cache delivery on click
+      gcTime: 1000 * 60 * 60,    // 1 Hour retention
+      placeholderData: (previousData: any) => previousData,
     },
   },
 });
@@ -26,10 +29,11 @@ function App() {
             toastOptions={{
               duration: 4000,
               style: {
-                background: '#18181b',
-                color: '#f4f4f5',
-                border: '1px solid rgba(255,255,255,0.05)',
+                background: '#ffffff',
+                color: '#1e293b',
+                border: '1px solid rgba(0,0,0,0.08)',
                 borderRadius: '0.75rem',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
               }
             }}
           />

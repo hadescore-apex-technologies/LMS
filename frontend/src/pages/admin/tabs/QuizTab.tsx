@@ -4,7 +4,7 @@ import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { 
   HelpCircle, RefreshCw, Search, Loader2, ArrowLeft, 
-  Plus, Edit3, Trash2, X, Save, Layers, PlusCircle, CheckCircle, Settings
+  Plus, Edit3, Trash2, X, Save, Layers, PlusCircle, CheckCircle, Settings, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -49,6 +49,13 @@ export const QuizTab: React.FC = () => {
   const [search, setSearch] = useState('');
   const [selectedStudentEmail, setSelectedStudentEmail] = useState<string | null>(null);
 
+  const [liveMode, setLiveMode] = React.useState(localStorage.getItem('super_adminLiveMode') === 'true');
+  React.useEffect(() => {
+    const handleStorage = () => setLiveMode(localStorage.getItem('super_adminLiveMode') === 'true');
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   // Quiz creation/edit states
   const [showQuizModal, setShowQuizModal] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
@@ -88,10 +95,10 @@ export const QuizTab: React.FC = () => {
 
   // 3. Fetch Courses Dropdown
   const { data: courses = [] } = useQuery<Course[]>({
-    queryKey: ['courses-dropdown-list'],
+    queryKey: ['courses-dropdown-list', liveMode],
     enabled: showQuizModal,
     queryFn: async () => {
-      const res = await api.get('courses/list/');
+      const res = await api.get(`courses/list/?is_mentoring_track=${liveMode}`);
       return res.data;
     }
   });
@@ -136,6 +143,8 @@ export const QuizTab: React.FC = () => {
         setQuestions(data.questions || []);
       }
       refetchQuizzes();
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Quiz configuration saved.');
     },
     onError: () => {
@@ -150,6 +159,8 @@ export const QuizTab: React.FC = () => {
     },
     onSuccess: () => {
       refetchQuizzes();
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Quiz checkpoint deleted.');
     },
     onError: () => {
@@ -170,6 +181,26 @@ export const QuizTab: React.FC = () => {
       toast.error('Failed to delete attempt.');
     }
   });
+
+  const deleteStudentAttemptsMutation = useMutation({
+    mutationFn: async (email: string) => {
+      await api.delete(`quizzes/attempts/delete_student/?email=${email}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-quiz-attempts-list'] });
+      toast.success('Student quiz attempts deleted.');
+    },
+    onError: (err: any) => {
+      const errMsg = err.response?.data?.error || 'Failed to delete student attempts.';
+      toast.error(errMsg);
+    }
+  });
+
+  const handleDeleteStudentAttempts = (email: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete all quiz attempts for ${name}?`)) {
+      deleteStudentAttemptsMutation.mutate(email);
+    }
+  };
 
   // Load quiz details to edit/view questions
   const handleOpenEditQuiz = async (quiz: Quiz) => {
@@ -202,7 +233,7 @@ export const QuizTab: React.FC = () => {
   const handleOpenCreateQuiz = () => {
     setActiveQuiz(null);
     setQuizTitle('');
-    setPassingScore(70);
+    setPassingScore(50);
     setTimerMinutes(15);
     setMaxRetries(3);
     setRandomizeQuestions(true);
@@ -302,10 +333,16 @@ export const QuizTab: React.FC = () => {
   return (
     <div className="space-y-6 text-xs">
       {/* Header and Toggle Control */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-[13px]">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">Quiz Control Portal</h1>
           <p className="text-muted-foreground text-sm mt-1">Review student performance metrics or configure training evaluation quizzes.</p>
+          {activeSubTab === 'ledger' && (
+            <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25 text-primary text-[10px] font-extrabold uppercase tracking-wider">
+              <Users size={11} />
+              All Students — Global View
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="bg-muted p-1 rounded-xl flex border border-border">
@@ -322,20 +359,11 @@ export const QuizTab: React.FC = () => {
               Manage Quizzes
             </button>
           </div>
-          {activeSubTab === 'manage' && (
-            <button
-              onClick={handleOpenCreateQuiz}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl shadow-md transition-all hover:brightness-110"
-            >
-              <Plus size={14} />
-              <span>Create Quiz</span>
-            </button>
-          )}
         </div>
       </div>
 
       {/* Filter and search */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-muted/20 border border-border/50 p-4 rounded-2xl">
+      <div className="flex flex-col sm:flex-row gap-[13px] items-center justify-between bg-muted/20 border border-border/50 p-4 rounded-2xl">
         <span className="font-bold text-muted-foreground block">
           {activeSubTab === 'ledger' ? (
             selectedStudentData 
@@ -363,12 +391,7 @@ export const QuizTab: React.FC = () => {
 
       {/* Attempts Ledger Tab View */}
       {activeSubTab === 'ledger' && (
-        attemptsLoading ? (
-          <div className="py-20 text-center text-muted-foreground bg-card border border-border rounded-2xl">
-            <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-            <span>Retrieving Attempts Ledger...</span>
-          </div>
-        ) : selectedStudentData ? (
+        selectedStudentData ? (
           <div className="space-y-4">
             <div className="flex items-center">
               <button
@@ -426,7 +449,7 @@ export const QuizTab: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-[13px] sm:grid-cols-2 lg:grid-cols-3">
             {filteredStudents.map(stu => {
               const initial = stu.name.charAt(0).toUpperCase();
               const totalAtts = stu.attempts.length;
@@ -437,11 +460,13 @@ export const QuizTab: React.FC = () => {
               return (
                 <div
                   key={stu.email}
-                  onClick={() => { setSelectedStudentEmail(stu.email); setSearch(''); }}
-                  className="p-5 bg-card border border-border/80 hover:border-primary/45 hover:shadow-md rounded-2xl flex flex-col justify-between space-y-4 transition-all duration-300 group cursor-pointer"
+                  className="p-[17px] bg-card border border-border/80 hover:border-primary/45 hover:shadow-md rounded-2xl flex flex-col justify-between space-y-4 transition-all duration-300 group"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div 
+                      className="flex items-center gap-3"
+                      onClick={() => { setSelectedStudentEmail(stu.email); setSearch(''); }}
+                    >
                       <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-primary/10 to-accent/15 border border-primary/10 flex items-center justify-center text-primary font-bold text-sm shadow-sm group-hover:scale-105 transition-transform duration-300">
                         {initial}
                       </div>
@@ -450,9 +475,23 @@ export const QuizTab: React.FC = () => {
                         <p className="text-[10px] text-muted-foreground truncate font-mono">{stu.email}</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-extrabold text-primary bg-primary/5 border border-primary/15 px-2.5 py-1 rounded-xl shrink-0">
-                      {totalAtts} {totalAtts === 1 ? 'Attempt' : 'Attempts'}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] font-extrabold text-primary bg-primary/5 border border-primary/15 px-2.5 py-1 rounded-xl">
+                        {totalAtts} {totalAtts === 1 ? 'Att' : 'Atts'}
+                      </span>
+                      {totalAtts > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteStudentAttempts(stu.email, stu.name);
+                          }}
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                          title="Delete all attempts"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-[10px]">
@@ -479,12 +518,7 @@ export const QuizTab: React.FC = () => {
 
       {/* Manage Quizzes Tab View */}
       {activeSubTab === 'manage' && (
-        quizzesLoading ? (
-          <div className="py-20 text-center text-muted-foreground bg-card border border-border rounded-2xl">
-            <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-            <span>Loading Checkpoints...</span>
-          </div>
-        ) : (
+        (
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -556,7 +590,7 @@ export const QuizTab: React.FC = () => {
               </div>
 
               {/* Quiz settings settings */}
-              <div className="grid gap-4 sm:grid-cols-3 bg-muted/10 p-4 border border-border rounded-xl">
+              <div className="grid gap-[13px] sm:grid-cols-3 bg-muted/10 p-4 border border-border rounded-xl">
                 <div className="sm:col-span-3 grid gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Select Course Track *</label>
@@ -599,8 +633,46 @@ export const QuizTab: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Interactive Pass Condition Calculator & Presets */}
+                <div className="sm:col-span-3 p-3.5 bg-cyan-500/5 border border-cyan-500/20 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
+                      <span className="text-[11px] font-extrabold uppercase tracking-wide text-cyan-700">Pass Condition Helper</span>
+                    </div>
+                    {questions.length > 0 ? (
+                      <span className="text-xs font-bold text-foreground">
+                        Require <span className="text-cyan-600 font-extrabold">{Math.ceil((passingScore / 100) * questions.length)}</span> out of <span className="font-extrabold">{questions.length}</span> correct ({passingScore}%)
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground font-medium">Add questions below to enable question-by-question pass presets</span>
+                    )}
+                  </div>
+
+                  {questions.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase mr-1">Quick Presets:</span>
+                      {Array.from({ length: questions.length }, (_, index) => {
+                        const count = index + 1;
+                        const pct = Math.round((count / questions.length) * 100);
+                        const isCurrent = Math.ceil((passingScore / 100) * questions.length) === count;
+                        return (
+                          <button
+                            key={count}
+                            type="button"
+                            onClick={() => setPassingScore(pct)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all ${isCurrent ? 'bg-cyan-600 text-white shadow-sm scale-105' : 'bg-card border border-border hover:border-cyan-400 text-foreground'}`}
+                          >
+                            {count} / {questions.length} ({pct}%)
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div className="sm:col-span-3 flex items-center justify-between pt-2">
-                  <div className="flex gap-4">
+                  <div className="flex gap-[13px]">
                     <div>
                       <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Max Attempts *</label>
                       <input type="number" value={maxRetries} onChange={(e) => setMaxRetries(Number(e.target.value))} className="w-16 h-8 text-center bg-card border border-border rounded-lg" />
@@ -619,7 +691,7 @@ export const QuizTab: React.FC = () => {
 
               {/* Bottom half: Add questions (only if activeQuiz exists) */}
               {activeQuiz ? (
-                <div className="grid gap-4 sm:grid-cols-3 pt-2">
+                <div className="grid gap-[13px] sm:grid-cols-3 pt-2">
                   {/* Left: Add question form */}
                   <div className="sm:col-span-1 space-y-3 bg-muted/20 p-4 border border-border rounded-xl">
                     <h5 className="font-bold text-xs uppercase text-primary border-b border-border pb-1.5 flex items-center gap-1">

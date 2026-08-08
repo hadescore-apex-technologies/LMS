@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Student {
+  courses: any;
   id: number;
   email: string;
   first_name: string;
@@ -78,8 +79,11 @@ const StudentManager: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const liveModeKey = user?.role === 'SUPER_ADMIN' ? 'super_adminLiveMode' : 'staffLiveMode';
+      const liveMode = localStorage.getItem(liveModeKey) === 'true';
       const [studentsRes, categoriesRes, coursesRes, certificatesRes] = await Promise.all([
-        api.get('students/'),
+        api.get(`students/?live_mode=${liveMode}`),
         api.get('courses/categories/'),
         api.get('courses/list/'),
         api.get('certificates/')
@@ -118,24 +122,43 @@ const StudentManager: React.FC = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !firstName || !lastName) {
-      toast.error("Required fields: Email, First Name, Last Name");
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const submittedEmail = ((formData.get('email') as string) || email).trim().toLowerCase();
+    const submittedFirstName = ((formData.get('first_name') as string) || firstName).trim();
+    const submittedLastName = ((formData.get('last_name') as string) || lastName).trim();
+    const submittedPassword = ((formData.get('password') as string) || password).trim();
+
+    if (!submittedEmail || !submittedEmail.includes('@') || submittedEmail.endsWith('@')) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    if (!submittedFirstName) {
+      toast.error("Please enter first name.");
+      return;
+    }
+    if (!submittedLastName) {
+      toast.error("Please enter last name.");
       return;
     }
 
     try {
-      const res = await api.post('students/', {
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        password: password || undefined,
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const liveModeKey = user?.role === 'SUPER_ADMIN' ? 'super_adminLiveMode' : 'staffLiveMode';
+      const liveMode = localStorage.getItem(liveModeKey) === 'true';
+      const res = await api.post(`students/?live_mode=${liveMode}`, {
+        email: submittedEmail,
+        first_name: submittedFirstName,
+        last_name: submittedLastName,
+        password: submittedPassword ? submittedPassword : undefined,
         phone,
         profile_photo: profilePhoto,
         course_duration: courseDuration,
         start_date: startDate || undefined,
         end_date: courseDuration === 'CUSTOM' ? endDate : undefined,
         notes,
-        categories: selectedCatIds
+        courses: selectedCatIds,
+        categories: selectedCatIds,
+        student_type: liveMode ? 'LIVE_CLASS' : 'COURSE'
       });
       
       const newStudent = res.data;
@@ -166,7 +189,10 @@ const StudentManager: React.FC = () => {
       setShowAddModal(false);
       resetForm();
     } catch (err: any) {
-      toast.error(err.response?.data?.email?.[0] || "Enrollment failed.");
+      const emailErr = err.response?.data?.email?.[0];
+      const passErr = err.response?.data?.password?.[0];
+      const detailErr = err.response?.data?.detail;
+      toast.error(emailErr || passErr || detailErr || "Enrollment failed.");
     }
   };
 
@@ -175,7 +201,10 @@ const StudentManager: React.FC = () => {
     if (!selectedStudent || !email || !firstName || !lastName) return;
 
     try {
-      const res = await api.put(`students/${selectedStudent.id}/`, {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const liveModeKey = user?.role === 'SUPER_ADMIN' ? 'super_adminLiveMode' : 'staffLiveMode';
+      const liveMode = localStorage.getItem(liveModeKey) === 'true';
+      const res = await api.put(`students/${selectedStudent.id}/?live_mode=${liveMode}`, {
         email,
         first_name: firstName,
         last_name: lastName,
@@ -186,7 +215,11 @@ const StudentManager: React.FC = () => {
         start_date: startDate,
         end_date: courseDuration === 'CUSTOM' ? endDate : undefined,
         notes,
-        categories: selectedCatIds
+        courses: selectedCatIds,
+        categories: selectedCatIds,
+        assigned_staff: (selectedStudent as any).assigned_staff ?? undefined,
+        assigned_live_staff: (selectedStudent as any).assigned_live_staff ?? (liveMode ? user?.id : undefined),
+        student_type: (selectedStudent as any).student_type || (liveMode ? 'LIVE_CLASS' : 'COURSE')
       });
       toast.success("Student details updated.");
       setShowEditModal(false);
@@ -249,7 +282,7 @@ const StudentManager: React.FC = () => {
     setStartDate(student.start_date || '');
     setEndDate(student.end_date || '');
     setNotes(student.notes || '');
-    setSelectedCatIds(student.categories || []);
+    setSelectedCatIds(student.courses || (student as any).categories || []);
     setShowEditModal(true);
   };
 
@@ -258,15 +291,6 @@ const StudentManager: React.FC = () => {
       prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
     );
   };
-
-  if (loading && students.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-60 rounded bg-muted animate-pulse" />
-        <div className="h-64 rounded-2xl bg-muted animate-pulse" />
-      </div>
-    );
-  }
 
   return (
     <>
@@ -479,6 +503,7 @@ const StudentManager: React.FC = () => {
                   <div>
                     <label className="block font-semibold text-muted-foreground mb-1">First Name *</label>
                     <input 
+                      name="first_name"
                       type="text" 
                       value={firstName} 
                       onChange={(e) => setFirstName(e.target.value)}
@@ -490,6 +515,7 @@ const StudentManager: React.FC = () => {
                   <div>
                     <label className="block font-semibold text-muted-foreground mb-1">Last Name *</label>
                     <input 
+                      name="last_name"
                       type="text" 
                       value={lastName} 
                       onChange={(e) => setLastName(e.target.value)}
@@ -504,9 +530,11 @@ const StudentManager: React.FC = () => {
                   <div>
                     <label className="block font-semibold text-muted-foreground mb-1">Email Address *</label>
                     <input 
+                      name="email"
                       type="email" 
                       value={email} 
                       onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="off"
                       className="w-full h-10 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
                       placeholder="student@apex.com"
                       required
@@ -518,6 +546,7 @@ const StudentManager: React.FC = () => {
                       type="text" 
                       value={phone} 
                       onChange={(e) => setPhone(e.target.value)}
+                      autoComplete="off"
                       className="w-full h-10 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
                       placeholder="+15550199"
                     />
@@ -529,9 +558,11 @@ const StudentManager: React.FC = () => {
                     <label className="block font-semibold text-muted-foreground mb-1">Credentials Password</label>
                     <div className="relative">
                       <input 
+                        name="password"
                         type={showEnrollPassword ? 'text' : 'password'} 
                         value={password} 
                         onChange={(e) => setPassword(e.target.value)}
+                        autoComplete="new-password"
                         className="w-full h-10 px-3 pr-10 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
                         placeholder="Defaults to: apex123"
                       />
@@ -1002,6 +1033,7 @@ const StudentManager: React.FC = () => {
                     type="password" 
                     value={newPassword} 
                     onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
                     className="w-full h-10 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
                     placeholder="••••••••"
                   />

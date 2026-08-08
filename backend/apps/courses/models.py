@@ -17,6 +17,14 @@ class Course(models.Model):
     )
     is_published = models.BooleanField(default=True)
     status = models.CharField(max_length=15, choices=(('DRAFT', 'Draft'), ('PUBLISHED', 'Published'), ('ARCHIVED', 'Archived')), default='PUBLISHED')
+    created_by = models.ForeignKey(
+        'users.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_courses'
+    )
+    is_mentoring_track = models.BooleanField(default=False, help_text="True if this is a recorded sessions track")
     requirements = models.TextField(blank=True, null=True)
     outcomes = models.TextField(blank=True, null=True)
     learning_path = models.TextField(blank=True, null=True)
@@ -38,11 +46,31 @@ class LiveClass(models.Model):
         ('LIVE', 'Live'),
         ('COMPLETED', 'Completed'),
     )
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='live_classes')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='live_classes', null=True, blank=True)
+    category = models.ForeignKey(
+        'categories.Category',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='live_classes'
+    )
     title = models.CharField(max_length=200)
     scheduled_time = models.DateTimeField()
     meeting_url = models.URLField()
+    recording_url = models.URLField(blank=True, null=True, help_text="URL for the recorded session after completion")
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='UPCOMING')
+    created_by = models.ForeignKey(
+        'users.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_live_classes'
+    )
+    students = models.ManyToManyField(
+        'users.CustomUser',
+        related_name='assigned_live_classes',
+        blank=True
+    )
 
     def __str__(self):
         return f"{self.title} - {self.status}"

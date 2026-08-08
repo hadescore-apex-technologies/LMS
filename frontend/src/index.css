@@ -6,79 +6,69 @@
 
 @layer base {
   :root {
-    --background: 215 25% 97.5%;
-    --foreground: 224 47.1% 10.5%;
+    --background: 195 30% 98%;
+    --foreground: 215 47.1% 10.5%;
     --card: 0 0% 100%;
-    --card-foreground: 224 47.1% 10.5%;
+    --card-foreground: 215 47.1% 10.5%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 47.1% 10.5%;
-    --primary: 221.2 83.2% 53.3%; /* Professional Cobalt/Sapphire Blue */
-    --primary-foreground: 210 20% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 199 89% 94%;
-    --accent-foreground: 199 89% 36%;
+    --popover-foreground: 215 47.1% 10.5%;
+    --primary: 191 95% 42%; /* Logo Electric Cyan / Teal (#00b4d8) */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 190 40% 96%;
+    --secondary-foreground: 191 95% 25%;
+    --muted: 195 25% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 191 90% 95%;
+    --accent-foreground: 191 95% 32%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 20% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.85rem;
-  }
-
-  .dark {
-    --background: 222 47% 4.5%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 8.5%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 7.5%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%; /* Glowing Electric Sapphire Blue */
-    --primary-foreground: 222 47% 4.5%;
-    --secondary: 222 47% 12%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 47% 12%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 199 89% 15%;
-    --accent-foreground: 199 89% 65%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 222 47% 13.5%;
-    --input: 222 47% 13.5%;
-    --ring: 217.2 91.2% 59.8%;
+    --border: 195 30% 91%;
+    --input: 195 30% 91%;
+    --ring: 191 95% 42%;
+    --radius: 1rem;
   }
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20;
+    @apply bg-slate-50/80 text-slate-900 font-sans antialiased selection:bg-cyan-500/20 selection:text-cyan-800 transition-colors duration-300;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight;
+    @apply font-display tracking-tight text-slate-900;
   }
 }
 
-/* Glassmorphism utility classes */
+/* Company Logo Brand UI Elements (Electric Cyan / Teal) */
 .glass-panel {
-  @apply bg-white/75 dark:bg-slate-950/65 backdrop-blur-lg border border-slate-200/50 dark:border-slate-800/40 shadow-sm transition-all duration-300;
+  @apply bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-sm transition-all duration-300;
 }
 
 .glass-card {
-  @apply bg-white/85 dark:bg-card/75 backdrop-blur-lg border border-border/80 shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-300;
+  @apply bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-cyan-400/70 transition-all duration-300;
 }
 
-/* Custom Scrollbar */
+.lms-card {
+  @apply bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-lg hover:border-cyan-300 hover:-translate-y-0.5 transition-all duration-300;
+}
+
+.lms-card-glow {
+  @apply bg-white rounded-2xl border border-slate-200/80 shadow-md shadow-cyan-500/5 hover:shadow-xl hover:shadow-cyan-500/15 hover:border-cyan-400 transition-all duration-300;
+}
+
+/* Custom Smooth Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  @apply bg-transparent;
+  @apply bg-slate-100/50;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/30;
+  @apply bg-slate-300/80 rounded-full hover:bg-cyan-500/80 transition-colors;
 }

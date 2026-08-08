@@ -55,12 +55,7 @@ export const LessonsTab: React.FC = () => {
       </div>
 
       {/* List logs */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">
-          <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-          <span>Syncing Lessons...</span>
-        </div>
-      ) : (
+      
         <div className="space-y-3">
           {filtered.map(les => (
             <div key={les.id} className="p-4 bg-card border border-border rounded-xl flex items-center justify-between gap-4">
@@ -80,7 +75,6 @@ export const LessonsTab: React.FC = () => {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 };

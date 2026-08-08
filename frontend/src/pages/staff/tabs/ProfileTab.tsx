@@ -27,7 +27,7 @@ export const ProfileTab: React.FC = () => {
   const [profilePhoto, setProfilePhoto] = useState('');
 
   // 1. Fetch Profile
-  const { data: profile, isLoading } = useQuery<UserProfile>({
+  const { data: profile } = useQuery<UserProfile>({
     queryKey: ['staff-profile-data'],
     queryFn: async () => {
       const res = await api.get('users/profile/');
@@ -76,15 +76,6 @@ export const ProfileTab: React.FC = () => {
       toast.error('Old password mismatch or complexity check failed.');
     }
   });
-
-  if (isLoading) {
-    return (
-      <div className="py-20 text-center text-muted-foreground">
-        <Loader2 className="animate-spin text-primary mx-auto mb-2" size={16} />
-        <span>Loading Profile Logs...</span>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 text-xs max-w-4xl">
@@ -156,12 +147,12 @@ export const ProfileTab: React.FC = () => {
 
             <div>
               <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Current Account Password</label>
-              <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} required placeholder="••••••••" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+              <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} required placeholder="••••••••" autoComplete="current-password" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
             </div>
 
             <div>
               <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">New Security Password</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="••••••••" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="••••••••" autoComplete="new-password" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
             </div>
           </div>
 

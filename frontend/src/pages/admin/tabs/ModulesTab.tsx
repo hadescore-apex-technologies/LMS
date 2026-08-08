@@ -56,11 +56,7 @@ export const ModulesTab: React.FC = () => {
       </div>
 
       {/* Grid */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground animate-spin">
-          <Loader2 className="mx-auto" size={24} />
-        </div>
-      ) : (
+      
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map(mod => (
             <div key={mod.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-2">
@@ -78,7 +74,6 @@ export const ModulesTab: React.FC = () => {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 };

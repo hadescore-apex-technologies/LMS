@@ -3,10 +3,19 @@ from django.conf import settings
 
 class Assignment(models.Model):
     module = models.ForeignKey('modules.Module', on_delete=models.CASCADE, related_name='assignments', null=True, blank=True)
+    course = models.ForeignKey('courses.Course', on_delete=models.CASCADE, related_name='course_assignments', null=True, blank=True)
+    students = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='assigned_tasks', blank=True)
     title = models.CharField(max_length=200)
     description = models.TextField()
     file_attachment = models.TextField(blank=True, null=True)  # URL of instructions PDF in Cloudflare R2
     due_date = models.DateTimeField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_assignments'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

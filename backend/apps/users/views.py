@@ -11,33 +11,78 @@ class MentorListView(APIView):
     permission_classes = [IsSuperAdminOrStaff]
 
     def get(self, request):
-        mentors = CustomUser.objects.filter(role='STAFF', is_active=True).values('id', 'first_name', 'last_name', 'email')
-        data = [
-            {
-                'id': m['id'],
-                'name': f"{m['first_name']} {m['last_name']}".strip() or m['email'],
-                'email': m['email']
-            }
-            for m in mentors
-        ]
+        mentors = CustomUser.objects.filter(role='STAFF', is_active=True).select_related('staff_profile__category')
+        data = []
+        for m in mentors:
+            base_name = f"{m.first_name} {m.last_name}".strip() or m.email
+            category_name = m.staff_profile.category.name if hasattr(m, 'staff_profile') and m.staff_profile and m.staff_profile.category else None
+            display_name = f"{base_name} ({category_name})" if category_name else base_name
+            data.append({
+                'id': m.id,
+                'name': display_name,
+                'email': m.email
+            })
         return response.Response(data)
 
 
 class StaffViewSet(viewsets.ModelViewSet):
-    queryset = CustomUser.objects.filter(role__in=['STAFF', 'SUPER_ADMIN'])
+    ROOT_EMAIL = 'hadescore.apex.technologies@gmail.com'
     serializer_class = StaffUserSerializer
     permission_classes = [IsSuperAdmin]
+
+    def get_queryset(self):
+        return CustomUser.objects.filter(
+            role__in=['STAFF', 'SUPER_ADMIN']
+        ).exclude(email=self.ROOT_EMAIL).select_related('staff_profile__category')
+
+    def create(self, request, *args, **kwargs):
+        email = (request.data.get('email') or '').strip().lower()
+        existing = CustomUser.objects.filter(email=email).first()
+        if existing:
+            if existing.role in ('STAFF', 'SUPER_ADMIN'):
+                # Reactivate existing staff account and update fields
+                existing.first_name = request.data.get('first_name', existing.first_name)
+                existing.last_name = request.data.get('last_name', existing.last_name)
+                existing.role = request.data.get('role', existing.role)
+                existing.is_active = True
+                raw_pwd = request.data.get('password')
+                if raw_pwd and str(raw_pwd).strip():
+                    existing.set_password(raw_pwd.strip())
+                existing.save()
+                category_id = request.data.get('category')
+                if category_id:
+                    from apps.categories.models import Category
+                    from apps.users.models import StaffProfile as SPModel
+                    cat = Category.objects.filter(id=category_id).first()
+                    staff_prof, _ = SPModel.objects.get_or_create(user=existing)
+                    staff_prof.category = cat
+                    staff_prof.save()
+                from apps.users.serializers import StaffUserSerializer as S
+                return response.Response(S(existing).data, status=status.HTTP_200_OK)
+            else:
+                return response.Response(
+                    {"email": [f"A user with this email already exists as '{existing.role}'. Please use a different email."]},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         user = serializer.save()
         # Send welcome email with login credentials
         from apps.core.emails import send_welcome_email
-        raw_password = self.request.data.get('password', 'apex123')
+        from django.conf import settings
+        raw_pwd = self.request.data.get('password')
+        password_to_send = raw_pwd.strip() if (raw_pwd and isinstance(raw_pwd, str) and raw_pwd.strip()) else 'apex123'
+        frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        login_url = f"{frontend_base}/staff/login"
+        
         send_welcome_email(
             first_name=user.first_name,
             last_name=user.last_name,
             email=user.email,
-            password=raw_password,
+            password=password_to_send,
+            role=user.role,
+            login_url=login_url,
         )
         AuditLog.objects.create(
             user=self.request.user,
@@ -53,10 +98,28 @@ class StaffViewSet(viewsets.ModelViewSet):
             ip_address=self.request.META.get('REMOTE_ADDR')
         )
 
+    def update(self, request, *args, **kwargs):
+        """Override to return a fully select_related response so category_name is never null."""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if not serializer.is_valid():
+            print(f"\n============================================================")
+            print(f"STAFF UPDATE VALIDATION ERROR:")
+            print(serializer.errors)
+            print(f"============================================================\n")
+            return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        self.perform_update(serializer)
+        # Re-fetch with select_related so category_name etc. are populated
+        refreshed = CustomUser.objects.select_related(
+            'staff_profile__category'
+        ).get(pk=instance.pk)
+        return response.Response(self.get_serializer(refreshed).data)
+
     def perform_destroy(self, instance):
-        if instance.email == 'hadescore.apex.technologies@gmail.com':
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError("The root administrator account cannot be deleted.")
+        if instance.email == self.ROOT_EMAIL:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("The root administrator account cannot be deleted.")
         email = instance.email
         instance.delete()
         AuditLog.objects.create(
@@ -119,18 +182,32 @@ class UserProfileViewSet(viewsets.ViewSet):
                 "start_date": profile.start_date,
                 "end_date": profile.end_date,
                 "notes": profile.notes,
-                "categories": [c.name for c in profile.categories.all()],
+                "categories": [c.title for c in profile.courses.all()],
                 "attendance_marked": attendance_marked
             })
         elif user.role == 'STAFF' and hasattr(user, 'staff_profile'):
             profile = user.staff_profile
             profile_data.update({
+                "phone": getattr(profile, 'phone', ''),
                 "category": profile.category.id if profile.category else None,
                 "category_name": profile.category.name if profile.category else None,
             })
         return response.Response(profile_data)
 
     def create(self, request):
+        return self._save_profile(request)
+
+    def put(self, request):
+        return self._save_profile(request)
+
+    def patch(self, request):
+        return self._save_profile(request)
+
+    @decorators.action(detail=False, methods=['put', 'patch', 'post'], url_path='')
+    def update_root(self, request):
+        return self._save_profile(request)
+
+    def _save_profile(self, request):
         user = request.user
         user.first_name = request.data.get('first_name', user.first_name)
         user.last_name = request.data.get('last_name', user.last_name)
@@ -138,11 +215,26 @@ class UserProfileViewSet(viewsets.ViewSet):
 
         if user.role == 'STUDENT' and hasattr(user, 'student_profile'):
             profile = user.student_profile
-            profile.phone = request.data.get('phone', profile.phone)
-            profile.profile_photo = request.data.get('profile_photo', profile.profile_photo)
+            if 'phone' in request.data:
+                profile.phone = request.data.get('phone', profile.phone)
+            if 'profile_photo' in request.data:
+                profile.profile_photo = request.data.get('profile_photo', profile.profile_photo)
+            if 'notes' in request.data:
+                profile.notes = request.data.get('notes', profile.notes)
             profile.save()
 
-        return response.Response({"message": "Profile updated successfully"})
+        elif user.role == 'STAFF' and hasattr(user, 'staff_profile'):
+            profile = user.staff_profile
+            if 'phone' in request.data and hasattr(profile, 'phone'):
+                profile.phone = request.data.get('phone', profile.phone)
+                profile.save()
+
+        return response.Response({
+            "message": "Profile updated successfully",
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email
+        })
 
     @decorators.action(detail=False, methods=['get'], url_path='attendance')
     def attendance(self, request):
@@ -161,7 +253,8 @@ class UserProfileViewSet(viewsets.ViewSet):
         records_data = [{
             "id": r.id,
             "date": r.date.strftime("%Y-%m-%d") if hasattr(r.date, "strftime") else str(r.date),
-            "status": r.status
+            "status": r.status,
+            "first_login": r.first_login.strftime("%H:%M:%S") if (r.first_login and hasattr(r.first_login, "strftime")) else (str(r.first_login) if r.first_login else None)
         } for r in records]
 
         return response.Response({
@@ -188,30 +281,29 @@ class UserProfileViewSet(viewsets.ViewSet):
 
     @decorators.action(detail=False, methods=['get'], url_path='leaderboard')
     def leaderboard(self, request):
-        from apps.users.models import StudentProfile
-        from apps.lessons.models import LessonProgress
-        from apps.quizzes.models import QuizAttempt
-        from apps.assignments.models import AssignmentSubmission
+        from django.db.models import Count, Q
         
-        profiles = StudentProfile.objects.select_related('user').all()
+        users = CustomUser.objects.filter(role='STUDENT').annotate(
+            lessons_count=Count('lesson_progresses', filter=Q(lesson_progresses__completed=True), distinct=True),
+            quizzes_count=Count('quiz_attempts', filter=Q(quiz_attempts__passed=True), distinct=True),
+            assignments_count=Count('assignment_submissions', distinct=True),
+        )
+        
         board = []
-        for profile in profiles:
-            email = profile.user.email
-            name = f"{profile.user.first_name} {profile.user.last_name}".strip() or email
-            
-            lessons_count = LessonProgress.objects.filter(student=profile.user, completed=True).count()
-            quizzes_count = QuizAttempt.objects.filter(student=profile.user, passed=True).values('quiz').distinct().count()
-            assignments_count = AssignmentSubmission.objects.filter(student=profile.user).values('assignment').distinct().count()
-            
-            # Score logic: lessons = 10, quizzes = 50, assignments = 100 points
-            score = (lessons_count * 10) + (quizzes_count * 50) + (assignments_count * 100)
+        for user in users:
+            email = user.email
+            name = f"{user.first_name} {user.last_name}".strip() or email
+            lessons_c = user.lessons_count
+            quizzes_c = user.quizzes_count
+            assignments_c = user.assignments_count
+            score = (lessons_c * 10) + (quizzes_c * 50) + (assignments_c * 100)
             
             board.append({
                 "email": email,
                 "name": name,
-                "lessons_completed": lessons_count,
-                "quizzes_passed": quizzes_count,
-                "assignments_submitted": assignments_count,
+                "lessons_completed": lessons_c,
+                "quizzes_passed": quizzes_c,
+                "assignments_submitted": assignments_c,
                 "score": score
             })
             

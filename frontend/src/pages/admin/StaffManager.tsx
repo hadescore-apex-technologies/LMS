@@ -167,15 +167,6 @@ const StaffManager: React.FC = () => {
     setShowPassModal(true);
   };
 
-  if (loading && staffList.length === 0) {
-    return (
-      <div className="space-y-6 text-xs">
-        <div className="h-8 w-60 rounded bg-muted animate-pulse" />
-        <div className="h-64 rounded-2xl bg-muted animate-pulse" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 text-xs animate-fade-in">
       {/* Header */}
@@ -224,8 +215,8 @@ const StaffManager: React.FC = () => {
                     <td className="py-3 px-4">
                       <span className={`inline-block text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded border ${
                         staff.role === 'SUPER_ADMIN' 
-                          ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 dark:text-indigo-400' 
-                          : 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20 dark:text-cyan-400'
+                          ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' 
+                          : 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20'
                       }`}>
                         {staff.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Staff'}
                       </span>
@@ -293,8 +284,9 @@ const StaffManager: React.FC = () => {
       {/* Add Staff Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div onClick={() => { setShowAddModal(false); resetForm(); }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <motion.div 
+              onClick={(e) => e.stopPropagation()}
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -302,7 +294,7 @@ const StaffManager: React.FC = () => {
             >
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <h3 className="font-semibold text-lg">Add New Operator Account</h3>
-                <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-muted rounded-lg"><X size={16} /></button>
+                <button onClick={() => { setShowAddModal(false); resetForm(); }} className="p-1 hover:bg-muted rounded-lg"><X size={16} /></button>
               </div>
 
               <form onSubmit={handleCreate} className="space-y-4 text-xs">
@@ -315,6 +307,7 @@ const StaffManager: React.FC = () => {
                       onChange={(e) => setFirstName(e.target.value)}
                       className="w-full h-10 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
                       placeholder="Jane"
+                      autoComplete="off"
                     />
                   </div>
                   <div>
@@ -325,6 +318,7 @@ const StaffManager: React.FC = () => {
                       onChange={(e) => setLastName(e.target.value)}
                       className="w-full h-10 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
                       placeholder="Smith"
+                      autoComplete="off"
                     />
                   </div>
                 </div>
@@ -337,6 +331,7 @@ const StaffManager: React.FC = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full h-10 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
                     placeholder="jane.smith@company.com"
+                    autoComplete="off"
                   />
                 </div>
 
@@ -360,11 +355,12 @@ const StaffManager: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full h-10 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
                     placeholder="••••••••"
+                    autoComplete="new-password"
                   />
                 </div>
 
                 <div className="flex justify-end gap-3 pt-3 border-t border-border">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-muted rounded-xl hover:bg-muted/80 font-medium">Cancel</button>
+                  <button type="button" onClick={() => { setShowAddModal(false); resetForm(); }} className="px-4 py-2 bg-muted rounded-xl hover:bg-muted/80 font-medium">Cancel</button>
                   <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-semibold hover:brightness-110">Save Account</button>
                 </div>
               </form>
@@ -376,8 +372,9 @@ const StaffManager: React.FC = () => {
       {/* Edit Staff Modal */}
       <AnimatePresence>
         {showEditModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div onClick={() => { setShowEditModal(false); resetForm(); }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <motion.div 
+              onClick={(e) => e.stopPropagation()}
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -385,7 +382,7 @@ const StaffManager: React.FC = () => {
             >
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <h3 className="font-semibold text-lg">Edit Operator Profile</h3>
-                <button onClick={() => setShowEditModal(false)} className="p-1 hover:bg-muted rounded-lg"><X size={16} /></button>
+                <button onClick={() => { setShowEditModal(false); resetForm(); }} className="p-1 hover:bg-muted rounded-lg"><X size={16} /></button>
               </div>
 
               <form onSubmit={handleUpdate} className="space-y-4 text-xs">
@@ -433,7 +430,7 @@ const StaffManager: React.FC = () => {
                 </div>
 
                 <div className="flex justify-end gap-3 pt-3 border-t border-border">
-                  <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-muted rounded-xl hover:bg-muted/80 font-medium">Cancel</button>
+                  <button type="button" onClick={() => { setShowEditModal(false); resetForm(); }} className="px-4 py-2 bg-muted rounded-xl hover:bg-muted/80 font-medium">Cancel</button>
                   <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-semibold hover:brightness-110 flex items-center gap-1.5">
                     <Save size={14} />
                     <span>Save Changes</span>
@@ -448,8 +445,9 @@ const StaffManager: React.FC = () => {
       {/* Reset Password Modal */}
       <AnimatePresence>
         {showPassModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div onClick={() => { setShowPassModal(false); resetForm(); }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
             <motion.div 
+              onClick={(e) => e.stopPropagation()}
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -457,7 +455,7 @@ const StaffManager: React.FC = () => {
             >
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <h3 className="font-semibold text-lg">Reset Operator Password</h3>
-                <button onClick={() => setShowPassModal(false)} className="p-1 hover:bg-muted rounded-lg"><X size={16} /></button>
+                <button onClick={() => { setShowPassModal(false); resetForm(); }} className="p-1 hover:bg-muted rounded-lg"><X size={16} /></button>
               </div>
 
               <form onSubmit={handlePasswordReset} className="space-y-4 text-xs">
@@ -477,13 +475,14 @@ const StaffManager: React.FC = () => {
                     type="password" 
                     value={newPassword} 
                     onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
                     className="w-full h-10 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
                     placeholder="••••••••"
                   />
                 </div>
 
-                <div className="flex justify-end gap-3 pt-3 border-t border-border">
-                  <button type="button" onClick={() => setShowPassModal(false)} className="px-4 py-2 bg-muted rounded-xl hover:bg-muted/80 font-medium">Cancel</button>
+                 <div className="flex justify-end gap-3 pt-3 border-t border-border">
+                  <button type="button" onClick={() => { setShowPassModal(false); resetForm(); }} className="px-4 py-2 bg-muted rounded-xl hover:bg-muted/80 font-medium">Cancel</button>
                   <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-xl font-semibold hover:brightness-110">Update Password</button>
                 </div>
               </form>

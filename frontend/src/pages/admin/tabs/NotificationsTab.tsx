@@ -77,12 +77,7 @@ export const NotificationsTab: React.FC = () => {
 
       {/* Notifications list */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
-        {isLoading ? (
-          <div className="py-12 text-center text-muted-foreground">
-            <Loader2 className="animate-spin text-primary mx-auto mb-2" size={16} />
-            <span>Loading Alerts...</span>
-          </div>
-        ) : (
+        
           <div className="divide-y divide-border">
             {alerts.map(alert => (
               <div key={alert.id} className={`p-4 flex items-center justify-between gap-4 transition-colors ${alert.is_read ? 'bg-card' : 'bg-primary/5'}`}>
@@ -114,7 +109,6 @@ export const NotificationsTab: React.FC = () => {
               </div>
             )}
           </div>
-        )}
       </div>
     </div>
   );

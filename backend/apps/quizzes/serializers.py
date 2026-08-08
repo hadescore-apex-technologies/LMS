@@ -26,10 +26,20 @@ class StudentQuestionSerializer(serializers.ModelSerializer):
 
 class QuizSerializer(serializers.ModelSerializer):
     questions = QuestionSerializer(many=True, read_only=True)
+    module_title = serializers.SerializerMethodField()
+    course_title = serializers.SerializerMethodField()
 
     class Meta:
         model = Quiz
-        fields = ['id', 'module', 'title', 'passing_score', 'timer_minutes', 'max_retries', 'randomize_questions', 'questions']
+        fields = ['id', 'module', 'module_title', 'course_title', 'title', 'passing_score', 'timer_minutes', 'max_retries', 'randomize_questions', 'questions']
+
+    def get_module_title(self, obj):
+        return obj.module.title if obj.module else None
+
+    def get_course_title(self, obj):
+        if obj.module and obj.module.course:
+            return obj.module.course.title
+        return None
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)

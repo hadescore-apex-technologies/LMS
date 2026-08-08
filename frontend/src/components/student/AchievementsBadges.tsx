@@ -19,33 +19,17 @@ interface AchievementsData {
   badges: Badge[];
 }
 
+import { useQuery } from '@tanstack/react-query';
+
 const AchievementsBadges: React.FC = () => {
-  const [data, setData] = useState<AchievementsData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchAchievements = async () => {
-    try {
-      setLoading(true);
+  const { data } = useQuery<AchievementsData>({
+    queryKey: ['student-achievements-tab'],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
       const res = await api.get('users/profile/achievements/');
-      setData(res.data);
-    } catch (err) {
-      toast.error('Failed to load achievements.');
-    } finally {
-      setLoading(false);
+      return res.data;
     }
-  };
-
-  useEffect(() => {
-    fetchAchievements();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="animate-spin text-primary" size={28} />
-      </div>
-    );
-  }
+  });
 
   if (!data) return null;
 

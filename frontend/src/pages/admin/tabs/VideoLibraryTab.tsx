@@ -52,6 +52,7 @@ export const VideoLibraryTab: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-videos-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       setShowUploadModal(false);
       setVideoTitle('');
       setStreamId('');
@@ -68,6 +69,7 @@ export const VideoLibraryTab: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-videos-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       toast.success('Video record removed.');
     }
   });
@@ -109,11 +111,7 @@ export const VideoLibraryTab: React.FC = () => {
       </div>
 
       {/* Roster list grid */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground animate-pulse">
-          <span>Retrieving videos catalog...</span>
-        </div>
-      ) : (
+      
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map(v => (
             <div key={v.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
@@ -140,7 +138,6 @@ export const VideoLibraryTab: React.FC = () => {
             </div>
           )}
         </div>
-      )}
 
       {/* Upload modal */}
       <AnimatePresence>

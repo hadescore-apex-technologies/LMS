@@ -41,20 +41,33 @@ export const DiscussionTab: React.FC = () => {
   const [activePostId, setActivePostId] = useState<number | null>(null);
   const [newCommentContent, setNewCommentContent] = useState('');
 
+  const [liveMode, setLiveMode] = React.useState(localStorage.getItem('super_adminLiveMode') === 'true');
+
+  React.useEffect(() => {
+    const handleStorage = () => {
+      setLiveMode(localStorage.getItem('super_adminLiveMode') === 'true');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   // 1. Fetch Courses
   const { data: courses = [] } = useQuery<Course[]>({
-    queryKey: ['courses-dropdown-list'],
+    queryKey: ['courses-dropdown-list', liveMode],
     queryFn: async () => {
-      const res = await api.get('courses/list/');
+      const res = await api.get(`courses/list/?is_mentoring_track=${liveMode}`);
       return res.data;
     }
   });
 
   // 2. Fetch Posts
   const { data: posts = [], isLoading } = useQuery<DiscussionPost[]>({
-    queryKey: ['discussion-posts', selectedCourse],
+    queryKey: ['discussion-posts', selectedCourse, liveMode],
     queryFn: async () => {
-      const url = selectedCourse ? `courses/discussions/posts/?course=${selectedCourse}` : 'courses/discussions/posts/';
+      let url = `courses/discussions/posts/?live_mode=${liveMode}`;
+      if (selectedCourse) {
+        url += `&course=${selectedCourse}`;
+      }
       const res = await api.get(url);
       return res.data;
     }
@@ -124,7 +137,7 @@ export const DiscussionTab: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Discussion Boards Moderation</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Queries Manage</h1>
           <p className="text-muted-foreground text-sm mt-1">Audit student question boards, delete spam replies, and post clarifications.</p>
         </div>
       </div>
@@ -146,7 +159,7 @@ export const DiscussionTab: React.FC = () => {
           onChange={(e) => setSelectedCourse(e.target.value)}
           className="w-full sm:w-56 h-10 px-3 bg-background border border-border rounded-xl outline-none focus:border-primary/45 font-semibold"
         >
-          <option value="">All Course Discussions</option>
+          <option value="">All Course Queries</option>
           {courses.map(c => (
             <option key={c.id} value={c.id}>{c.title}</option>
           ))}
@@ -154,16 +167,11 @@ export const DiscussionTab: React.FC = () => {
       </div>
 
       {/* Main content pane */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">
-          <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-          <span>Loading Forums...</span>
-        </div>
-      ) : (
+      
         <div className="space-y-6">
           {filteredPosts.length === 0 ? (
             <div className="py-20 text-center text-muted-foreground font-medium bg-card border border-dashed border-border rounded-2xl">
-              No active discussion threads matching filters.
+              No active queries matching filters.
             </div>
           ) : (
             filteredPosts.map(post => (
@@ -210,7 +218,7 @@ export const DiscussionTab: React.FC = () => {
                         <div key={comment.id} className="p-3 bg-card border border-border/60 rounded-xl space-y-1">
                           <div className="flex justify-between text-[10px] text-muted-foreground font-semibold">
                             <span className="flex items-center gap-1.5">
-                              <span>User: <span className="text-foreground/90 font-bold">{comment.user_details?.name || comment.user_details?.email || 'Anonymous'}</span></span>
+                              <span><span className="text-foreground/90 font-bold">{comment.user_details?.name || comment.user_details?.email || 'Anonymous'}</span></span>
                               {(comment.user_details?.role === 'STAFF' || comment.user_details?.role === 'SUPER_ADMIN') && (
                                 <span className="px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-md font-bold uppercase text-[7px]">
                                   Mentor / Staff
@@ -253,7 +261,6 @@ export const DiscussionTab: React.FC = () => {
             ))
           )}
         </div>
-      )}
     </div>
   );
 };

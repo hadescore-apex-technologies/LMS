@@ -134,12 +134,7 @@ export const DownloadsTab: React.FC = () => {
 
       {/* Directory log list */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
-        {isLoading ? (
-          <div className="py-20 text-center text-muted-foreground">
-            <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-            <span>Loading Directory Files...</span>
-          </div>
-        ) : (
+        
           <div className="divide-y divide-border">
             {filteredResources.map((res, idx) => (
               <div key={idx} className="p-4 flex items-center justify-between gap-4 hover:bg-muted/10 transition-colors">
@@ -170,7 +165,6 @@ export const DownloadsTab: React.FC = () => {
               </div>
             )}
           </div>
-        )}
       </div>
 
       {/* Upload modal */}

@@ -1,9 +1,11 @@
 from rest_framework import serializers
 from apps.certificates.models import Certificate
+from apps.courses.models import Course
 
 class CertificateSerializer(serializers.ModelSerializer):
     student_email = serializers.CharField(source='student.email', read_only=True)
-    course_title = serializers.CharField(source='course.title', read_only=True)
+    course_title = serializers.CharField(source='course.title', read_only=True, default='')
+    course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all(), required=True, allow_null=False)
     certificate_code = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:

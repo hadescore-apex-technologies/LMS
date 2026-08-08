@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { 
-  FileText, Download, Trash2, Search, X, Save, RefreshCw, Loader2, ArrowLeft,
-  Plus, Edit3, Settings, Calendar, Upload, CheckCircle
+  FileText, Download, Trash2, Search, X, Save, Loader2, ArrowLeft,
+  Settings, Upload, CheckCircle, UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -72,8 +72,9 @@ export const AssignmentsTab: React.FC = () => {
   const [uploadingField, setUploadingField] = useState<string | null>(null);
 
   // 1. Fetch Submissions
-  const { data: submissions = [], isLoading: submissionsLoading, refetch: refetchSubmissions } = useQuery<Submission[]>({
+  const { data: submissions = [] } = useQuery<Submission[]>({
     queryKey: ['staff-submissions-list'],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get('assignments/submissions/');
       return res.data;
@@ -81,8 +82,9 @@ export const AssignmentsTab: React.FC = () => {
   });
 
   // 2. Fetch Assignments list
-  const { data: assignments = [], isLoading: assignmentsLoading, refetch: refetchAssignments } = useQuery<Assignment[]>({
+  const { data: assignments = [], refetch: refetchAssignments } = useQuery<Assignment[]>({
     queryKey: ['staff-assignments-list'],
+    placeholderData: (prev) => prev,
     enabled: activeSubTab === 'manage',
     queryFn: async () => {
       const res = await api.get('assignments/list/');
@@ -93,6 +95,7 @@ export const AssignmentsTab: React.FC = () => {
   // 3. Fetch Courses Dropdown
   const { data: courses = [] } = useQuery<Course[]>({
     queryKey: ['courses-dropdown-list'],
+    placeholderData: (prev) => prev,
     enabled: showAssignModal,
     queryFn: async () => {
       const res = await api.get('courses/list/');
@@ -144,6 +147,26 @@ export const AssignmentsTab: React.FC = () => {
     }
   });
 
+  const deleteStudentSubmissionsMutation = useMutation({
+    mutationFn: async (email: string) => {
+      await api.delete(`assignments/submissions/delete_student/?email=${email}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-submissions-list'] });
+      toast.success('Student submissions deleted.');
+    },
+    onError: (err: any) => {
+      const errMsg = err.response?.data?.error || 'Failed to delete student submissions.';
+      toast.error(errMsg);
+    }
+  });
+
+  const handleDeleteStudentSubmissions = (email: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete all submissions for ${name}?`)) {
+      deleteStudentSubmissionsMutation.mutate(email);
+    }
+  };
+
   // Save Assignment Mutation
   const saveAssignmentMutation = useMutation({
     mutationFn: async () => {
@@ -166,6 +189,8 @@ export const AssignmentsTab: React.FC = () => {
     },
     onSuccess: () => {
       refetchAssignments();
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       setShowAssignModal(false);
       resetAssignForm();
       toast.success('Homework assignment saved successfully.');
@@ -182,6 +207,8 @@ export const AssignmentsTab: React.FC = () => {
     },
     onSuccess: () => {
       refetchAssignments();
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Homework assignment deleted.');
     },
     onError: () => {
@@ -218,17 +245,7 @@ export const AssignmentsTab: React.FC = () => {
     setShowGradeModal(true);
   };
 
-  const handleOpenCreateAssign = () => {
-    setEditingAssignment(null);
-    setAssignTitle('');
-    setAssignDesc('');
-    setAssignDueDate('');
-    setAssignFileUrl('');
-    setSelectedCourseId('');
-    setSelectedModuleId('');
-    setShowAssignModal(true);
-  };
-
+  
   const handleOpenEditAssign = async (assign: Assignment) => {
     setEditingAssignment(assign);
     setAssignTitle(assign.title);
@@ -312,6 +329,12 @@ export const AssignmentsTab: React.FC = () => {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">Assignment Command Center</h1>
           <p className="text-muted-foreground text-sm mt-1">Review, run plagiarism scan and grade homework deliverables or configure tasks.</p>
+          {activeSubTab === 'submissions' && (
+            <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-500 text-[10px] font-extrabold uppercase tracking-wider">
+              <UserCheck size={11} />
+              My Assigned Students Only
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="bg-muted p-1 rounded-xl flex border border-border">
@@ -328,15 +351,6 @@ export const AssignmentsTab: React.FC = () => {
               Manage Tasks
             </button>
           </div>
-          {activeSubTab === 'manage' && (
-            <button
-              onClick={handleOpenCreateAssign}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl shadow-md transition-all hover:brightness-110"
-            >
-              <Plus size={14} />
-              <span>Create Assignment</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -369,12 +383,7 @@ export const AssignmentsTab: React.FC = () => {
 
       {/* Submissions Inbox Tab View */}
       {activeSubTab === 'submissions' && (
-        submissionsLoading ? (
-          <div className="py-20 text-center text-muted-foreground bg-card border border-border rounded-2xl">
-            <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-            <span>Retrieving Submissions...</span>
-          </div>
-        ) : selectedStudentData ? (
+        selectedStudentData ? (
           <div className="space-y-4">
             <div className="flex items-center">
               <button
@@ -459,11 +468,13 @@ export const AssignmentsTab: React.FC = () => {
               return (
                 <div
                   key={stu.email}
-                  onClick={() => { setSelectedStudentEmail(stu.email); setSubSearch(''); }}
-                  className="p-5 bg-card border border-border/80 hover:border-primary/45 hover:shadow-md rounded-2xl flex flex-col justify-between space-y-4 transition-all duration-300 group cursor-pointer"
+                  className="p-5 bg-card border border-border/80 hover:border-primary/45 hover:shadow-md rounded-2xl flex flex-col justify-between space-y-4 transition-all duration-300 group"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div 
+                      className="flex items-center gap-3"
+                      onClick={() => { setSelectedStudentEmail(stu.email); setSubSearch(''); }}
+                    >
                       <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-primary/10 to-accent/15 border border-primary/10 flex items-center justify-center text-primary font-bold text-sm shadow-sm group-hover:scale-105 transition-transform duration-300">
                         {initial}
                       </div>
@@ -472,9 +483,23 @@ export const AssignmentsTab: React.FC = () => {
                         <p className="text-[10px] text-muted-foreground truncate font-mono">{stu.email}</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-extrabold text-primary bg-primary/5 border border-primary/15 px-2.5 py-1 rounded-xl shrink-0">
-                      {totalSubs} {totalSubs === 1 ? 'Submission' : 'Submissions'}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] font-extrabold text-primary bg-primary/5 border border-primary/15 px-2.5 py-1 rounded-xl">
+                        {totalSubs} {totalSubs === 1 ? 'Sub' : 'Subs'}
+                      </span>
+                      {totalSubs > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteStudentSubmissions(stu.email, stu.name);
+                          }}
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                          title="Delete all submissions"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px]">
@@ -495,12 +520,7 @@ export const AssignmentsTab: React.FC = () => {
 
       {/* Manage Tasks Tab View */}
       {activeSubTab === 'manage' && (
-        assignmentsLoading ? (
-          <div className="py-20 text-center text-muted-foreground bg-card border border-border rounded-2xl">
-            <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-            <span>Loading Homework Tasks...</span>
-          </div>
-        ) : (
+        (
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -688,10 +708,7 @@ export const AssignmentsTab: React.FC = () => {
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Guidelines / Rubrics Instructions *</label>
                   <textarea value={assignDesc} onChange={(e) => setAssignDesc(e.target.value)} required rows={4} className="w-full p-3 bg-muted/40 border border-border rounded-xl outline-none resize-none" />
                 </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Deadline Date</label>
-                  <input type="datetime-local" value={assignDueDate} onChange={(e) => setAssignDueDate(e.target.value)} className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none font-mono" />
-                </div>
+
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Guideline file attachment</label>
                   {assignFileUrl ? (

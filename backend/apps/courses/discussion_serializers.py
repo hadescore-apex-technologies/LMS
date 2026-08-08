@@ -23,7 +23,7 @@ class CourseDiscussionCommentSerializer(serializers.ModelSerializer):
 
 class CourseDiscussionPostSerializer(serializers.ModelSerializer):
     user_details = UserShortSerializer(source='user', read_only=True)
-    course_title = serializers.CharField(source='course.title', read_only=True)
+    course_title = serializers.SerializerMethodField()
     mentor_name = serializers.SerializerMethodField()
     comments = CourseDiscussionCommentSerializer(many=True, read_only=True)
     comments_count = serializers.SerializerMethodField()
@@ -35,12 +35,26 @@ class CourseDiscussionPostSerializer(serializers.ModelSerializer):
             'title', 'content', 'comments', 'comments_count', 'created_at'
         ]
         read_only_fields = ['user']
+        extra_kwargs = {
+            'course': {'required': False, 'allow_null': True}
+        }
+
+    def get_course_title(self, obj):
+        if obj.course:
+            return obj.course.title
+        return "Live Mentoring Track"
 
     def get_mentor_name(self, obj):
-        if obj.course.mentor:
+        if obj.course and obj.course.mentor:
             name = f"{obj.course.mentor.first_name} {obj.course.mentor.last_name}".strip()
             return name if name else obj.course.mentor.email
-        return None
+        prof = getattr(obj.user, 'student_profile', None)
+        if prof:
+            mentor = prof.assigned_live_staff or prof.assigned_staff
+            if mentor:
+                name = f"{mentor.first_name} {mentor.last_name}".strip()
+                return name if name else mentor.email
+        return "Staff Mentor"
 
     def get_comments_count(self, obj):
         return obj.comments.count()

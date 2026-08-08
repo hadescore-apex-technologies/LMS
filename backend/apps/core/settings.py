@@ -109,9 +109,10 @@ elif DATABASE_URL:
             'NAME': db_url.path[1:] or 'postgres',
             'USER': db_url.username or 'postgres',
             'PASSWORD': db_url.password,
-            'HOST': db_url.hostname or 'db.scltqowxstewytlvixtw.supabase.co',
-            'PORT': db_url.port or 5432,
-            'CONN_MAX_AGE': 600,
+            'HOST': db_url.hostname or 'aws-0-ap-northeast-1.pooler.supabase.com',
+            'PORT': db_url.port or 6543,
+            'CONN_MAX_AGE': 0,
+            'CONN_HEALTH_CHECKS': True,
         }
     }
 else:
@@ -123,8 +124,9 @@ else:
             'USER': 'postgres.scltqowxstewytlvixtw',
             'PASSWORD': db_password,
             'HOST': 'aws-0-ap-northeast-1.pooler.supabase.com',
-            'PORT': 5432,
-            'CONN_MAX_AGE': 600,
+            'PORT': 6543,
+            'CONN_MAX_AGE': 0,
+            'CONN_HEALTH_CHECKS': True,
         }
     }
 
@@ -169,11 +171,11 @@ REST_FRAMEWORK = {
     ),
 }
 
-# SimpleJWT Settings
+# SimpleJWT Settings - Permanent Non-Expiring Tokens for Staff & Admin (100 Years)
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=365 * 100),   # 100 Years - Access Token Never Expires
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=365 * 100),  # 100 Years - Refresh Token Never Expires
+    'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': False,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
@@ -183,7 +185,10 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True  # In production, restrict this to specific domains
+CORS_ALLOW_ALL_ORIGINS = True  # Allow local network & remote devices
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = ['*']
+CORS_ALLOW_METHODS = ['*']
 
 # Celery & Redis Settings
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')

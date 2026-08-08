@@ -20,8 +20,9 @@ export const CertificatesTab: React.FC = () => {
   const [search, setSearch] = useState('');
 
   // Queries
-  const { data: certificates = [], isLoading } = useQuery<Certificate[]>({
+  const { data: certificates = [] } = useQuery<Certificate[]>({
     queryKey: ['certificates-list'],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get('certificates/');
       return res.data;
@@ -70,12 +71,7 @@ export const CertificatesTab: React.FC = () => {
       </div>
 
       {/* Credentials list */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">
-          <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-          <span>Fetching Credentials...</span>
-        </div>
-      ) : (
+      
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredCerts.map(cert => (
             <div key={cert.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm flex items-start justify-between gap-4">
@@ -114,7 +110,6 @@ export const CertificatesTab: React.FC = () => {
             </div>
           )}
         </div>
-      )}
     </div>
   );
 };

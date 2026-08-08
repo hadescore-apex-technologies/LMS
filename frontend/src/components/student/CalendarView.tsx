@@ -12,21 +12,19 @@ interface CalendarEvent {
   url?: string;
 }
 
-const CalendarView: React.FC = () => {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+import { useQuery } from '@tanstack/react-query';
 
+const CalendarView: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDayEvents, setSelectedDayEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  const fetchCalendarEvents = async () => {
-    try {
-      setLoading(true);
+  const { data: events = [] } = useQuery<CalendarEvent[]>({
+    queryKey: ['student-calendar-events'],
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
       const res = await api.get('courses/live/');
       const eventsList: CalendarEvent[] = [];
-
-      // Process Live Classes
       res.data.forEach((live: any) => {
         eventsList.push({
           id: live.id,
@@ -37,18 +35,9 @@ const CalendarView: React.FC = () => {
           url: live.meeting_url
         });
       });
-
-      setEvents(eventsList);
-    } catch (err) {
-      toast.error('Failed to load study calendar.');
-    } finally {
-      setLoading(false);
+      return eventsList;
     }
-  };
-
-  useEffect(() => {
-    fetchCalendarEvents();
-  }, []);
+  });
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -79,14 +68,6 @@ const CalendarView: React.FC = () => {
     });
     setSelectedDayEvents(dayEvents);
   };
-
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="animate-spin text-primary" size={28} />
-      </div>
-    );
-  }
 
   return (
     <div className="w-full grid gap-6 lg:grid-cols-3 animate-fade-in text-xs">
@@ -159,7 +140,7 @@ const CalendarView: React.FC = () => {
         <div className="flex items-center gap-4 text-[10px] text-muted-foreground font-semibold pt-2 border-t border-border/40">
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-blue-500" />
-            <span>Scheduled Live Class</span>
+            <span>Scheduled Doubt Clearing Session</span>
           </div>
         </div>
       </div>
@@ -178,7 +159,7 @@ const CalendarView: React.FC = () => {
             >
               <div className="flex items-center justify-between">
                 <span className="text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 text-blue-500">
-                  Live Class
+                  Doubt Session
                 </span>
                 <div className="flex items-center gap-1 text-[9px] text-muted-foreground font-semibold">
                   <Clock size={10} />

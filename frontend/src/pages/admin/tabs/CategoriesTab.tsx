@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Edit3, Trash2, X, Save, Search, Layers, Loader2 } from 'lucide-react';
+import { Plus, Edit3, Trash2, X, Save, Search, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Category {
@@ -11,7 +11,11 @@ interface Category {
   slug: string;
 }
 
-export const CategoriesTab: React.FC = () => {
+interface CategoriesTabProps {
+  type?: 'COURSE' | 'LIVE';
+}
+
+export const CategoriesTab: React.FC<CategoriesTabProps> = ({ type = 'COURSE' }) => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
 
@@ -21,34 +25,57 @@ export const CategoriesTab: React.FC = () => {
   const [editingCat, setEditingCat] = useState<Category | null>(null);
 
   // 1. Fetch Categories
-  const { data: categories = [], isLoading } = useQuery<Category[]>({
-    queryKey: ['categories-list'],
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['categories-list', type],
     queryFn: async () => {
-      const res = await api.get('courses/categories/');
+      const res = await api.get(`courses/categories/?type=${type}`);
       return res.data;
     }
   });
 
   // Mutations
   const saveCategoryMutation = useMutation({
-    mutationFn: async () => {
-      if (!catName.trim()) return;
-      const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-      if (editingCat) {
-        await api.put(`courses/categories/${editingCat.id}/`, { name: catName, slug });
+    mutationFn: async ({ name, slug, id }: { name: string; slug: string; id?: number }) => {
+      if (id) {
+        await api.put(`courses/categories/${id}/`, { name, slug, category_type: type });
       } else {
-        await api.post('courses/categories/', { name: catName, slug });
+        await api.post('courses/categories/', { name, slug, category_type: type });
       }
+    },
+    onMutate: async ({ name, slug, id }) => {
+      await queryClient.cancelQueries({ queryKey: ['categories-list', type] });
+      const previousCategories = queryClient.getQueryData<Category[]>(['categories-list', type]);
+      
+      if (previousCategories) {
+        if (id) {
+          queryClient.setQueryData<Category[]>(
+            ['categories-list', type],
+            previousCategories.map(cat => cat.id === id ? { ...cat, name, slug } : cat)
+          );
+        } else {
+          queryClient.setQueryData<Category[]>(
+            ['categories-list', type],
+            [...previousCategories, { id: Math.random(), name, slug }]
+          );
+        }
+      }
+      setCatName('');
+      setShowCatModal(false);
+      return { previousCategories };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousCategories) {
+        queryClient.setQueryData(['categories-list', type], context.previousCategories);
+      }
+      toast.error('Failed to save category.');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories-list'] });
-      setCatName('');
+      queryClient.invalidateQueries({ queryKey: ['courses-list'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-dropdown-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       setEditingCat(null);
-      setShowCatModal(false);
-      toast.success(editingCat ? 'Category updated.' : 'Category created.');
-    },
-    onError: () => {
-      toast.error('Failed to save category.');
     }
   });
 
@@ -56,12 +83,30 @@ export const CategoriesTab: React.FC = () => {
     mutationFn: async (id: number) => {
       await api.delete(`courses/categories/${id}/`);
     },
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ['categories-list', type] });
+      const previousCategories = queryClient.getQueryData<Category[]>(['categories-list', type]);
+      if (previousCategories) {
+        queryClient.setQueryData<Category[]>(
+          ['categories-list', type],
+          previousCategories.filter(c => c.id !== id)
+        );
+      }
+      return { previousCategories };
+    },
+    onError: (err, id, context) => {
+      if (context?.previousCategories) {
+        queryClient.setQueryData(['categories-list', type], context.previousCategories);
+      }
+      toast.error('Failed to delete category.');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories-list'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-list'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-dropdown-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Category deleted successfully.');
-    },
-    onError: () => {
-      toast.error('Failed to delete category.');
     }
   });
 
@@ -81,8 +126,14 @@ export const CategoriesTab: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Training Domains</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage course topic clusters and catalog departments.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            {type === 'LIVE' ? "Mentoring Domains" : "Training Domains"}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {type === 'LIVE' 
+              ? "Manage topic fields and subject areas assigned to Live mentors." 
+              : "Manage course topic clusters and catalog departments."}
+          </p>
         </div>
         <button
           onClick={() => { resetForm(); setShowCatModal(true); }}
@@ -108,12 +159,7 @@ export const CategoriesTab: React.FC = () => {
       </div>
 
       {/* Categories Grid */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">
-          <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-          <span>Loading Domains...</span>
-        </div>
-      ) : (
+      
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredCategories.map(cat => (
             <div key={cat.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between">
@@ -138,7 +184,6 @@ export const CategoriesTab: React.FC = () => {
             </div>
           )}
         </div>
-      )}
 
       {/* Category Creation / Edit Modal */}
       <AnimatePresence>
@@ -151,7 +196,12 @@ export const CategoriesTab: React.FC = () => {
                 <h3 className="font-bold text-sm">{editingCat ? 'Edit Category' : 'Create Category'}</h3>
                 <button onClick={() => setShowCatModal(false)}><X size={16} /></button>
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); saveCategoryMutation.mutate(); }} className="space-y-4">
+              <form onSubmit={(e) => { 
+                e.preventDefault(); 
+                if (!catName.trim()) return;
+                const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                saveCategoryMutation.mutate({ name: catName, slug, id: editingCat?.id }); 
+              }} className="space-y-4">
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Category Name *</label>
                   <input

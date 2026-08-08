@@ -4,7 +4,7 @@ import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { 
   FileText, Upload, Download, 
-  Loader2, X 
+  Loader2, X, Trash2 
 } from 'lucide-react';
 
 interface Assignment {
@@ -37,8 +37,9 @@ export const AssignmentsTab: React.FC = () => {
   const [uploadingId, setUploadingId] = useState<number | null>(null);
 
   // 1. Fetch Assignments
-  const { data: assignments = [], isLoading: assignLoading } = useQuery<Assignment[]>({
+  const { data: assignments = [] } = useQuery<Assignment[]>({
     queryKey: ['assignments-tracker'],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get('assignments/list/');
       return res.data;
@@ -46,8 +47,9 @@ export const AssignmentsTab: React.FC = () => {
   });
 
   // 2. Fetch Submissions
-  const { data: submissions = [], isLoading: subLoading } = useQuery<Submission[]>({
+  const { data: submissions = [] } = useQuery<Submission[]>({
     queryKey: ['submissions-tracker'],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get('assignments/submissions/');
       return res.data;
@@ -74,6 +76,27 @@ export const AssignmentsTab: React.FC = () => {
     }
   });
 
+  // Delete Submission Mutation
+  const deleteSubmissionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`assignments/submissions/${id}/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submissions-tracker'] });
+      toast.success('Submission deleted successfully.');
+    },
+    onError: (err: any) => {
+      const errMsg = err.response?.data?.error || 'Failed to delete submission.';
+      toast.error(errMsg);
+    }
+  });
+
+  const handleDeleteSubmission = (id: number) => {
+    if (window.confirm('Are you sure you want to delete your submission?')) {
+      deleteSubmissionMutation.mutate(id);
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, assignId: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -94,18 +117,6 @@ export const AssignmentsTab: React.FC = () => {
       setUploadingId(null);
     }
   };
-
-  const isLoading = assignLoading || subLoading;
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-44 bg-muted/40 animate-pulse rounded-2xl border border-border/30" />
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -132,7 +143,12 @@ export const AssignmentsTab: React.FC = () => {
                     <span className="text-[9px] font-bold text-primary uppercase tracking-wider block">
                       {assign.course_title || 'Apex Track'} &rsaquo; {assign.module_title || 'Module'}
                     </span>
-                    <h3 className="font-extrabold text-base leading-snug">{assign.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-base leading-snug">{assign.title}</h3>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 font-extrabold uppercase tracking-wider">
+                        Open Submission • No Deadline
+                      </span>
+                    </div>
                   </div>
 
                   <div>
@@ -173,6 +189,19 @@ export const AssignmentsTab: React.FC = () => {
                 {/* Submissions & reviews */}
                 {submission && (
                   <div className="p-4 bg-muted/40 border border-border/80 rounded-xl space-y-3 text-xs">
+                    <div className="flex justify-between items-center pb-2 border-b border-border/50">
+                      <span className="text-[10px] font-bold text-muted-foreground block uppercase">Submission Details</span>
+                      {submission.status !== 'GRADED' && (
+                        <button
+                          onClick={() => handleDeleteSubmission(submission.id)}
+                          disabled={deleteSubmissionMutation.isPending}
+                          className="px-2 py-1 text-[10px] text-destructive hover:bg-destructive/10 disabled:opacity-50 rounded-lg transition-all font-bold flex items-center gap-1"
+                        >
+                          <Trash2 size={12} />
+                          <span>Delete Submission</span>
+                        </button>
+                      )}
+                    </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <span className="text-[10px] font-bold text-muted-foreground block uppercase">Submission File</span>

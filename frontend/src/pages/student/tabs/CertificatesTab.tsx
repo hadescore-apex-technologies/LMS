@@ -1,8 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../../services/api';
-import { Award, Download, Share2, ShieldCheck } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Award, Download, ShieldCheck } from 'lucide-react';
 
 interface Certificate {
   id: number;
@@ -13,28 +12,14 @@ interface Certificate {
 }
 
 export const CertificatesTab: React.FC = () => {
-  const { data: certificates = [], isLoading } = useQuery<Certificate[]>({
+  const { data: certificates = [] } = useQuery<Certificate[]>({
     queryKey: ['certificates'],
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get('certificates/');
       return res.data;
     }
   });
-
-  const handleShare = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast.success('Certificate code copied to clipboard!');
-  };
-
-  if (isLoading) {
-    return (
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-44 bg-muted/40 animate-pulse rounded-2xl border border-border/30" />
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 text-xs">
@@ -76,19 +61,11 @@ export const CertificatesTab: React.FC = () => {
                     href={cert.file_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-1 py-2 bg-primary text-primary-foreground font-bold rounded-xl text-center flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 hover:brightness-110 transition-all text-[11px]"
+                    className="w-full py-2 bg-primary text-primary-foreground font-bold rounded-xl text-center flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 hover:brightness-110 transition-all text-[11px]"
                   >
                     <Download size={12} />
                     <span>Download PDF</span>
                   </a>
-                  
-                  <button
-                    onClick={() => handleShare(cert.certificate_code)}
-                    className="p-2 bg-muted/60 border border-border text-foreground hover:bg-muted rounded-xl transition-all"
-                    title="Copy verification code"
-                  >
-                    <Share2 size={13} />
-                  </button>
                 </div>
               </div>
             </div>

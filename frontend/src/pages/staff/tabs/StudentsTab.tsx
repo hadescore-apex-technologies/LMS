@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { 
-  UserPlus, Trash2, Edit3, Key, ShieldCheck, 
+  Edit3, Key, ShieldCheck, 
   ShieldAlert, X, Upload, Download, 
-  Search, Eye, EyeOff, Loader2
+  Search, Eye, EyeOff, Loader2, ExternalLink, CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -22,18 +22,16 @@ interface Student {
   start_date: string;
   end_date: string;
   notes: string;
-  categories: number[];
+  courses: number[];
+  assigned_staff?: number | null;
+  assigned_staff_name?: string | null;
 }
 
-interface Category {
-  id: number;
-  name: string;
-}
 
 export const StudentsTab: React.FC = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const liveMode = true;
 
   // Modals States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -51,7 +49,7 @@ export const StudentsTab: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [selectedCatIds, setSelectedCatIds] = useState<number[]>([]);
+  const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [certFileUrl, setCertFileUrl] = useState('');
   const [certCode, setCertCode] = useState('');
@@ -72,25 +70,21 @@ export const StudentsTab: React.FC = () => {
   const [profileDetails, setProfileDetails] = useState<any>(null);
 
   // 1. Fetch Students
-  const { data: students = [], isLoading: studentsLoading } = useQuery<Student[]>({
-    queryKey: ['students-list'],
+  const { data: students = [] } = useQuery<Student[]>({
+    queryKey: ['students-list', liveMode],
+    placeholderData: (prev) => prev,
+    staleTime: 0,
     queryFn: async () => {
-      const res = await api.get('students/');
+      const res = await api.get(`students/?live_mode=${liveMode}`);
       return res.data;
     }
   });
 
-  // 2. Fetch Categories
-  const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ['categories-list'],
-    queryFn: async () => {
-      const res = await api.get('courses/categories/');
-      return res.data;
-    }
-  });
 
   const { data: courses = [] } = useQuery<any[]>({
     queryKey: ['courses-dropdown-list'],
+    placeholderData: (prev) => prev,
+    staleTime: 60000,
     queryFn: async () => {
       const res = await api.get('courses/list/');
       return res.data;
@@ -130,9 +124,10 @@ export const StudentsTab: React.FC = () => {
         start_date: startDate || undefined,
         end_date: courseDuration === 'CUSTOM' ? endDate : undefined,
         notes,
-        categories: selectedCatIds
+        courses: selectedCourseIds,
+        student_type: liveMode ? 'LIVE_CLASS' : 'COURSE'
       };
-      const res = await api.post('students/', payload);
+      const res = await api.post(`students/?live_mode=${liveMode}`, payload);
       const studentId = res.data.id;
       if (studentId && selectedCourseId && certFileUrl) {
         await api.post('certificates/', {
@@ -143,9 +138,14 @@ export const StudentsTab: React.FC = () => {
           is_issued: false
         });
       }
+      return res.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students-list'] });
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.setQueryData<Student[]>(['students-list', liveMode], (old) =>
+          old ? [data, ...old] : [data]
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       setShowAddModal(false);
       resetForm();
@@ -160,6 +160,7 @@ export const StudentsTab: React.FC = () => {
   const updateStudentMutation = useMutation({
     mutationFn: async () => {
       if (!selectedStudent) return;
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
       const payload = {
         email,
         first_name: firstName,
@@ -168,38 +169,57 @@ export const StudentsTab: React.FC = () => {
         phone,
         profile_photo: profilePhoto,
         course_duration: courseDuration,
-        start_date: startDate,
-        end_date: courseDuration === 'CUSTOM' ? endDate : undefined,
+        start_date: startDate || undefined,
+        end_date: courseDuration === 'CUSTOM' ? (endDate || undefined) : undefined,
         notes,
-        categories: selectedCatIds
+        courses: selectedCourseIds,
+        assigned_staff: selectedStudent.assigned_staff ?? undefined,
+        assigned_live_staff: selectedStudent.assigned_live_staff ?? (liveMode ? user?.id : undefined),
+        student_type: selectedStudent.student_type || (liveMode ? 'LIVE_CLASS' : 'COURSE')
       };
-      await api.put(`students/${selectedStudent.id}/`, payload);
+      const res = await api.put(`students/${selectedStudent.id}/?live_mode=${liveMode}`, payload);
 
-      if (selectedCourseId && certFileUrl) {
-        await api.post('certificates/', {
-          student: selectedStudent.id,
-          course: Number(selectedCourseId),
-          certificate_code: certCode || undefined,
-          file_url: certFileUrl,
-          is_issued: false
-        });
-      } else if (!selectedCourseId) {
-        const res = await api.get(`certificates/?student=${selectedStudent.id}`);
-        const cert = res.data.find((c: any) => !c.is_issued);
-        if (cert) {
-          await api.delete(`certificates/${cert.id}/`);
+      if (certFileUrl) {
+        const courseIdToUse = selectedCourseId ? Number(selectedCourseId) : (selectedCourseIds[0] || selectedStudent.courses?.[0] || null);
+        if (courseIdToUse) {
+          await api.post('certificates/', {
+            student: selectedStudent.id,
+            course: courseIdToUse,
+            certificate_code: certCode || undefined,
+            file_url: certFileUrl,
+            is_issued: false
+          });
+        }
+      } else {
+        try {
+          const cRes = await api.get(`certificates/?student=${selectedStudent.id}`);
+          const unissuedCert = cRes.data.find((c: any) => !c.is_issued);
+          if (unissuedCert) {
+            await api.delete(`certificates/${unissuedCert.id}/`);
+          }
+        } catch {
+          // Ignore
         }
       }
+      return res.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students-list'] });
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.setQueryData<Student[]>(['students-list', liveMode], (old) =>
+          old ? old.map(s => s.id === selectedStudent?.id ? data : s) : [data]
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       setShowEditModal(false);
       resetForm();
       toast.success('Student details updated.');
     },
-    onError: () => {
-      toast.error('Failed to update student profile.');
+    onError: (err: any) => {
+      const data = err.response?.data;
+      const errMsg = data?.detail || 
+                     (typeof data === 'object' ? Object.values(data).flat().join(', ') : null) || 
+                     'Failed to update student profile.';
+      toast.error(errMsg);
     }
   });
 
@@ -222,8 +242,13 @@ export const StudentsTab: React.FC = () => {
     mutationFn: async (student: Student) => {
       await api.post(`students/${student.id}/toggle-status/`);
     },
+    onMutate: async (student) => {
+      await queryClient.cancelQueries({ queryKey: ['students-list', liveMode] });
+      queryClient.setQueryData<Student[]>(['students-list', liveMode], (old) =>
+        old ? old.map(s => s.id === student.id ? { ...s, is_active: !s.is_active } : s) : []
+      );
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students-list'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Access privilege toggled.');
     },
@@ -231,21 +256,6 @@ export const StudentsTab: React.FC = () => {
       toast.error('Failed to toggle status.');
     }
   });
-
-  const deleteStudentMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await api.delete(`students/${id}/`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students-list'] });
-      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
-      toast.success('Student account deleted.');
-    },
-    onError: () => {
-      toast.error('Failed to delete student.');
-    }
-  });
-
   const resetForm = () => {
     setEmail('');
     setFirstName('');
@@ -256,7 +266,7 @@ export const StudentsTab: React.FC = () => {
     setStartDate(new Date().toISOString().split('T')[0]);
     setEndDate('');
     setNotes('');
-    setSelectedCatIds([]);
+    setSelectedCourseIds([]);
     setPassword('');
     setNewPassword('');
     setSelectedStudent(null);
@@ -276,15 +286,16 @@ export const StudentsTab: React.FC = () => {
     setStartDate(student.start_date || '');
     setEndDate(student.end_date || '');
     setNotes(student.notes || '');
-    setSelectedCatIds(student.categories || []);
+    setSelectedCourseIds(student.courses || []);
 
     try {
       const res = await api.get(`certificates/?student=${student.id}`);
-      const cert = res.data.find((c: any) => !c.is_issued);
-      if (cert) {
+      const certs = res.data || [];
+      if (certs.length > 0) {
+        const cert = certs.find((c: any) => !c.is_issued) || certs[0];
         setSelectedCourseId(String(cert.course));
-        setCertCode(cert.certificate_code);
-        setCertFileUrl(cert.file_url);
+        setCertCode(cert.certificate_code || '');
+        setCertFileUrl(cert.file_url || '');
       } else {
         setSelectedCourseId('');
         setCertCode('');
@@ -299,9 +310,9 @@ export const StudentsTab: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const handleCatCheckbox = (catId: number) => {
-    setSelectedCatIds(prev => 
-      prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
+  const handleCourseCheckbox = (courseId: number) => {
+    setSelectedCourseIds(prev => 
+      prev.includes(courseId) ? prev.filter(id => id !== courseId) : [...prev, courseId]
     );
   };
 
@@ -396,12 +407,7 @@ export const StudentsTab: React.FC = () => {
 
       {/* Directory List Table */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
-        {studentsLoading ? (
-          <div className="py-20 text-center text-muted-foreground">
-            <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-            <span>Loading Student Accounts...</span>
-          </div>
-        ) : (
+        
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -441,7 +447,35 @@ export const StudentsTab: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="inline-flex items-center gap-1">
-                        <button onClick={() => fetchProfileDetails(student)} className="p-1.5 hover:bg-muted border border-transparent rounded-lg text-muted-foreground hover:text-foreground" title="View Logs"><Eye size={13} /></button>
+                        <button
+                          onClick={() => fetchProfileDetails(student)}
+                          className="p-1.5 hover:bg-muted border border-transparent rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                          title="View Logs & Audit"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <button
+                          onClick={() => openEdit(student)}
+                          className="p-1.5 hover:bg-muted border border-transparent rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                          title="Edit Details"
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          onClick={() => { setSelectedStudent(student); setNewPassword(''); setShowPassModal(true); }}
+                          className="p-1.5 hover:bg-muted border border-transparent rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                          title="Reset Password"
+                        >
+                          <Key size={13} />
+                        </button>
+                        <button
+                          onClick={() => toggleStatusMutation.mutate(student)}
+                          disabled={toggleStatusMutation.isPending}
+                          className={`p-1.5 hover:bg-muted border border-transparent rounded-lg transition-colors ${student.is_active ? 'text-emerald-500 hover:text-amber-500' : 'text-amber-500 hover:text-emerald-500'}`}
+                          title={student.is_active ? "Lock Access" : "Unlock Access"}
+                        >
+                          {student.is_active ? <ShieldCheck size={13} /> : <ShieldAlert size={13} />}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -454,7 +488,6 @@ export const StudentsTab: React.FC = () => {
               </tbody>
             </table>
           </div>
-        )}
       </div>
 
       {/* Modals & Dialogs */}
@@ -523,51 +556,53 @@ export const StudentsTab: React.FC = () => {
                   </div>
                 )}
                 <div>
-                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Assigned Domain Categories</label>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Assigned Courses</label>
                   <div className="grid gap-2 sm:grid-cols-2 p-3 bg-muted/20 border border-border rounded-xl max-h-32 overflow-y-auto">
-                    {categories.map(c => (
+                    {courses.map(c => (
                       <label key={c.id} className="flex items-center gap-1.5 text-[11px] cursor-pointer">
-                        <input type="checkbox" checked={selectedCatIds.includes(c.id)} onChange={() => handleCatCheckbox(c.id)} className="accent-primary" />
-                        <span>{c.name}</span>
+                        <input type="checkbox" checked={selectedCourseIds.includes(c.id)} onChange={() => handleCourseCheckbox(c.id)} className="accent-primary" />
+                        <span>{c.title}</span>
                       </label>
                     ))}
                   </div>
                 </div>
                 {/* Pre-upload certificate section */}
-                <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
-                  <h5 className="font-bold text-[10px] uppercase text-primary">Pre-upload Certificate for 100% Release</h5>
-                  <div>
-                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Select Course Track</label>
-                    <select value={selectedCourseId} onChange={(e) => setSelectedCourseId(e.target.value)} className="w-full h-10 px-3 bg-card border border-border rounded-xl outline-none text-[11px] font-semibold">
-                      <option value="">No pre-uploaded certificate</option>
-                      {courses.map((c: any) => (
-                        <option key={c.id} value={c.id}>{c.title}</option>
-                      ))}
-                    </select>
+                {!liveMode && (
+                  <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
+                    <h5 className="font-bold text-[10px] uppercase text-primary">Pre-upload Certificate for 100% Release</h5>
+                    <div>
+                      <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Select Course Track</label>
+                      <select value={selectedCourseId} onChange={(e) => setSelectedCourseId(e.target.value)} className="w-full h-10 px-3 bg-card border border-border rounded-xl outline-none text-[11px] font-semibold">
+                        <option value="">No pre-uploaded certificate</option>
+                        {courses.map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedCourseId && (
+                      <>
+                        <div>
+                          <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Custom Certificate Code (Optional)</label>
+                          <input type="text" value={certCode} onChange={(e) => setCertCode(e.target.value)} placeholder="e.g. APEX-CERT-123" className="w-full h-10 px-3 bg-card border border-border rounded-xl outline-none text-[11px]" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Upload Certificate File *</label>
+                          {certFileUrl ? (
+                            <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-xl text-[11px]">
+                              <span className="truncate flex-1">{certFileUrl.split('/').pop()}</span>
+                              <button type="button" onClick={() => setCertFileUrl('')} className="text-destructive font-bold">&times;</button>
+                            </div>
+                          ) : (
+                            <label className="flex items-center justify-center gap-1.5 h-10 px-3 bg-card border border-dashed border-border rounded-xl cursor-pointer text-[11px] font-semibold text-muted-foreground hover:border-primary/45 transition-colors">
+                              {uploadingCert ? <Loader2 size={12} className="animate-spin text-primary" /> : <span>+ Upload PDF / Image</span>}
+                              <input type="file" onChange={handleCertUpload} className="hidden" />
+                            </label>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
-                  {selectedCourseId && (
-                    <>
-                      <div>
-                        <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Custom Certificate Code (Optional)</label>
-                        <input type="text" value={certCode} onChange={(e) => setCertCode(e.target.value)} placeholder="e.g. APEX-CERT-123" className="w-full h-10 px-3 bg-card border border-border rounded-xl outline-none text-[11px]" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Upload Certificate File *</label>
-                        {certFileUrl ? (
-                          <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-xl text-[11px]">
-                            <span className="truncate flex-1">{certFileUrl.split('/').pop()}</span>
-                            <button type="button" onClick={() => setCertFileUrl('')} className="text-destructive font-bold">&times;</button>
-                          </div>
-                        ) : (
-                          <label className="flex items-center justify-center gap-1.5 h-10 px-3 bg-card border border-dashed border-border rounded-xl cursor-pointer text-[11px] font-semibold text-muted-foreground hover:border-primary/45 transition-colors">
-                            {uploadingCert ? <Loader2 size={12} className="animate-spin text-primary" /> : <span>+ Upload PDF / Image</span>}
-                            <input type="file" onChange={handleCertUpload} className="hidden" />
-                          </label>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+                )}
                 <button type="submit" disabled={createStudentMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl">Enroll Student</button>
               </form>
             </motion.div>
@@ -615,51 +650,60 @@ export const StudentsTab: React.FC = () => {
                   </div>
                 )}
                 <div>
-                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Assigned Domain Categories</label>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Assigned Courses</label>
                   <div className="grid gap-2 sm:grid-cols-2 p-3 bg-muted/20 border border-border rounded-xl max-h-32 overflow-y-auto">
-                    {categories.map(c => (
+                    {courses.map(c => (
                       <label key={c.id} className="flex items-center gap-1.5 text-[11px] cursor-pointer">
-                        <input type="checkbox" checked={selectedCatIds.includes(c.id)} onChange={() => handleCatCheckbox(c.id)} className="accent-primary" />
-                        <span>{c.name}</span>
+                        <input type="checkbox" checked={selectedCourseIds.includes(c.id)} onChange={() => handleCourseCheckbox(c.id)} className="accent-primary" />
+                        <span>{c.title}</span>
                       </label>
                     ))}
                   </div>
                 </div>
                 {/* Pre-upload certificate section */}
-                <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
-                  <h5 className="font-bold text-[10px] uppercase text-primary">Pre-upload Certificate for 100% Release</h5>
-                  <div>
-                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Select Course Track</label>
-                    <select value={selectedCourseId} onChange={(e) => setSelectedCourseId(e.target.value)} className="w-full h-10 px-3 bg-card border border-border rounded-xl outline-none text-[11px] font-semibold">
-                      <option value="">No pre-uploaded certificate</option>
-                      {courses.map((c: any) => (
-                        <option key={c.id} value={c.id}>{c.title}</option>
-                      ))}
-                    </select>
+                {!liveMode && (
+                  <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
+                    <h5 className="font-bold text-[10px] uppercase text-primary">Pre-upload Certificate for 100% Release</h5>
+                    <div>
+                      <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Select Course Track</label>
+                      <select value={selectedCourseId} onChange={(e) => setSelectedCourseId(e.target.value)} className="w-full h-10 px-3 bg-card border border-border rounded-xl outline-none text-[11px] font-semibold">
+                        <option value="">No pre-uploaded certificate</option>
+                        {courses.map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.title}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedCourseId && (
+                      <>
+                        <div>
+                          <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Custom Certificate Code (Optional)</label>
+                          <input type="text" value={certCode} onChange={(e) => setCertCode(e.target.value)} placeholder="e.g. APEX-CERT-123" className="w-full h-10 px-3 bg-card border border-border rounded-xl outline-none text-[11px]" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Upload Certificate File *</label>
+                          {certFileUrl ? (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-xl text-[11px] font-semibold">
+                                <CheckCircle size={14} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                <span className="truncate flex-1 font-mono">{certFileUrl.split('/').pop()}</span>
+                                <a href={certFileUrl} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400 transition-colors" title="View Uploaded File">
+                                  <ExternalLink size={13} />
+                                </a>
+                                <button type="button" onClick={() => setCertFileUrl('')} className="p-1 hover:bg-destructive/20 rounded text-destructive font-bold" title="Remove Certificate">&times;</button>
+                              </div>
+                              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold block">✓ Certificate attached & ready for student</span>
+                            </div>
+                          ) : (
+                            <label className="flex items-center justify-center gap-1.5 h-10 px-3 bg-card border border-dashed border-border rounded-xl cursor-pointer text-[11px] font-semibold text-muted-foreground hover:border-primary/45 transition-colors">
+                              {uploadingCert ? <Loader2 size={12} className="animate-spin text-primary" /> : <span>+ Upload PDF / Image</span>}
+                              <input type="file" onChange={handleCertUpload} className="hidden" />
+                            </label>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
-                  {selectedCourseId && (
-                    <>
-                      <div>
-                        <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Custom Certificate Code (Optional)</label>
-                        <input type="text" value={certCode} onChange={(e) => setCertCode(e.target.value)} placeholder="e.g. APEX-CERT-123" className="w-full h-10 px-3 bg-card border border-border rounded-xl outline-none text-[11px]" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Upload Certificate File *</label>
-                        {certFileUrl ? (
-                          <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-xl text-[11px]">
-                            <span className="truncate flex-1">{certFileUrl.split('/').pop()}</span>
-                            <button type="button" onClick={() => setCertFileUrl('')} className="text-destructive font-bold">&times;</button>
-                          </div>
-                        ) : (
-                          <label className="flex items-center justify-center gap-1.5 h-10 px-3 bg-card border border-dashed border-border rounded-xl cursor-pointer text-[11px] font-semibold text-muted-foreground hover:border-primary/45 transition-colors">
-                            {uploadingCert ? <Loader2 size={12} className="animate-spin text-primary" /> : <span>+ Upload PDF / Image</span>}
-                            <input type="file" onChange={handleCertUpload} className="hidden" />
-                          </label>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+                )}
                 <button type="submit" disabled={updateStudentMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl">Save Changes</button>
               </form>
             </motion.div>
@@ -681,7 +725,7 @@ export const StudentsTab: React.FC = () => {
               <form onSubmit={(e) => { e.preventDefault(); resetPasswordMutation.mutate(); }} className="space-y-4">
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">New Security Password</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="••••••••" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="••••••••" autoComplete="new-password" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
                 </div>
                 <button type="submit" disabled={resetPasswordMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl">Update Password</button>
               </form>
@@ -792,9 +836,9 @@ export const StudentsTab: React.FC = () => {
               </div>
 
               {profileLoading ? (
-                <div className="py-12 text-center text-muted-foreground">
-                  <Loader2 className="animate-spin text-primary mx-auto mb-2" size={16} />
-                  <span>Loading analytics...</span>
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+                  <Loader2 size={24} className="animate-spin text-primary" />
+                  <span className="text-xs font-semibold">Loading student profile logs...</span>
                 </div>
               ) : (
                 <div className="space-y-4">

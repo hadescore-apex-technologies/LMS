@@ -31,8 +31,9 @@ export const StaffManagementTab: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPassModal, setShowPassModal] = useState(false);
   
-  // Selected staff references
+  const [filterRole, setFilterRole] = useState<string>('ALL');
   const [selectedStaff, setSelectedStaff] = useState<StaffUser | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   // Form Fields
   const [email, setEmail] = useState('');
@@ -46,6 +47,8 @@ export const StaffManagementTab: React.FC = () => {
   // Query staff list
   const { data: staffList = [], isLoading } = useQuery<StaffUser[]>({
     queryKey: ['admin-staff-roster'],
+    placeholderData: (prev) => prev,
+    staleTime: 600000,
     queryFn: async () => {
       const res = await api.get('users/staff/');
       return res.data;
@@ -54,38 +57,50 @@ export const StaffManagementTab: React.FC = () => {
 
   // Query categories
   const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ['categories-list'],
+    queryKey: ['categories-list', 'LIVE'],
+    placeholderData: (prev) => prev,
+    staleTime: 600000,
     queryFn: async () => {
-      const res = await api.get('courses/categories/');
+      const res = await api.get('courses/categories/?type=LIVE');
       return res.data;
     }
   });
 
   const createStaffMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payload: { email: string; firstName: string; lastName: string; password?: string; role: string; categoryId: string }) => {
+      const cleanEmail = payload.email.trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes('@') || cleanEmail.endsWith('@')) {
+        throw new Error("Please enter a valid email address.");
+      }
+      if (!payload.firstName || !payload.firstName.trim()) {
+        throw new Error("Please enter first name.");
+      }
+      if (!payload.lastName || !payload.lastName.trim()) {
+        throw new Error("Please enter last name.");
+      }
       const res = await api.post('users/staff/', {
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        password,
-        role,
-        category: categoryId ? Number(categoryId) : null
+        email: cleanEmail,
+        first_name: payload.firstName.trim(),
+        last_name: payload.lastName.trim(),
+        password: payload.password && payload.password.trim() ? payload.password.trim() : undefined,
+        role: payload.role,
+        category: payload.categoryId ? Number(payload.categoryId) : null
       });
       return res.data;
     },
-    onMutate: async () => {
+    onMutate: async (payload) => {
       await queryClient.cancelQueries({ queryKey: ['admin-staff-roster'] });
       const previousStaff = queryClient.getQueryData<StaffUser[]>(['admin-staff-roster']);
       
       const newStaffOpt: StaffUser = {
         id: -Date.now(),
-        email,
-        first_name: firstName,
-        last_name: lastName,
+        email: payload.email.trim(),
+        first_name: payload.firstName.trim(),
+        last_name: payload.lastName.trim(),
         is_active: true,
-        role,
-        category: categoryId ? Number(categoryId) : null,
-        category_name: categories.find(c => c.id === Number(categoryId))?.name || null
+        role: payload.role,
+        category: payload.categoryId ? Number(payload.categoryId) : null,
+        category_name: categories.find(c => c.id === Number(payload.categoryId))?.name || null
       };
 
       if (previousStaff) {
@@ -94,6 +109,7 @@ export const StaffManagementTab: React.FC = () => {
           [newStaffOpt, ...previousStaff]
         );
       }
+      // Close modal immediately to prevent double-submit
       setShowAddModal(false);
       resetForm();
       return { previousStaff };
@@ -102,60 +118,85 @@ export const StaffManagementTab: React.FC = () => {
       if (context?.previousStaff) {
         queryClient.setQueryData(['admin-staff-roster'], context.previousStaff);
       }
-      toast.error(err.response?.data?.email?.[0] || 'Failed to create operator.');
+      setShowAddModal(true); // Re-open modal on error so user can fix and retry
+      const msg = err.message || err.response?.data?.email?.[0] || err.response?.data?.password?.[0] || err.response?.data?.detail || 'Failed to create staff account.';
+      toast.error(msg);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-staff-roster'] });
+    onSuccess: (data) => {
+      // Replace optimistic placeholder (negative id) with real server record
+      if (data) {
+        queryClient.setQueryData<StaffUser[]>(['admin-staff-roster'], (old) =>
+          old ? [data, ...old.filter(s => s.id > 0)] : [data]
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Staff operator account created.');
     }
   });
 
   const updateStaffMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedStaff) return;
-      const res = await api.put(`users/staff/${selectedStaff.id}/`, {
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        is_active: selectedStaff.is_active,
-        role,
-        category: categoryId ? Number(categoryId) : null
+    mutationFn: async (payload: { id: number; email: string; firstName: string; lastName: string; role: string; categoryId: string }) => {
+      const res = await api.put(`users/staff/${payload.id}/`, {
+        email: payload.email,
+        first_name: payload.firstName,
+        last_name: payload.lastName,
+        role: payload.role,
+        category: payload.categoryId ? Number(payload.categoryId) : null
       });
       return res.data;
     },
-    onMutate: async () => {
-      if (!selectedStaff) return;
+    onMutate: async (payload) => {
       await queryClient.cancelQueries({ queryKey: ['admin-staff-roster'] });
       const previousStaff = queryClient.getQueryData<StaffUser[]>(['admin-staff-roster']);
+      const currentItem = previousStaff?.find(s => s.id === payload.id);
       
       const updatedStaff: StaffUser = {
-        ...selectedStaff,
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        role,
-        category: categoryId ? Number(categoryId) : null,
-        category_name: categories.find(c => c.id === Number(categoryId))?.name || null
+        id: payload.id,
+        email: payload.email,
+        first_name: payload.firstName,
+        last_name: payload.lastName,
+        is_active: currentItem?.is_active ?? true,
+        date_joined: currentItem?.date_joined || new Date().toISOString(),
+        role: payload.role,
+        category: payload.categoryId ? Number(payload.categoryId) : null,
+        category_name: categories.find(c => c.id === Number(payload.categoryId))?.name || null
       };
 
       if (previousStaff) {
         queryClient.setQueryData<StaffUser[]>(
           ['admin-staff-roster'],
-          previousStaff.map(item => item.id === selectedStaff.id ? updatedStaff : item)
+          previousStaff.map(item => item.id === payload.id ? updatedStaff : item)
         );
       }
       setShowEditModal(false);
       resetForm();
       return { previousStaff };
     },
-    onError: (err, variables, context) => {
+    onError: (err: any, variables, context) => {
+      const status = err?.response?.status;
+      if (status === 404) {
+        // Record no longer exists — remove it from cache so UI stays clean
+        queryClient.setQueryData<StaffUser[]>(['admin-staff-roster'], (old) =>
+          old ? old.filter(s => s.id !== variables.id) : []
+        );
+        toast.error('This staff account no longer exists. It may have been deleted.');
+        return;
+      }
       if (context?.previousStaff) {
         queryClient.setQueryData(['admin-staff-roster'], context.previousStaff);
       }
-      toast.error('Failed to update operator details.');
+      const msg = err.response?.data?.email?.[0] || err.response?.data?.detail || 'Failed to update operator details.';
+      toast.error(msg);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-staff-roster'] });
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.setQueryData<StaffUser[]>(['admin-staff-roster'], (old) =>
+          old ? old.map(item => item.id === data.id ? data : item) : [data]
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Operator profile details saved.');
     }
   });
@@ -200,8 +241,13 @@ export const StaffManagementTab: React.FC = () => {
       }
       toast.error('Failed to update status.');
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-staff-roster'] });
+    onSuccess: (data, staff) => {
+      // Update just the toggled item — no full refetch needed
+      queryClient.setQueryData<StaffUser[]>(['admin-staff-roster'], (old) =>
+        old ? old.map(item => item.id === staff.id ? { ...item, is_active: !staff.is_active } : item) : old
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Account status updated.');
     }
   });
@@ -221,14 +267,23 @@ export const StaffManagementTab: React.FC = () => {
       }
       return { previousStaff };
     },
-    onError: (err, id, context) => {
+    onError: (err: any, id, context) => {
+      const status = err?.response?.status;
+      if (status === 404) {
+        // Record already deleted on server — keep it removed from cache, don't rollback
+        toast.success('Account removed.');
+        return;
+      }
       if (context?.previousStaff) {
         queryClient.setQueryData(['admin-staff-roster'], context.previousStaff);
       }
       toast.error('Failed to delete user.');
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-staff-roster'] });
+    onSuccess: (data, id) => {
+      // Item already removed in onMutate — just confirm, no refetch
+      queryClient.setQueryData<StaffUser[]>(['admin-staff-roster'], (old) =>
+        old ? old.filter(s => s.id !== id) : []
+      );
       toast.success('Account permanently deleted.');
     }
   });
@@ -259,11 +314,16 @@ export const StaffManagementTab: React.FC = () => {
     setSelectedStaff(null);
   };
 
-  const filteredStaff = staffList.filter(s =>
-    s.email.toLowerCase().includes(search.toLowerCase()) ||
-    s.first_name.toLowerCase().includes(search.toLowerCase()) ||
-    s.last_name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredStaff = staffList.filter(s => {
+    const matchesSearch = s.email.toLowerCase().includes(search.toLowerCase()) ||
+      s.first_name.toLowerCase().includes(search.toLowerCase()) ||
+      s.last_name.toLowerCase().includes(search.toLowerCase());
+    
+    if (filterRole === 'ALL') return matchesSearch;
+    if (filterRole === 'SUPER_ADMIN') return matchesSearch && s.role === 'SUPER_ADMIN';
+    if (filterRole === 'STAFF') return matchesSearch && s.role === 'STAFF';
+    return matchesSearch;
+  });
 
   const CategorySelect = () => (
     <div>
@@ -300,26 +360,31 @@ export const StaffManagementTab: React.FC = () => {
 
       {/* Control filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-muted/20 border border-border/50 p-4 rounded-2xl">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3.5 top-3 text-muted-foreground" size={14} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search operators by name or email..."
-            className="w-full h-10 pl-10 pr-4 bg-background border border-border rounded-xl outline-none focus:border-primary/45"
-          />
+        <div className="relative w-full sm:max-w-md flex items-center gap-2">
+          <div className="relative w-full">
+            <Search className="absolute left-3.5 top-3 text-muted-foreground" size={14} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search operators by name or email..."
+              className="w-full h-10 pl-10 pr-4 bg-background border border-border rounded-xl outline-none focus:border-primary/45"
+            />
+          </div>
+          <select 
+            value={filterRole} 
+            onChange={(e) => setFilterRole(e.target.value)}
+            className="h-10 px-3 bg-background border border-border rounded-xl outline-none font-bold text-muted-foreground shrink-0"
+          >
+            <option value="ALL">All Accounts</option>
+            <option value="STAFF">Staff Operators</option>
+          </select>
         </div>
       </div>
 
       {/* Operators list */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
-        {isLoading ? (
-          <div className="py-20 text-center text-muted-foreground">
-            <Loader2 className="animate-spin text-primary mx-auto mb-2" size={20} />
-            <span>Loading Operators...</span>
-          </div>
-        ) : (
+        
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -364,23 +429,40 @@ export const StaffManagementTab: React.FC = () => {
                       </button>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button onClick={() => openPass(staff)} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground" title="Password"><Key size={13} /></button>
-                        <button onClick={() => openEdit(staff)} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground" title="Edit"><Edit3 size={13} /></button>
-                        <button 
-                          onClick={() => {
-                            if (staff.email === 'hadescore.apex.technologies@gmail.com') {
-                              toast.error('The root administrator account cannot be deleted.');
-                              return;
-                            }
-                            if (window.confirm('Delete operator account?')) deleteStaffMutation.mutate(staff.id);
-                          }} 
-                          className="p-1.5 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive" 
-                          title="Delete"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
+                      {deleteConfirmId === staff.id ? (
+                        <div className="inline-flex items-center gap-2">
+                          <span className="text-[10px] text-destructive font-bold">Delete?</span>
+                          <button
+                            onClick={() => {
+                              deleteStaffMutation.mutate(staff.id);
+                              setDeleteConfirmId(null);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-destructive text-white text-[10px] font-bold hover:bg-destructive/90 transition-colors"
+                          >Yes</button>
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="px-2.5 py-1 rounded-lg bg-muted text-foreground text-[10px] font-bold hover:bg-muted/80 transition-colors"
+                          >No</button>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1">
+                          <button onClick={() => openPass(staff)} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground" title="Password"><Key size={13} /></button>
+                          <button onClick={() => openEdit(staff)} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground" title="Edit"><Edit3 size={13} /></button>
+                          <button
+                            onClick={() => {
+                              if (staff.email === 'hadescore.apex.technologies@gmail.com') {
+                                toast.error('The root administrator account cannot be deleted.');
+                                return;
+                              }
+                              setDeleteConfirmId(staff.id);
+                            }}
+                            className="p-1.5 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive"
+                            title="Delete"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -392,7 +474,6 @@ export const StaffManagementTab: React.FC = () => {
               </tbody>
             </table>
           </div>
-        )}
       </div>
 
       {/* Add Modal */}
@@ -406,30 +487,40 @@ export const StaffManagementTab: React.FC = () => {
                 <h3 className="font-bold text-sm">Add System Operator</h3>
                 <button onClick={() => setShowAddModal(false)}><X size={16} /></button>
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); createStaffMutation.mutate(); }} className="space-y-4">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (createStaffMutation.isPending) return; // Prevent double-submit
+                createStaffMutation.mutate({
+                  email: email.trim(),
+                  firstName: firstName.trim(),
+                  lastName: lastName.trim(),
+                  password: password.trim(),
+                  role,
+                  categoryId
+                });
+              }} autoComplete="off" className="space-y-4">
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Email Address *</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  <input name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" placeholder="operator@example.com" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">First Name *</label>
-                    <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                    <input name="first_name" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required autoComplete="off" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Last Name *</label>
-                    <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                    <input name="last_name" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required autoComplete="off" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Default Password *</label>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  <input name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" placeholder="Defaults to: apex123" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Role Assignment</label>
                   <select value={role} onChange={(e) => setRole(e.target.value as any)} className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none font-bold">
                     <option value="STAFF">Staff Operator</option>
-                    <option value="SUPER_ADMIN">Super Administrator</option>
                   </select>
                 </div>
                 <CategorySelect />
@@ -454,7 +545,18 @@ export const StaffManagementTab: React.FC = () => {
                 <h3 className="font-bold text-sm">Modify Operator Account</h3>
                 <button onClick={() => setShowEditModal(false)}><X size={16} /></button>
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); updateStaffMutation.mutate(); }} className="space-y-4">
+              <form onSubmit={(e) => { 
+                e.preventDefault(); 
+                if (!selectedStaff) return;
+                updateStaffMutation.mutate({
+                  id: selectedStaff.id,
+                  email,
+                  firstName,
+                  lastName,
+                  role,
+                  categoryId
+                }); 
+              }} className="space-y-4">
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Email Address *</label>
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
@@ -473,7 +575,6 @@ export const StaffManagementTab: React.FC = () => {
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Role Assignment</label>
                   <select value={role} onChange={(e) => setRole(e.target.value as any)} className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none font-bold">
                     <option value="STAFF">Staff Operator</option>
-                    <option value="SUPER_ADMIN">Super Administrator</option>
                   </select>
                 </div>
                 <CategorySelect />
@@ -504,7 +605,7 @@ export const StaffManagementTab: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">New Security Password *</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required autoComplete="new-password" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
                 </div>
                 <button type="submit" disabled={resetPasswordMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-primary/10">
                   <Key size={12} />

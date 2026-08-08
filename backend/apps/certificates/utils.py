@@ -52,6 +52,10 @@ def check_and_generate_certificate(student, course):
                     user=None,
                     action=f"System automatically unlocked Certificate {existing.certificate_code} for student {student.email} on Course {course.title}",
                 )
+
+                # Send completion email with certificate link
+                from apps.core.emails import send_course_completion_email
+                send_course_completion_email(existing.id)
             return existing
         else:
             if existing.is_issued:
@@ -82,6 +86,10 @@ def check_and_generate_certificate(student, course):
                 user=None,
                 action=f"System automatically generated and issued Certificate {cert_code} for student {student.email} on Course {course.title}",
             )
+
+            # Send completion email with certificate link
+            from apps.core.emails import send_course_completion_email
+            send_course_completion_email(new_cert.id)
             return new_cert
 
     return None

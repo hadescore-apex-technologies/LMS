@@ -4,10 +4,12 @@ import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { 
   HelpCircle, Upload, Download, Trash2, 
-  FileText, Award, 
-  ClipboardList, Loader2, X, AlertCircle
+  FileText, Award, BookOpen, Bookmark, Edit3,
+  ClipboardList, Loader2, X, AlertCircle, Layers, CheckCircle2,
+  Bot, Lightbulb, Lock
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
+import { ApexAITutorCore } from '../../../components/ApexAITutorCore';
 
 interface Course {
   id: number;
@@ -69,21 +71,30 @@ interface CoursePlayerProps {
 export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOpenAITutor }) => {
   const queryClient = useQueryClient();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const maxTimeWatchedRef = useRef(0);
 
   // States
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [activeAssignment, setActiveAssignment] = useState<Assignment | null>(null);
+
+  useEffect(() => {
+    if (activeLesson) {
+      maxTimeWatchedRef.current = activeLesson.resume_time || 0;
+    }
+  }, [activeLesson]);
   
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizResult, setQuizResult] = useState<any>(null);
   const [quizTimeLeft, setQuizTimeLeft] = useState<number | null>(null);
+  const [forceRetakeQuizId, setForceRetakeQuizId] = useState<number | null>(null);
 
   const [fileUrl, setFileUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [submittingFile, setSubmittingFile] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'content' | 'attachments' | 'links' | 'notes' | 'faqs' | 'bookmarks' | 'study-notes'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'attachments' | 'study-notes' | 'bookmarks'>('content');
+  const [rightPanelTab, setRightPanelTab] = useState<'playlist' | 'ai-tutor'>('playlist');
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [autoplayNext, setAutoplayNext] = useState(true);
 
@@ -93,9 +104,22 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
   const [newBookmarkNote, setNewBookmarkNote] = useState('');
   const [newNoteText, setNewNoteText] = useState('');
 
+  // Inline AI Tutor State
+  const [aiMessages, setAiMessages] = useState<{ id: string; sender: 'student' | 'ai'; text: string; timestamp: string }[]>([
+    {
+      id: 'init-1',
+      sender: 'ai',
+      text: 'Hello! I am your **Apex AI Tutor**. I am directly connected to this video lesson context. Ask me questions or tap a quick action below to summarize, test yourself, or build flashcards!',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  ]);
+  const [aiInput, setAiInput] = useState('');
+  const [copiedAiId, setCopiedAiId] = useState<string | null>(null);
+
   // 1. Fetch Course Modules
   const { data: modules = [] } = useQuery<Module[]>({
     queryKey: ['modules', course.id],
+    refetchInterval: 10000,
     queryFn: async () => {
       const res = await api.get(`modules/?course=${course.id}`);
       return res.data;
@@ -105,6 +129,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
   // 2. Fetch Lessons
   const { data: lessons = [], refetch: refetchLessons } = useQuery<Lesson[]>({
     queryKey: ['lessons', course.id],
+    refetchInterval: 10000,
     queryFn: async () => {
       const res = await api.get(`lessons/?course=${course.id}`);
       return res.data;
@@ -114,6 +139,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
   // 3. Fetch Quizzes
   const { data: courseQuizzes = [] } = useQuery<Quiz[]>({
     queryKey: ['quizzes', course.id],
+    refetchInterval: 10000,
     queryFn: async () => {
       const res = await api.get(`quizzes/list/?course=${course.id}`);
       return res.data;
@@ -132,6 +158,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
   // 5. Fetch Assignments
   const { data: assignments = [] } = useQuery<Assignment[]>({
     queryKey: ['assignments', course.id],
+    refetchInterval: 10000,
     queryFn: async () => {
       const res = await api.get(`assignments/list/?course=${course.id}`);
       return res.data;
@@ -200,6 +227,9 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     },
     onSuccess: (_, variables) => {
       if (variables.completed) {
+        queryClient.setQueryData(['lessons', course.id], (old: any) => 
+          (old || []).map((l: any) => l.id === activeLesson?.id ? { ...l, completed: true } : l)
+        );
         refetchLessons();
         queryClient.invalidateQueries({ queryKey: ['certificates'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
@@ -214,6 +244,18 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     const duration = videoRef.current.duration || 1;
     const pct = (currentTime / duration) * 100;
     
+    // Prevent forward seeking
+    if (currentTime > maxTimeWatchedRef.current + 2) {
+      videoRef.current.currentTime = maxTimeWatchedRef.current;
+      toast.error('Seeking forward is disabled for learning integrity. Please watch the lesson fully.', {
+        id: 'no-seeking' // prevents duplicate toasts
+      });
+      return;
+    }
+    
+    // Update maximum time watched
+    maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, currentTime);
+
     setVideoProgress(currentTime);
     if (duration > 1) {
       setVideoDuration(duration);
@@ -224,18 +266,49 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     }
   };
 
+  const handleNextItem = () => {
+    const courseItems: { type: 'lesson' | 'quiz' | 'assignment', id: number, item: any, title: string }[] = [];
+    modules.forEach((mod) => {
+      lessons.filter(l => l.module === mod.id).forEach(l => courseItems.push({ type: 'lesson', id: l.id, item: l, title: l.title }));
+      courseQuizzes.filter(q => q.module === mod.id).forEach(q => courseItems.push({ type: 'quiz', id: q.id, item: q, title: q.title }));
+      assignments.filter(a => a.module === mod.id).forEach(a => courseItems.push({ type: 'assignment', id: a.id, item: a, title: a.title }));
+    });
+
+    let currentIdx = -1;
+    if (activeLesson) currentIdx = courseItems.findIndex(i => i.type === 'lesson' && i.id === activeLesson.id);
+    else if (activeQuiz) currentIdx = courseItems.findIndex(i => i.type === 'quiz' && i.id === activeQuiz.id);
+    else if (activeAssignment) currentIdx = courseItems.findIndex(i => i.type === 'assignment' && i.id === activeAssignment.id);
+
+    if (currentIdx !== -1 && currentIdx + 1 < courseItems.length) {
+      const nextItem = courseItems[currentIdx + 1];
+      if (nextItem.type === 'lesson' && nextItem.item.locked) return; // Drip locked
+      toast.loading(`Next up: ${nextItem.title}`, { duration: 2000 });
+      setTimeout(() => {
+        if (nextItem.type === 'lesson') {
+          setActiveLesson(nextItem.item);
+          setActiveQuiz(null);
+          setActiveAssignment(null);
+        } else if (nextItem.type === 'quiz') {
+          setActiveQuiz(nextItem.item);
+          setActiveLesson(null);
+          setActiveAssignment(null);
+          setQuizTimeLeft(15 * 60);
+        } else if (nextItem.type === 'assignment') {
+          setActiveAssignment(nextItem.item);
+          setActiveLesson(null);
+          setActiveQuiz(null);
+        }
+      }, 2000);
+    }
+  };
+
   const handleVideoEnded = () => {
     if (!activeLesson) return;
     toast.success('Lesson completed!');
     syncProgressMutation.mutate({ current: videoDuration, pct: 100, completed: true });
 
     if (autoplayNext) {
-      const currentIdx = lessons.findIndex(l => l.id === activeLesson.id);
-      const nextLes = lessons.slice(currentIdx + 1).find(l => !l.locked);
-      if (nextLes) {
-        toast.loading(`Next up: ${nextLes.title}`, { duration: 2000 });
-        setTimeout(() => handleSelectLesson(nextLes), 2000);
-      }
+      handleNextItem();
     }
   };
 
@@ -292,6 +365,71 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     }
   });
 
+  // Inline AI Tutor Mutation
+  const inlineTutorMutation = useMutation({
+    mutationFn: async ({ prompt, action }: { prompt: string; action: string }) => {
+      const res = await api.post('courses/ai-tutor/', {
+        action,
+        prompt,
+        lesson_id: activeLesson?.id,
+        course_id: course.id
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      setAiMessages(prev => [...prev, {
+        id: Math.random().toString(36).substring(2),
+        sender: 'ai',
+        text: data.answer,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    },
+    onError: (err: any) => {
+      const errMsg = err.response?.data?.error || 'Failed to communicate with AI Tutor.';
+      toast.error(errMsg);
+      setAiMessages(prev => [...prev, {
+        id: Math.random().toString(36).substring(2),
+        sender: 'ai',
+        text: `⚠️ **Error:** ${errMsg}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+    }
+  });
+
+  
+  const handleInlineQuickAction = (action: 'summarize' | 'notes' | 'flashcards' | 'quiz' | 'explain') => {
+    if (inlineTutorMutation.isPending) return;
+    let actionLabel = '';
+    if (action === 'summarize') actionLabel = 'Summarize lesson in bullet points';
+    else if (action === 'notes') actionLabel = 'Generate structured study notes';
+    else if (action === 'flashcards') actionLabel = 'Build practice flashcards';
+    else if (action === 'quiz') actionLabel = 'Create 3-question practice quiz';
+    else if (action === 'explain') actionLabel = 'Explain key technical concepts';
+
+    setAiMessages(prev => [...prev, {
+      id: Math.random().toString(36).substring(2),
+      sender: 'student',
+      text: actionLabel,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }]);
+    inlineTutorMutation.mutate({ prompt: '', action });
+  };
+
+  
+  const handleSaveAiToNotes = async (text: string) => {
+    if (!activeLesson) return;
+    try {
+      await api.post('lessons/notes/', {
+        lesson: activeLesson.id,
+        text: `[AI Insight] ${text.substring(0, 400)}${text.length > 400 ? '...' : ''}`
+      });
+      refetchNotes();
+      toast.success('Saved to your Study Notes!');
+    } catch {
+      toast.error('Failed to save to study notes.');
+    }
+  };
+
   // Quiz submission
   const handleQuizSubmit = async () => {
     if (!activeQuiz) return;
@@ -313,14 +451,24 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
         passingScore: res.data.passing_score
       });
 
+      queryClient.setQueryData(['quiz-attempts'], (old: any) => [
+        ...(old || []),
+        { quiz: activeQuiz.id, passed: res.data.passed, score: res.data.score }
+      ]);
+
       refetchAttempts();
       refetchLessons();
       setActiveQuiz(null);
       setQuizAnswers({});
       setQuizTimeLeft(null);
+      setForceRetakeQuizId(null);
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
       queryClient.invalidateQueries({ queryKey: ['certificates'] });
+
+      if (res.data.passed && autoplayNext) {
+        handleNextItem();
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to submit quiz.');
     }
@@ -342,10 +490,18 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
       toast.success('Assignment submitted!');
       setFileUrl('');
       setNotes('');
+      queryClient.setQueryData(['submissions'], (old: any) => [
+        ...(old || []),
+        { assignment: activeAssignment.id }
+      ]);
       refetchSubmissions();
       refetchLessons();
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
+      
+      if (autoplayNext) {
+        handleNextItem();
+      }
     } catch {
       toast.error('Failed to submit assignment.');
     } finally {
@@ -388,72 +544,123 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Left Column: Player & Detail panel */}
         <div className="flex-1 w-full space-y-6">
-          {activeQuiz ? (
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h4 className="font-semibold text-sm">Required Checkpoint: {activeQuiz.title}</h4>
-                <div className="flex items-center gap-3">
-                  {quizTimeLeft !== null && (
-                    <div className="px-2.5 py-1 rounded bg-destructive/10 border border-destructive/20 text-destructive font-bold font-mono">
-                      {Math.floor(quizTimeLeft / 60)}:{(quizTimeLeft % 60).toString().padStart(2, '0')}
+          {activeQuiz ? (() => {
+            const attempts = quizAttempts.filter(att => att.quiz === activeQuiz.id);
+            const passAttempt = attempts.find(att => att.passed);
+            
+            if (passAttempt && forceRetakeQuizId !== activeQuiz.id) {
+              return (
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 shadow-sm space-y-5 text-center">
+                  <div className="flex justify-between items-center border-b border-border/40 pb-3 text-left">
+                    <h4 className="font-semibold text-sm text-foreground">Checkpoint: {activeQuiz.title}</h4>
+                    <button onClick={() => { setActiveQuiz(null); setQuizTimeLeft(null); setForceRetakeQuizId(null); }} className="text-xs text-muted-foreground hover:text-foreground font-semibold">Exit</button>
+                  </div>
+                  
+                  <div className="py-6 space-y-4">
+                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shadow-sm">
+                      <CheckCircle2 size={28} />
                     </div>
-                  )}
-                  <button onClick={() => { setActiveQuiz(null); setQuizTimeLeft(null); }} className="text-xs text-muted-foreground hover:text-foreground font-semibold">Exit</button>
-                </div>
-              </div>
-              <div className="space-y-4">
-                {activeQuiz.questions.map((q, idx) => {
-                  const isMsq = q.question_type === 'MSQ';
-                  const currentVal = quizAnswers[q.id] || '';
-                  const currentList = currentVal.split(',').map(x => x.trim()).filter(Boolean);
+                    
+                    <div className="space-y-1">
+                      <h3 className="text-lg font-bold text-emerald-600 dark:text-emerald-400">Checkpoint Passed!</h3>
+                      <p className="text-[11px] text-muted-foreground">You have successfully cleared this curriculum checkpoint.</p>
+                    </div>
 
-                  return (
-                    <div key={q.id} className="space-y-2">
-                      <p className="font-semibold text-foreground/80">{idx + 1}. {q.question_text}</p>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {q.options.map((opt, oIdx) => {
-                          const isChecked = isMsq ? currentList.includes(opt) : currentVal === opt;
-                          return (
-                            <label key={oIdx} className={`flex items-center gap-3 p-3 rounded-xl border text-xs cursor-pointer transition-all ${isChecked ? 'border-primary bg-primary/5 text-primary font-bold' : 'border-border hover:bg-muted/30'}`}>
-                              {isMsq ? (
-                                <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isChecked ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
-                                  {isChecked && <div className="h-1.5 w-1.5 bg-primary-foreground rounded-sm" />}
-                                </div>
-                              ) : (
-                                <div className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${isChecked ? 'border-primary' : 'border-muted-foreground'}`}>
-                                  {isChecked && <div className="h-2 w-2 rounded-full bg-primary" />}
-                                </div>
-                              )}
-                              <input
-                                type={isMsq ? 'checkbox' : 'radio'}
-                                name={`question-${q.id}`}
-                                value={opt}
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (isMsq) {
-                                    const checked = e.target.checked;
-                                    const list = checked ? [...currentList, opt] : currentList.filter(x => x !== opt);
-                                    setQuizAnswers(prev => ({ ...prev, [q.id]: list.sort().join(', ') }));
-                                  } else {
-                                    setQuizAnswers(prev => ({ ...prev, [q.id]: opt }));
-                                  }
-                                }}
-                                className="sr-only"
-                              />
-                              <span>{opt}</span>
-                            </label>
-                          );
-                        })}
+                    <div className="max-w-xs mx-auto grid grid-cols-2 gap-4 p-4 rounded-xl bg-card border border-border mt-4 text-left">
+                      <div>
+                        <span className="block text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Your Score</span>
+                        <span className="text-base font-extrabold text-foreground">{passAttempt.score}%</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Passing Score</span>
+                        <span className="text-base font-semibold text-muted-foreground">{activeQuiz.passing_score}%</span>
                       </div>
                     </div>
-                  );
-                })}
-                <div className="flex justify-end gap-3 pt-3 border-t border-border">
-                  <button onClick={handleQuizSubmit} className="px-5 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:brightness-110">Submit Quiz Checkpoint</button>
+
+                    <div className="pt-4">
+                      <button 
+                        onClick={() => {
+                          setQuizAnswers({});
+                          setForceRetakeQuizId(activeQuiz.id);
+                          setQuizTimeLeft(15 * 60);
+                        }}
+                        className="px-6 py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs hover:brightness-110 shadow-md shadow-primary/20 transition-all"
+                      >
+                        Retake Checkpoint
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h4 className="font-semibold text-sm">Required Checkpoint: {activeQuiz.title}</h4>
+                  <div className="flex items-center gap-3">
+                    {quizTimeLeft !== null && (
+                      <div className="px-2.5 py-1 rounded bg-destructive/10 border border-destructive/20 text-destructive font-bold font-mono">
+                        {Math.floor(quizTimeLeft / 60)}:{(quizTimeLeft % 60).toString().padStart(2, '0')}
+                      </div>
+                    )}
+                    <button onClick={() => { setActiveQuiz(null); setQuizTimeLeft(null); setForceRetakeQuizId(null); }} className="text-xs text-muted-foreground hover:text-foreground font-semibold">Exit</button>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {activeQuiz.questions.map((q, idx) => {
+                    const isMsq = q.question_type === 'MSQ';
+                    const currentVal = quizAnswers[q.id] || '';
+                    const currentList = currentVal.split(',').map(x => x.trim()).filter(Boolean);
+
+                    return (
+                      <div key={q.id} className="space-y-2">
+                        <p className="font-semibold text-foreground/80">{idx + 1}. {q.question_text}</p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {q.options.map((opt, oIdx) => {
+                            const isChecked = isMsq ? currentList.includes(opt) : currentVal === opt;
+                            return (
+                              <label key={oIdx} className={`flex items-center gap-3 p-3 rounded-xl border text-xs cursor-pointer transition-all ${isChecked ? 'border-primary bg-primary/5 text-primary font-bold' : 'border-border hover:bg-muted/30'}`}>
+                                {isMsq ? (
+                                  <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors ${isChecked ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
+                                    {isChecked && <div className="h-1.5 w-1.5 bg-primary-foreground rounded-sm" />}
+                                  </div>
+                                ) : (
+                                  <div className={`h-4 w-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${isChecked ? 'border-primary' : 'border-muted-foreground'}`}>
+                                    {isChecked && <div className="h-2 w-2 rounded-full bg-primary" />}
+                                  </div>
+                                )}
+                                <input
+                                  type={isMsq ? 'checkbox' : 'radio'}
+                                  name={`question-${q.id}`}
+                                  value={opt}
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (isMsq) {
+                                      const checked = e.target.checked;
+                                      const list = checked ? [...currentList, opt] : currentList.filter(x => x !== opt);
+                                      setQuizAnswers(prev => ({ ...prev, [q.id]: list.sort().join(', ') }));
+                                    } else {
+                                      setQuizAnswers(prev => ({ ...prev, [q.id]: opt }));
+                                    }
+                                  }}
+                                  className="sr-only"
+                                />
+                                <span>{opt}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="flex justify-end gap-3 pt-3 border-t border-border">
+                    <button onClick={handleQuizSubmit} className="px-5 py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:brightness-110">Submit Quiz Checkpoint</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : activeAssignment ? (
+            );
+          })() : activeAssignment ? (
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
               <div className="flex justify-between items-center border-b border-border pb-3">
                 <h4 className="font-bold text-sm">Homework Checklist: {activeAssignment.title}</h4>
@@ -468,11 +675,59 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
               )}
 
               <div className="space-y-4 pt-3 border-t border-border">
-                {submissions.find(s => s.assignment === activeAssignment.id) ? (
-                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl">
-                    <p className="font-bold">✓ Assignment submitted successfully.</p>
-                  </div>
-                ) : (
+                {(() => {
+                  const sub = submissions.find(s => s.assignment === activeAssignment.id);
+                  if (sub) {
+                    return (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl">
+                          <p className="font-bold">✓ Assignment submitted successfully.</p>
+                        </div>
+                        
+                        {sub.status === 'GRADED' && (
+                          <div className="p-5 bg-card border border-border shadow-sm rounded-2xl space-y-3">
+                            <h5 className="font-extrabold text-sm border-b border-border pb-2">Instructor Feedback</h5>
+                            <div className="flex gap-4 items-center">
+                              <div className="flex-1 bg-muted/30 p-3 rounded-xl border border-border">
+                                <span className="block text-[10px] uppercase font-bold text-muted-foreground mb-1">Grade / Score</span>
+                                <span className="text-xl font-black text-primary">{sub.grade || 'N/A'}</span>
+                              </div>
+                              <div className="flex-1 bg-muted/30 p-3 rounded-xl border border-border">
+                                <span className="block text-[10px] uppercase font-bold text-muted-foreground mb-1">Status</span>
+                                <span className="text-sm font-bold text-emerald-500">Graded</span>
+                              </div>
+                            </div>
+                            {sub.feedback && (
+                              <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 mt-2">
+                                <span className="block text-[10px] uppercase font-bold text-primary mb-1">Comments</span>
+                                <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{sub.feedback}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {sub.status === 'REJECTED' && (
+                          <div className="p-5 bg-destructive/5 border border-destructive/20 text-destructive rounded-2xl space-y-3">
+                            <h5 className="font-extrabold text-sm border-b border-destructive/20 pb-2">Needs Revision</h5>
+                            <p className="text-xs font-semibold">Your submission requires changes. Please review the feedback below:</p>
+                            {sub.feedback && (
+                              <div className="bg-destructive/10 p-3 rounded-xl mt-2">
+                                <p className="text-xs leading-relaxed whitespace-pre-wrap">{sub.feedback}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {sub.status === 'PENDING' && (
+                          <div className="p-4 bg-muted/20 border border-border text-muted-foreground rounded-xl flex items-center justify-between text-xs">
+                            <span className="font-bold uppercase tracking-wide text-[10px]">Pending Review</span>
+                            <span>Waiting for instructor to grade...</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return (
                   <div className="space-y-3 bg-muted/20 p-4 border border-border rounded-xl">
                     <div>
                       <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Upload Deliverable</label>
@@ -495,7 +750,8 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                     </div>
                     <button onClick={handleAssignmentSubmit} disabled={!fileUrl} className="w-full py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl">Submit Homework</button>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
           ) : activeLesson ? (
@@ -523,9 +779,23 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                     }}
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
-                    <AlertCircle size={30} className="text-muted-foreground/60" />
-                    <span>No video file matches this lesson segment.</span>
+                  <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
+                    <div className="flex flex-col items-center gap-2">
+                      <AlertCircle size={30} className="text-muted-foreground/60" />
+                      <span>No video file matches this lesson segment.</span>
+                    </div>
+                    {!activeLesson.completed && (
+                      <button 
+                        onClick={() => {
+                          toast.success('Lesson completed!');
+                          syncProgressMutation.mutate({ current: 0, pct: 100, completed: true });
+                          if (autoplayNext) handleNextItem();
+                        }}
+                        className="px-6 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg hover:brightness-110"
+                      >
+                        Mark as Completed
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -550,41 +820,36 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                   </select>
                 </div>
                 <div className="flex gap-2">
-                  <label className="flex items-center gap-1 text-muted-foreground font-semibold">
+                  <label className="flex items-center gap-1.5 text-muted-foreground font-semibold cursor-pointer">
                     <input type="checkbox" checked={autoplayNext} onChange={(e) => setAutoplayNext(e.target.checked)} className="accent-primary" />
                     <span>Autoplay Next</span>
                   </label>
-                  <button 
-                    onClick={() => onOpenAITutor(activeLesson.id, course.id)}
-                    className="px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-lg font-bold text-[10px] hover:bg-primary/20"
-                  >
-                    🤖 Ask AI Tutor
-                  </button>
                 </div>
               </div>
 
-              {/* Lesson Tabs Drawer */}
+              {/* Lesson Info Tabs Drawer */}
               <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
                 <div className="flex flex-wrap gap-2 border-b border-border/50 pb-3">
                   {[
-                    { id: 'content', label: 'Content' },
-                    { id: 'attachments', label: 'Slides & Guides' },
-                    { id: 'study-notes', label: 'Take Notes' },
-                    { id: 'bookmarks', label: 'Video Bookmarks' }
+                    { id: 'content', label: 'Lesson Content', icon: BookOpen },
+                    { id: 'attachments', label: 'Slides & Guides', icon: FileText },
+                    { id: 'study-notes', label: 'Take Notes', icon: Edit3 },
+                    { id: 'bookmarks', label: 'Video Bookmarks', icon: Bookmark }
                   ].map(tab => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as any)}
-                      className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold tracking-wide uppercase transition-all ${activeTab === tab.id ? 'bg-primary border-transparent text-primary-foreground' : 'bg-muted/40 border-border text-muted-foreground hover:bg-muted'}`}
+                      className={`px-3.5 py-2 rounded-xl border text-[11px] font-bold tracking-wide uppercase transition-all flex items-center gap-1.5 ${activeTab === tab.id ? 'bg-primary border-transparent text-primary-foreground shadow-md' : 'bg-muted/40 border-border text-muted-foreground hover:bg-muted'}`}
                     >
-                      {tab.label}
+                      <tab.icon size={13} />
+                      <span>{tab.label}</span>
                     </button>
                   ))}
                 </div>
 
                 <div className="text-xs leading-relaxed space-y-4">
                   {activeTab === 'content' && (
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <div className="prose prose-sm max-w-none">
                       <h4 className="text-sm font-extrabold text-foreground mb-2">{activeLesson.title}</h4>
                       <p className="whitespace-pre-wrap text-muted-foreground leading-relaxed">{activeLesson.content || 'No text content listed for this lesson.'}</p>
                     </div>
@@ -664,69 +929,146 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
           )}
         </div>
 
-        {/* Right Column: Module & Lessons Playlist Panel */}
-        <div className="w-full lg:w-80 space-y-6 shrink-0">
-          <div className="rounded-2xl glass-panel p-5 shadow-sm space-y-4">
-            <h3 className="font-bold text-xs uppercase border-b border-border pb-3">Course Contents</h3>
-            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-              {modules.map(mod => {
-                const modLessons = lessons.filter(l => l.module === mod.id);
-                return (
-                  <div key={mod.id} className="space-y-1.5">
-                    <h4 className="text-[9px] font-extrabold uppercase tracking-wider text-muted-foreground border-l-2 border-primary/40 pl-1.5">{mod.title}</h4>
-                    <div className="space-y-1 pl-1">
-                      {modLessons.map((les, index) => {
-                        const isCurrent = activeLesson?.id === les.id;
-                        return (
-                          <button
-                            key={les.id}
-                            onClick={() => handleSelectLesson(les)}
-                            className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${isCurrent ? 'bg-[#0f172a] border-primary/25 text-primary font-bold shadow-sm' : les.locked ? 'opacity-40 cursor-not-allowed border-transparent text-muted-foreground' : 'hover:bg-muted/40 border-transparent text-muted-foreground'}`}
-                          >
-                            <span className="font-mono text-[9px] text-slate-500 w-3">{index + 1}</span>
-                            <span className="truncate flex-1">{les.title}</span>
-                            {les.completed && <Award size={10} className="text-emerald-500" />}
-                          </button>
-                        );
-                      })}
+        {/* Right Column: Module & Lessons Playlist Panel / AI Tutor Panel */}
+        <div className="w-full lg:w-96 space-y-6 shrink-0">
+          <div className="rounded-2xl bg-card border border-border p-5 shadow-md space-y-4">
+            {/* Right Panel View Selector */}
+            <div className="flex bg-muted/40 p-1 rounded-xl border border-border/60 gap-1">
+              <button
+                onClick={() => setRightPanelTab('playlist')}
+                className={`flex-1 py-2 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${rightPanelTab === 'playlist' ? 'bg-card text-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Layers size={12} className={rightPanelTab === 'playlist' ? 'text-primary' : ''} />
+                <span>Course Playlist</span>
+              </button>
 
-                      {/* Quizzes list inside modules */}
-                      {courseQuizzes.filter(q => q.module === mod.id).map(quiz => {
-                        const attempts = quizAttempts.filter(att => att.quiz === quiz.id);
-                        const hasPassed = attempts.some(att => att.passed);
-                        const attemptsCount = attempts.length;
-                        return (
-                          <button
-                            key={quiz.id}
-                            disabled={hasPassed}
-                            onClick={() => { setActiveQuiz(quiz); setQuizTimeLeft(15 * 60); }}
-                            className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasPassed ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' : 'text-primary border-transparent hover:bg-muted/40'}`}
-                          >
-                            <HelpCircle size={10} />
-                            <span className="truncate flex-1 font-semibold">{hasPassed ? 'Passed Checkpoint' : `Checkpoint: ${quiz.title} (${attemptsCount}/${quiz.max_retries} attempts)`}</span>
-                          </button>
-                        );
-                      })}
-
-                      {/* Assignments list inside modules */}
-                      {assignments.filter(a => a.module === mod.id).map(assign => {
-                        const hasSub = submissions.some(s => s.assignment === assign.id);
-                        return (
-                          <button
-                            key={assign.id}
-                            onClick={() => setActiveAssignment(assign)}
-                            className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasSub ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' : 'text-primary border-transparent hover:bg-muted/40'}`}
-                          >
-                            <ClipboardList size={10} />
-                            <span className="truncate flex-1 font-semibold">{hasSub ? 'Homework Submitted' : `Homework: ${assign.title}`}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+              <button
+                onClick={() => setRightPanelTab('ai-tutor')}
+                className={`flex-1 py-2 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${rightPanelTab === 'ai-tutor' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Bot size={12} />
+                <span>Apex AI Tutor</span>
+              </button>
             </div>
+
+            {rightPanelTab === 'playlist' ? (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                <h3 className="font-extrabold text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Modules & Lessons</h3>
+                {(() => {
+                  let allPreviousCompleted = true;
+                  return modules.map((mod, index) => {
+                    const modLessons = lessons.filter(l => l.module === mod.id);
+                    const modQuizzes = courseQuizzes.filter(q => q.module === mod.id);
+                    const modAssignments = assignments.filter(a => a.module === mod.id);
+                    
+                    const allLessonsCompleted = modLessons.every(l => l.completed);
+                    const allQuizzesPassed = modQuizzes.every(q => quizAttempts.some(att => att.quiz === q.id && att.passed));
+                    const allAssignmentsSubmitted = modAssignments.every(a => submissions.some(s => s.assignment === a.id));
+
+                    const isCompleted = allLessonsCompleted && allQuizzesPassed && allAssignmentsSubmitted;
+                    const isLocked = index === 0 ? false : !allPreviousCompleted;
+                    
+                    if (!isCompleted) {
+                      allPreviousCompleted = false;
+                    }
+
+                    return (
+                      <div key={mod.id} className={`space-y-1.5 ${isLocked ? 'opacity-50' : ''}`}>
+                        <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-foreground border-l-2 border-primary/50 pl-2 py-0.5 bg-muted/20 rounded-r flex items-center justify-between">
+                          <span>{mod.title}</span>
+                          {isLocked && <Lock size={10} className="text-muted-foreground mr-2" />}
+                        </h4>
+                        <div className="space-y-1 pl-1">
+                          {modLessons.map((les, i) => {
+                            const isCurrent = activeLesson?.id === les.id;
+                            const buttonLocked = isLocked || les.locked;
+                            return (
+                              <button
+                                key={les.id}
+                                disabled={buttonLocked}
+                                onClick={() => handleSelectLesson(les)}
+                                className={`w-full text-left p-2.5 rounded-xl text-[11px] flex items-center gap-2.5 border transition-all ${isCurrent ? 'bg-primary/10 border-primary text-primary font-bold shadow-sm' : buttonLocked ? 'opacity-40 cursor-not-allowed border-transparent text-muted-foreground' : 'hover:bg-muted/50 border-transparent text-muted-foreground'}`}
+                              >
+                                <span className="font-mono text-[10px] text-muted-foreground w-4 shrink-0">{i + 1}.</span>
+                                <span className="truncate flex-1 font-semibold">{les.title}</span>
+                                {les.completed ? <CheckCircle2 size={12} className="text-emerald-500 shrink-0" /> : (buttonLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />)}
+                              </button>
+                            );
+                          })}
+
+                          {/* Quizzes list inside modules */}
+                          {modQuizzes.map(quiz => {
+                            const attempts = quizAttempts.filter(att => att.quiz === quiz.id);
+                            const hasPassed = attempts.some(att => att.passed);
+                            const attemptsCount = attempts.length;
+                            return (
+                              <button
+                                key={quiz.id}
+                                disabled={isLocked}
+                                onClick={() => {
+                                  setActiveQuiz(quiz);
+                                  setActiveLesson(null);
+                                  setActiveAssignment(null);
+                                  setForceRetakeQuizId(null);
+                                  if (!hasPassed) {
+                                    setQuizAnswers({});
+                                    setQuizTimeLeft(15 * 60);
+                                  } else {
+                                    setQuizTimeLeft(null);
+                                  }
+                                }}
+                                className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasPassed ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10 font-bold' : isLocked ? 'opacity-40 cursor-not-allowed text-muted-foreground border-transparent' : 'text-primary border-transparent hover:bg-muted/40'}`}
+                              >
+                                <HelpCircle size={10} />
+                                <span className="truncate flex-1 font-semibold">
+                                  {hasPassed 
+                                    ? `Checkpoint: ${quiz.title} - Passed (${attempts.find(att => att.passed)?.score}%)` 
+                                    : `Checkpoint: ${quiz.title} (${attemptsCount}/${quiz.max_retries} attempts)`
+                                  }
+                                </span>
+                                {isLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />}
+                              </button>
+                            );
+                          })}
+
+                          {/* Assignments list inside modules */}
+                          {modAssignments.map(assign => {
+                            const hasSub = submissions.some(s => s.assignment === assign.id);
+                            return (
+                              <button
+                                key={assign.id}
+                                disabled={isLocked}
+                                onClick={() => {
+                                  setActiveAssignment(assign);
+                                  setActiveLesson(null);
+                                  setActiveQuiz(null);
+                                  setForceRetakeQuizId(null);
+                                }}
+                                className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasSub ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' : isLocked ? 'opacity-40 cursor-not-allowed text-muted-foreground border-transparent' : 'text-primary border-transparent hover:bg-muted/40'}`}
+                              >
+                                <ClipboardList size={10} />
+                                <span className="truncate flex-1 font-semibold">{hasSub ? 'Homework Submitted' : `Homework: ${assign.title}`}</span>
+                                {isLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            ) : (
+              /* Embedded AI Tutor Interface in Right Sidebar */
+              <div className="h-[430px] border border-border/80 rounded-2xl overflow-hidden shadow-sm">
+                <ApexAITutorCore
+                  lessonId={activeLesson?.id || null}
+                  courseId={course.id}
+                  lessonTitle={activeLesson?.title || course.title}
+                  compact={true}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

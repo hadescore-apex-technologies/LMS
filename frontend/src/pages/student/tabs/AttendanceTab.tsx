@@ -13,30 +13,18 @@ interface AttendanceResponse {
     id: number;
     date: string;
     status: 'PRESENT' | 'ABSENT' | 'LATE';
+    first_login?: string | null;
   }>;
 }
 
 export const AttendanceTab: React.FC = () => {
-  const { data: attendanceData, isLoading } = useQuery<AttendanceResponse>({
+  const { data: attendanceData } = useQuery<AttendanceResponse>({
     queryKey: ['student-attendance'],
     queryFn: async () => {
       const res = await api.get('users/profile/attendance/');
       return res.data;
     }
   });
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-28 bg-muted/40 animate-pulse rounded-2xl border border-border/30" />
-          ))}
-        </div>
-        <div className="h-80 bg-muted/40 animate-pulse rounded-2xl border border-border/30" />
-      </div>
-    );
-  }
 
   const records = attendanceData?.records || [];
 
@@ -88,6 +76,11 @@ export const AttendanceTab: React.FC = () => {
                     </div>
                     <div>
                       <h4 className="font-extrabold text-sm text-foreground">{new Date(rec.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h4>
+                      {rec.status === 'PRESENT' && rec.first_login && (
+                        <span className="text-[10px] text-muted-foreground font-mono block mt-0.5">
+                          Login Time: {rec.first_login}
+                        </span>
+                      )}
                     </div>
                   </div>
 

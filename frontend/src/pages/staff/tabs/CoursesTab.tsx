@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
@@ -26,6 +28,13 @@ interface Course {
   learning_path?: string;
   instructor_name?: string;
   instructor_role?: string;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  slug?: string;
+  description?: string;
 }
 
 interface Mentor {
@@ -75,8 +84,13 @@ interface Quiz {
   randomize_questions: boolean;
 }
 
-export const CoursesTab: React.FC = () => {
+interface CoursesTabProps {
+  isRecordingsMode?: boolean;
+}
+
+export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false }) => {
   const queryClient = useQueryClient();
+  const { user } = useSelector((state: RootState) => state.auth);
 
   // Selection state
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -142,54 +156,77 @@ export const CoursesTab: React.FC = () => {
 
   // Queries
   const { data: courses = [], isLoading: coursesLoading } = useQuery<Course[]>({
-    queryKey: ['courses-list'],
+    queryKey: ['courses-list', isRecordingsMode],
+    placeholderData: (prev) => prev,
+    staleTime: 600000,
     queryFn: async () => {
-      const res = await api.get('courses/list/');
-      return res.data;
+      const res = await api.get(`courses/list/?is_mentoring_track=${isRecordingsMode}`);
+      return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
 
   const { data: mentors = [] } = useQuery<Mentor[]>({
     queryKey: ['mentors-list'],
+    placeholderData: (prev) => prev,
+    staleTime: 600000,
     queryFn: async () => {
       const res = await api.get('users/mentors/');
-      return res.data;
+      return Array.isArray(res.data) ? res.data : (res.data?.results || []);
+    }
+  });
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['categories-list', isRecordingsMode],
+    placeholderData: (prev) => prev,
+    staleTime: 600000,
+    queryFn: async () => {
+      const type = isRecordingsMode ? 'LIVE' : 'COURSE';
+      const res = await api.get(`courses/categories/?type=${type}`);
+      return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
 
   const { data: modules = [], refetch: refetchModules } = useQuery<Module[]>({
     queryKey: ['modules', selectedCourse?.id],
-    enabled: !!selectedCourse,
+    placeholderData: (prev) => prev,
+    enabled: !!selectedCourse?.id,
     queryFn: async () => {
-      const res = await api.get(`modules/?course=${selectedCourse?.id}`);
-      return res.data;
+      if (!selectedCourse?.id) return [];
+      const res = await api.get(`modules/?course=${selectedCourse.id}`);
+      return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
 
   const { data: lessons = [], refetch: refetchLessons } = useQuery<Lesson[]>({
     queryKey: ['lessons', selectedCourse?.id],
-    enabled: !!selectedCourse,
+    placeholderData: (prev) => prev,
+    enabled: !!selectedCourse?.id,
     queryFn: async () => {
-      const res = await api.get(`lessons/?course=${selectedCourse?.id}`);
-      return res.data;
+      if (!selectedCourse?.id) return [];
+      const res = await api.get(`lessons/?course=${selectedCourse.id}`);
+      return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
 
   const { data: assignments = [], refetch: refetchAssignments } = useQuery<Assignment[]>({
     queryKey: ['assignments', selectedCourse?.id],
-    enabled: !!selectedCourse,
+    placeholderData: (prev) => prev,
+    enabled: !!selectedCourse?.id,
     queryFn: async () => {
-      const res = await api.get('assignments/list/');
-      return res.data.filter((a: any) => a.course === selectedCourse?.id || modules.some(m => m.id === a.module));
+      if (!selectedCourse?.id) return [];
+      const res = await api.get(`assignments/list/?course=${selectedCourse.id}`);
+      return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
 
   const { data: quizzes = [], refetch: refetchQuizzes } = useQuery<Quiz[]>({
     queryKey: ['quizzes', selectedCourse?.id],
-    enabled: !!selectedCourse,
+    placeholderData: (prev) => prev,
+    enabled: !!selectedCourse?.id,
     queryFn: async () => {
-      const res = await api.get(`quizzes/list/?course=${selectedCourse?.id}`);
-      return res.data;
+      if (!selectedCourse?.id) return [];
+      const res = await api.get(`quizzes/list/?course=${selectedCourse.id}`);
+      return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
 
@@ -227,6 +264,7 @@ export const CoursesTab: React.FC = () => {
       const payload = {
         title: courseTitle,
         description: courseDesc,
+        category: courseCategory || (categories[0]?.id ?? 1),
         mentor: courseMentor || null,
         thumbnail: courseThumb,
         instructor_name: instructorName,
@@ -234,7 +272,8 @@ export const CoursesTab: React.FC = () => {
         status: courseStatus,
         requirements: courseReqs,
         outcomes: courseOuts,
-        slug: courseTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+        slug: courseTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        is_mentoring_track: isRecordingsMode
       };
       if (selectedCourse) {
         await api.put(`courses/list/${selectedCourse.id}/`, payload);
@@ -244,6 +283,8 @@ export const CoursesTab: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses-list'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-dropdown-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       setShowCourseModal(false);
       resetCourseForm();
@@ -260,6 +301,8 @@ export const CoursesTab: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses-list'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-dropdown-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       setSelectedCourse(null);
       toast.success('Course layout wiped.');
@@ -276,12 +319,41 @@ export const CoursesTab: React.FC = () => {
         await api.post('modules/', { title: modTitle, course: selectedCourse.id, order: modules.length + 1 });
       }
     },
-    onSuccess: () => {
-      refetchModules();
+    onMutate: async () => {
+      if (!selectedCourse || !modTitle.trim()) return;
+      await queryClient.cancelQueries({ queryKey: ['modules', selectedCourse.id] });
+      const previousModules = queryClient.getQueryData(['modules', selectedCourse.id]);
+      
+      const newModule = {
+        id: editingModule ? editingModule.id : Math.random(),
+        title: modTitle,
+        course: selectedCourse.id,
+        order: modules.length + 1
+      };
+      
+      queryClient.setQueryData(['modules', selectedCourse.id], (old: any) => {
+        if (editingModule) {
+          return (old || []).map((m: any) => m.id === editingModule.id ? newModule : m);
+        } else {
+          return [...(old || []), newModule];
+        }
+      });
+      
       setShowModModal(false);
       setModTitle('');
       setEditingModule(null);
-      toast.success('Module saved.');
+      return { previousModules };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousModules && selectedCourse) {
+        queryClient.setQueryData(['modules', selectedCourse.id], context.previousModules);
+      }
+      toast.error('Failed to save module.');
+    },
+    onSettled: () => {
+      refetchModules();
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
     }
   });
 
@@ -289,9 +361,25 @@ export const CoursesTab: React.FC = () => {
     mutationFn: async (id: number) => {
       await api.delete(`modules/${id}/`);
     },
-    onSuccess: () => {
+    onMutate: async (id: number) => {
+      if (!selectedCourse) return;
+      await queryClient.cancelQueries({ queryKey: ['modules', selectedCourse.id] });
+      const previousModules = queryClient.getQueryData(['modules', selectedCourse.id]);
+      queryClient.setQueryData(['modules', selectedCourse.id], (old: any) => 
+        (old || []).filter((m: any) => m.id !== id)
+      );
+      return { previousModules };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousModules && selectedCourse) {
+        queryClient.setQueryData(['modules', selectedCourse.id], context.previousModules);
+      }
+      toast.error('Failed to remove module.');
+    },
+    onSettled: () => {
       refetchModules();
-      toast.success('Module removed.');
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
     }
   });
 
@@ -315,11 +403,48 @@ export const CoursesTab: React.FC = () => {
         await api.post('lessons/', payload);
       }
     },
-    onSuccess: () => {
-      refetchLessons();
+    onMutate: async () => {
+      if (!selectedCourse || !targetModuleId) return;
+      await queryClient.cancelQueries({ queryKey: ['lessons', selectedCourse.id] });
+      const previousLessons = queryClient.getQueryData(['lessons', selectedCourse.id]);
+      
+      const newLesson = {
+        id: editingLesson ? editingLesson.id : Math.random(),
+        title: lesTitle,
+        content: lesContent,
+        module: targetModuleId,
+        cf_stream_id: lesVideoUrl || null,
+        pdf_ppt_url: lesPdf || null,
+        zip_source_url: lesZip || null,
+        additional_notes: lesNotes || null,
+        order: lessons.filter(l => l.module === targetModuleId).length + 1
+      };
+      
+      queryClient.setQueryData(['lessons', selectedCourse.id], (old: any) => {
+        if (editingLesson) {
+          return (old || []).map((l: any) => l.id === editingLesson.id ? newLesson : l);
+        } else {
+          return [...(old || []), newLesson];
+        }
+      });
+      
       setShowLesModal(false);
+      return { previousLessons };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousLessons && selectedCourse) {
+        queryClient.setQueryData(['lessons', selectedCourse.id], context.previousLessons);
+      }
+      toast.error('Failed to save lesson.');
+    },
+    onSuccess: () => {
       resetLessonForm();
       toast.success('Lesson saved.');
+    },
+    onSettled: () => {
+      refetchLessons();
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
     }
   });
 
@@ -327,9 +452,25 @@ export const CoursesTab: React.FC = () => {
     mutationFn: async (id: number) => {
       await api.delete(`lessons/${id}/`);
     },
-    onSuccess: () => {
+    onMutate: async (id: number) => {
+      if (!selectedCourse) return;
+      await queryClient.cancelQueries({ queryKey: ['lessons', selectedCourse.id] });
+      const previousLessons = queryClient.getQueryData(['lessons', selectedCourse.id]);
+      queryClient.setQueryData(['lessons', selectedCourse.id], (old: any) => 
+        (old || []).filter((l: any) => l.id !== id)
+      );
+      return { previousLessons };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousLessons && selectedCourse) {
+        queryClient.setQueryData(['lessons', selectedCourse.id], context.previousLessons);
+      }
+      toast.error('Failed to delete lesson.');
+    },
+    onSettled: () => {
       refetchLessons();
-      toast.success('Lesson deleted.');
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
     }
   });
 
@@ -350,11 +491,46 @@ export const CoursesTab: React.FC = () => {
         await api.post('assignments/list/', payload);
       }
     },
-    onSuccess: () => {
-      refetchAssignments();
+    onMutate: async () => {
+      if (!selectedCourse || !assignModuleId) return;
+      await queryClient.cancelQueries({ queryKey: ['assignments', selectedCourse.id] });
+      const previousAssignments = queryClient.getQueryData(['assignments', selectedCourse.id]);
+      
+      const newAssignment = {
+        id: editingAssignment ? editingAssignment.id : Math.random(),
+        title: assignTitle,
+        description: assignDesc,
+        module: assignModuleId,
+        due_date: assignDueDate || null,
+        file_attachment: assignFileUrl || null,
+        course: selectedCourse.id
+      };
+      
+      queryClient.setQueryData(['assignments', selectedCourse.id], (old: any) => {
+        if (editingAssignment) {
+          return (old || []).map((a: any) => a.id === editingAssignment.id ? newAssignment : a);
+        } else {
+          return [...(old || []), newAssignment];
+        }
+      });
+      
       setShowAssignModal(false);
+      return { previousAssignments };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousAssignments && selectedCourse) {
+        queryClient.setQueryData(['assignments', selectedCourse.id], context.previousAssignments);
+      }
+      toast.error('Failed to save assignment.');
+    },
+    onSuccess: () => {
       resetAssignForm();
       toast.success('Homework assignment saved.');
+    },
+    onSettled: () => {
+      refetchAssignments();
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
     }
   });
 
@@ -362,9 +538,25 @@ export const CoursesTab: React.FC = () => {
     mutationFn: async (id: number) => {
       await api.delete(`assignments/list/${id}/`);
     },
-    onSuccess: () => {
+    onMutate: async (id: number) => {
+      if (!selectedCourse) return;
+      await queryClient.cancelQueries({ queryKey: ['assignments', selectedCourse.id] });
+      const previousAssignments = queryClient.getQueryData(['assignments', selectedCourse.id]);
+      queryClient.setQueryData(['assignments', selectedCourse.id], (old: any) => 
+        (old || []).filter((a: any) => a.id !== id)
+      );
+      return { previousAssignments };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousAssignments && selectedCourse) {
+        queryClient.setQueryData(['assignments', selectedCourse.id], context.previousAssignments);
+      }
+      toast.error('Failed to remove assignment.');
+    },
+    onSettled: () => {
       refetchAssignments();
-      toast.success('Homework task removed.');
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
     }
   });
 
@@ -407,14 +599,28 @@ export const CoursesTab: React.FC = () => {
         max_retries: maxRetries,
         randomize_questions: randomizeQuestions
       };
+      let savedQuiz;
       if (activeQuiz) {
         const res = await api.put(`quizzes/list/${activeQuiz.id}/`, payload);
-        setActiveQuiz(res.data);
+        savedQuiz = res.data;
+        setActiveQuiz(savedQuiz);
       } else {
         const res = await api.post('quizzes/list/', payload);
-        setActiveQuiz(res.data);
+        savedQuiz = res.data;
+        setActiveQuiz(savedQuiz);
+      }
+      if (selectedCourse) {
+        queryClient.setQueryData(['quizzes', selectedCourse.id], (old: any) => {
+          const oldList = old || [];
+          if (oldList.some((q: any) => q.module === quizModuleId)) {
+            return oldList.map((q: any) => q.module === quizModuleId ? savedQuiz : q);
+          }
+          return [...oldList, savedQuiz];
+        });
       }
       refetchQuizzes();
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Quiz checkpoint parameters saved.');
     } catch {
       toast.error('Failed to configure quiz.');
@@ -467,6 +673,8 @@ export const CoursesTab: React.FC = () => {
       toast.success('Quiz deleted.');
       setShowQuizModal(false);
       refetchQuizzes();
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
     } catch {
       toast.error('Failed to delete quiz.');
     }
@@ -475,11 +683,12 @@ export const CoursesTab: React.FC = () => {
   const resetCourseForm = () => {
     setCourseTitle('');
     setCourseDesc('');
-    setCourseCategory(0);
+    setCourseCategory(categories[0]?.id || 0);
     setCourseThumb('');
-    setCourseMentor('');
-    setInstructorName('');
-    setInstructorRole('');
+    const myMentor = mentors.find(m => m.email.toLowerCase().trim() === user?.email?.toLowerCase().trim());
+    setCourseMentor(myMentor?.id || '');
+    setInstructorName(user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : (user?.email || ''));
+    setInstructorRole('Staff Mentor');
     setCourseStatus('PUBLISHED');
     setCourseReqs('');
     setCourseOuts('');
@@ -557,18 +766,23 @@ export const CoursesTab: React.FC = () => {
       {/* Left Column: Courses list */}
       <div className="w-full lg:w-80 space-y-4 shrink-0">
         <div className="flex justify-between items-center">
-          <h2 className="font-extrabold text-base">Course Tracks</h2>
+          <h2 className="font-extrabold text-base">
+            {isRecordingsMode ? 'Mentoring Tracks' : 'Course Tracks'}
+          </h2>
           <button 
             onClick={() => { resetCourseForm(); setSelectedCourse(null); setShowCourseModal(true); }}
             className="p-2 bg-primary text-primary-foreground rounded-xl"
+            title="Create New Track"
           >
-            <Plus size={14} />
+            <Plus size={16} />
           </button>
         </div>
 
         <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
           {coursesLoading ? (
-            <div className="py-12 text-center text-muted-foreground">Loading tracks...</div>
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="animate-spin text-primary" size={20} />
+            </div>
           ) : (
             courses.map(c => (
               <div 
@@ -686,56 +900,60 @@ export const CoursesTab: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Checkpoint Quiz */}
-                          <div className="space-y-2 border-t border-border/50 pt-3">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-muted-foreground block text-[10px] uppercase">Module Checkpoint Quiz</span>
-                              {!modQuiz && (
-                                <button onClick={() => loadQuizDetails(mod.id)} className="text-primary font-bold flex items-center gap-0.5 hover:underline">
-                                  <Plus size={11} /> Create Quiz
-                                </button>
-                              )}
-                            </div>
-                            {modQuiz ? (
-                              <div className="p-3 bg-card border border-emerald-500/10 rounded-xl flex items-center justify-between gap-4 text-emerald-500">
-                                <div className="flex items-center gap-2">
-                                  <HelpCircle size={12} />
-                                  <span className="font-semibold">{modQuiz.title} ({modQuiz.passing_score}% Pass)</span>
+                          {!isRecordingsMode && (
+                            <>
+                              {/* Checkpoint Quiz */}
+                              <div className="space-y-2 border-t border-border/50 pt-3">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-muted-foreground block text-[10px] uppercase">Module Checkpoint Quiz</span>
+                                  {!modQuiz && (
+                                    <button onClick={() => loadQuizDetails(mod.id)} className="text-primary font-bold flex items-center gap-0.5 hover:underline">
+                                      <Plus size={11} /> Create Quiz
+                                    </button>
+                                  )}
                                 </div>
-                                <div className="flex gap-2">
-                                  <button onClick={() => loadQuizDetails(mod.id)} className="text-muted-foreground hover:text-foreground"><Edit3 size={11} /></button>
-                                </div>
+                                {modQuiz ? (
+                                  <div className="p-3 bg-card border border-emerald-500/10 rounded-xl flex items-center justify-between gap-4 text-emerald-500">
+                                    <div className="flex items-center gap-2">
+                                      <HelpCircle size={12} />
+                                      <span className="font-semibold">{modQuiz.title} ({modQuiz.passing_score}% Pass)</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <button onClick={() => loadQuizDetails(mod.id)} className="text-muted-foreground hover:text-foreground"><Edit3 size={11} /></button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="italic text-muted-foreground">No quiz checkpoint scheduled.</p>
+                                )}
                               </div>
-                            ) : (
-                              <p className="italic text-muted-foreground">No quiz checkpoint scheduled.</p>
-                            )}
-                          </div>
 
-                          {/* Assignments */}
-                          <div className="space-y-2 border-t border-border/50 pt-3">
-                            <div className="flex justify-between items-center">
-                              <span className="font-bold text-muted-foreground block text-[10px] uppercase">Homework Assignment</span>
-                              {!modAssign && (
-                                <button onClick={() => openCreateAssign(mod.id)} className="text-primary font-bold flex items-center gap-0.5 hover:underline">
-                                  <Plus size={11} /> Create Assignment
-                                </button>
-                              )}
-                            </div>
-                            {modAssign ? (
-                              <div className="p-3 bg-card border border-border/80 rounded-xl flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-2">
-                                  <ClipboardList size={12} className="text-primary" />
-                                  <span className="font-semibold">{modAssign.title}</span>
+                              {/* Assignments */}
+                              <div className="space-y-2 border-t border-border/50 pt-3">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-muted-foreground block text-[10px] uppercase">Homework Assignment</span>
+                                  {!modAssign && (
+                                    <button onClick={() => openCreateAssign(mod.id)} className="text-primary font-bold flex items-center gap-0.5 hover:underline">
+                                      <Plus size={11} /> Create Assignment
+                                    </button>
+                                  )}
                                 </div>
-                                <div className="flex gap-2">
-                                  <button onClick={() => openEditAssign(modAssign)} className="text-muted-foreground hover:text-foreground"><Edit3 size={11} /></button>
-                                  <button onClick={() => { if (window.confirm('Delete assignment?')) deleteAssignmentMutation.mutate(modAssign.id); }} className="text-muted-foreground hover:text-destructive"><Trash2 size={11} /></button>
-                                </div>
+                                {modAssign ? (
+                                  <div className="p-3 bg-card border border-border/80 rounded-xl flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2">
+                                      <ClipboardList size={12} className="text-primary" />
+                                      <span className="font-semibold">{modAssign.title}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <button onClick={() => openEditAssign(modAssign)} className="text-muted-foreground hover:text-foreground"><Edit3 size={11} /></button>
+                                      <button onClick={() => { if (window.confirm('Delete assignment?')) deleteAssignmentMutation.mutate(modAssign.id); }} className="text-muted-foreground hover:text-destructive"><Trash2 size={11} /></button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="italic text-muted-foreground">No homework assignment checklist posted.</p>
+                                )}
                               </div>
-                            ) : (
-                              <p className="italic text-muted-foreground">No homework assignment checklist posted.</p>
-                            )}
-                          </div>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -777,6 +995,9 @@ export const CoursesTab: React.FC = () => {
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Course Briefing / Description *</label>
                   <textarea value={courseDesc} onChange={(e) => setCourseDesc(e.target.value)} required rows={3} className="w-full p-3 bg-muted/40 border border-border rounded-xl outline-none resize-none" />
                 </div>
+
+
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Instructor Name</label>
@@ -925,10 +1146,6 @@ export const CoursesTab: React.FC = () => {
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Guidelines / Rubrics Instructions *</label>
                   <textarea value={assignDesc} onChange={(e) => setAssignDesc(e.target.value)} required rows={4} className="w-full p-3 bg-muted/40 border border-border rounded-xl outline-none resize-none" />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Deadline Date</label>
-                  <input type="date" value={assignDueDate} onChange={(e) => setAssignDueDate(e.target.value)} className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Guideline file attachment</label>

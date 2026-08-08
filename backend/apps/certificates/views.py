@@ -13,6 +13,21 @@ class CertificateViewSet(viewsets.ModelViewSet):
         student_id = request.data.get('student')
         course_id = request.data.get('course')
         
+        with open('api_debug.log', 'a') as f:
+            f.write(f"\n--- CERTIFICATE CREATE --- \nUser: {request.user.email} (Role: {request.user.role})\nData: {request.data}\n")
+        
+        # Enforce staff restriction: Staff can only issue certificates to their assigned students
+        if request.user.role == 'STAFF' and student_id:
+            is_assigned = request.user.assigned_students.filter(user_id=student_id).exists() or \
+                          request.user.assigned_live_students.filter(user_id=student_id).exists()
+            if not is_assigned:
+                with open('api_debug.log', 'a') as f:
+                    f.write("Failed: STAFF restriction not met.\n")
+                return response.Response(
+                    {"error": "You can only issue certificates to students assigned to you."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         # Check if a certificate already exists for this student and course
         existing_cert = Certificate.objects.filter(student_id=student_id, course_id=course_id).first()
         if existing_cert:
@@ -26,9 +41,9 @@ class CertificateViewSet(viewsets.ModelViewSet):
                 certificate_code = f"HA-APEX-{rand_num}"
             
             if certificate_code:
-                serializer.save(certificate_code=certificate_code, issued_by=request.user)
+                updated_cert = serializer.save(certificate_code=certificate_code, issued_by=request.user)
             else:
-                serializer.save(issued_by=request.user)
+                updated_cert = serializer.save(issued_by=request.user)
                 
             # Log audit log
             AuditLog.objects.create(
@@ -36,10 +51,24 @@ class CertificateViewSet(viewsets.ModelViewSet):
                 action=f"Manually Updated Certificate {existing_cert.certificate_code} for student {existing_cert.student.email} on Course {existing_cert.course.title}",
                 ip_address=request.META.get('REMOTE_ADDR')
             )
+
+            # Send course completion & certificate email if issued
+            if updated_cert.is_issued:
+                from apps.core.emails import send_course_completion_email
+                send_course_completion_email(updated_cert.id)
+
             return response.Response(serializer.data, status=status.HTTP_200_OK)
             
         # Otherwise, proceed with default creation
-        return super().create(request, *args, **kwargs)
+        try:
+            res = super().create(request, *args, **kwargs)
+            with open('api_debug.log', 'a') as f:
+                f.write(f"Success: Certificate created. Status: {res.status_code}\n")
+            return res
+        except Exception as e:
+            with open('api_debug.log', 'a') as f:
+                f.write(f"Error during certificate creation: {str(e)}\n")
+            raise
 
     def perform_create(self, serializer):
         certificate_code = serializer.validated_data.get('certificate_code')
@@ -47,7 +76,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
             rand_num = random.randint(10000, 99999)
             certificate_code = f"HA-APEX-{rand_num}"
         
-        serializer.save(
+        cert = serializer.save(
             certificate_code=certificate_code,
             issued_by=self.request.user
         )
@@ -57,6 +86,10 @@ class CertificateViewSet(viewsets.ModelViewSet):
             action=f"Manually Issued Certificate {certificate_code} for student {serializer.validated_data['student'].email} on Course {serializer.validated_data['course'].title}",
             ip_address=self.request.META.get('REMOTE_ADDR')
         )
+
+        if cert.is_issued:
+            from apps.core.emails import send_course_completion_email
+            send_course_completion_email(cert.id)
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
@@ -73,18 +106,29 @@ class CertificateViewSet(viewsets.ModelViewSet):
             return Certificate.objects.none()
 
         qs = Certificate.objects.select_related('student', 'course')
+        student_id = self.request.query_params.get('student')
+        if student_id:
+            qs = qs.filter(student_id=student_id)
+
         if user.role == 'STUDENT':
             # Run dynamic on-demand checks for each assigned course
             from apps.courses.models import Course
             from apps.categories.models import Category
             from apps.certificates.utils import check_and_generate_certificate
             
-            student_categories = Category.objects.filter(student_profiles__user=user)
-            assigned_courses = Course.objects.filter(category__in=student_categories, is_published=True)
+            assigned_courses = user.student_profile.courses.filter(is_published=True) if hasattr(user, 'student_profile') else []
             for course in assigned_courses:
                 check_and_generate_certificate(user, course)
 
             return qs.filter(student=user, is_issued=True)
+
+        if user.role == 'STAFF':
+            from django.db.models import Q
+            return qs.filter(
+                Q(student__student_profile__assigned_staff=user) |
+                Q(student__student_profile__assigned_live_staff=user)
+            ).distinct()
+
         return qs
 
     @decorators.action(detail=False, methods=['get'], url_path='verify', permission_classes=[])
@@ -123,6 +167,16 @@ class CertificateViewSet(viewsets.ModelViewSet):
                 {"error": "student and course fields are required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Enforce staff restriction: Staff can only generate certificates for assigned students
+        if request.user.role == 'STAFF':
+            is_assigned = request.user.assigned_students.filter(user_id=student_id).exists() or \
+                          request.user.assigned_live_students.filter(user_id=student_id).exists()
+            if not is_assigned:
+                return response.Response(
+                    {"error": "You can only generate certificates for students assigned to you."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
         # Enforce Business Rules: 100% completion + required quiz + required assignments
         from apps.lessons.models import Lesson, LessonProgress

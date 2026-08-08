@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../store';
 import api from '../../services/api';
 import { Bell, Check, CheckCheck, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,27 +14,53 @@ interface Notification {
 }
 
 const NotificationCenter: React.FC = () => {
+  const { accessToken } = useSelector((state: RootState) => state.auth);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (isFirstLoad = false) => {
+    // Don't poll if not authenticated — avoids 401 spam from the interval
+    if (!accessToken) return;
     try {
       const res = await api.get('notifications/');
-      setNotifications(res.data);
-      setUnreadCount(res.data.filter((n: Notification) => !n.is_read).length);
-    } catch (err) {
-      console.error('Failed to load notifications', err);
+      const fetched = res.data;
+
+      // Only trigger screen toast if it is a new unread notification
+      if (!isFirstLoad && notifications.length > 0) {
+        const previousIds = new Set(notifications.map(n => n.id));
+        const newUnread = fetched.filter((n: Notification) => !n.is_read && !previousIds.has(n.id));
+        
+        newUnread.forEach((n: Notification) => {
+          toast.success(
+            <div className="flex flex-col gap-0.5 text-left text-xs">
+              <span className="font-extrabold text-slate-800">{n.title}</span>
+              <span className="text-slate-600 text-[10px]">{n.message}</span>
+            </div>,
+            { duration: 6000, icon: '🔔' }
+          );
+        });
+      }
+
+      setNotifications(fetched);
+      setUnreadCount(fetched.filter((n: Notification) => !n.is_read).length);
+    } catch (err: any) {
+      // Silently ignore 401 — token is refreshing or user just logged out
+      if (err?.response?.status !== 401) {
+        console.error('Failed to load notifications', err);
+      }
     }
   };
 
   useEffect(() => {
-    fetchNotifications();
+    if (!accessToken) return; // Don't start polling if not logged in
 
-    // Poll for notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
+    fetchNotifications(true);
+
+    // Poll for notifications every 10 seconds (faster real-time updates)
+    const interval = setInterval(() => fetchNotifications(false), 10000);
 
     // Close on click outside
     const handleOutsideClick = (e: MouseEvent) => {
@@ -46,7 +74,7 @@ const NotificationCenter: React.FC = () => {
       clearInterval(interval);
       document.removeEventListener('mousedown', handleOutsideClick);
     };
-  }, []);
+  }, [accessToken]); // restart/stop polling when auth state changes
 
   const handleMarkAllRead = async () => {
     try {

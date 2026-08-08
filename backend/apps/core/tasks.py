@@ -8,9 +8,9 @@ from apps.core.models import AuditLog
 def deactivate_expired_students():
     today = timezone.now().date()
     
-    # Select all active student profiles that have reached or passed their end date
+    # Select all active student profiles whose end date has passed (strictly before today)
     expired_profiles = StudentProfile.objects.filter(
-        end_date__lte=today,
+        end_date__lt=today,
         user__is_active=True
     ).select_related('user')
 

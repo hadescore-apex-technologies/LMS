@@ -18,39 +18,25 @@ from datetime import timedelta
 def seed():
     print("Seeding database...")
     
-    # 1. Create Super Admin
-    admin_user, created = CustomUser.objects.get_or_create(
-        email='admin@apex.com',
+    # 1. Create Root Super Admin
+    root_admin, created = CustomUser.objects.get_or_create(
+        email='hadescore.apex.technologies@gmail.com',
         defaults={
-            'first_name': 'Owner',
-            'last_name': 'Apex',
+            'first_name': 'Hadescore',
+            'last_name': 'Admin',
             'role': 'SUPER_ADMIN',
             'is_staff': True,
-            'is_superuser': True
+            'is_superuser': True,
+            'is_active': True
         }
     )
-    if created:
-        admin_user.set_password('admin123')
-        admin_user.save()
-        print("Super Admin created: admin@apex.com / admin123")
-    else:
-        print("Super Admin already exists.")
+    root_admin.set_password('@Hadescore.com')
+    root_admin.is_active = True
+    root_admin.role = 'SUPER_ADMIN'
+    root_admin.save()
+    print("Root Super Admin verified: hadescore.apex.technologies@gmail.com / @Hadescore.com")
 
-    # 2. Create Staff
-    staff_user, created = CustomUser.objects.get_or_create(
-        email='staff@apex.com',
-        defaults={
-            'first_name': 'Sarah',
-            'last_name': 'Instructor',
-            'role': 'STAFF'
-        }
-    )
-    if created:
-        staff_user.set_password('staff123')
-        staff_user.save()
-        print("Staff created: staff@apex.com / staff123")
-    else:
-        print("Staff already exists.")
+
 
     # 3. Create Categories
     categories = ['Data Analytics', 'Python Full Stack', 'Java Full Stack', 'AI', 'UI UX', 'Digital Marketing', 'Aptitude']
@@ -63,34 +49,6 @@ def seed():
         )
         cat_objs[cat_name] = cat
     print(f"Categories seeded: {list(cat_objs.keys())}")
-
-    # 4. Create Student
-    student_user, created = CustomUser.objects.get_or_create(
-        email='student@apex.com',
-        defaults={
-            'first_name': 'John',
-            'last_name': 'Doe',
-            'role': 'STUDENT'
-        }
-    )
-    if created:
-        student_user.set_password('student123')
-        student_user.save()
-        
-        # Create Student Profile
-        profile = StudentProfile.objects.create(
-            user=student_user,
-            phone='+15550199',
-            course_duration='90',
-            start_date=timezone.now().date(),
-            end_date=timezone.now().date() + timedelta(days=90),
-            notes='Initial seed student account'
-        )
-        # Assign student to 'AI' and 'Python Full Stack' categories
-        profile.categories.add(cat_objs['AI'], cat_objs['Python Full Stack'])
-        print("Student created: student@apex.com / student123 (assigned to AI and Python Full Stack)")
-    else:
-        print("Student already exists.")
 
     # 5. Create a course in AI
     course, created = Course.objects.get_or_create(
@@ -149,13 +107,22 @@ def seed():
             due_date=timezone.now() + timedelta(days=5)
         )
         
-        # Add a Live Class
+        # Add Live Classes
+        LiveClass.objects.create(
+            course=course,
+            title='Daily Doubt Clearing & Mentorship Stream',
+            scheduled_time=timezone.now() + timedelta(minutes=10),
+            meeting_url='https://meet.google.com/apex-live-qa',
+            status='LIVE',
+            created_by=staff_user
+        )
         LiveClass.objects.create(
             course=course,
             title='AI Live QA and Deep Learning Seminar',
             scheduled_time=timezone.now() + timedelta(days=2),
             meeting_url='https://meet.google.com/abc-defg-hij',
-            status='UPCOMING'
+            status='UPCOMING',
+            created_by=staff_user
         )
         print("Seeding operations completed successfully.")
 

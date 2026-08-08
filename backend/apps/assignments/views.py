@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.db.models import Q
 from rest_framework import viewsets, status, decorators, response
 from rest_framework.permissions import IsAuthenticated
 from apps.assignments.models import Assignment, AssignmentSubmission
@@ -14,6 +15,15 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             return [IsAuthenticated()]
         return [IsSuperAdminOrStaff()]
 
+    def perform_create(self, serializer):
+        user = self.request.user
+        assignment = serializer.save(created_by=user)
+        AuditLog.objects.create(
+            user=user,
+            action=f"Created Assignment: '{assignment.title}'",
+            ip_address=self.request.META.get('REMOTE_ADDR')
+        )
+
     def get_queryset(self):
         from typing import cast
         from rest_framework.request import Request
@@ -28,21 +38,31 @@ class AssignmentViewSet(viewsets.ModelViewSet):
         course_id = request.query_params.get('course')
 
         if user.role == 'STUDENT':
+            profile = getattr(user, 'student_profile', None)
+            staff = (profile.assigned_staff or profile.assigned_live_staff) if profile else None
+            student_courses = list(profile.courses.all()) if profile else []
+            
+            # Target assignments: either student is explicitly selected, or assignment is open to all students of that mentor/course
             qs = Assignment.objects.filter(
-                module__course__category__student_profiles__user=user,
-                module__course__is_published=True
+                Q(students=user) | 
+                (Q(students__isnull=True) & (
+                    Q(created_by=staff) | 
+                    Q(course__in=student_courses) | 
+                    Q(module__course__in=student_courses)
+                ))
             ).distinct()
         elif user.role == 'STAFF':
-            category = getattr(user, 'staff_profile', None) and user.staff_profile.category
-            if category:
-                qs = Assignment.objects.filter(module__course__category=category)
-            else:
-                qs = Assignment.objects.none()
+            # Staff members manage assignments created by themselves or targeted to their assigned mentees
+            qs = Assignment.objects.filter(
+                Q(created_by=user) | 
+                Q(students__student_profile__assigned_live_staff=user) |
+                Q(students__student_profile__assigned_staff=user)
+            ).distinct()
         else:
             qs = Assignment.objects.all()
 
         if course_id:
-            qs = qs.filter(module__course_id=course_id)
+            qs = qs.filter(Q(module__course_id=course_id) | Q(course_id=course_id)).distinct()
         if module_id:
             qs = qs.filter(module_id=module_id)
         return qs
@@ -51,9 +71,21 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
     serializer_class = AssignmentSubmissionSerializer
 
     def get_permissions(self):
-        if self.action == 'destroy':
+        if self.action in ['update', 'partial_update', 'grade', 'delete_student']:
             return [IsSuperAdminOrStaff()]
         return [IsAuthenticated()]
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        from apps.users.models import CustomUser
+        user = request.user
+        if isinstance(user, CustomUser) and user.role == 'STUDENT':
+            if instance.status == 'GRADED':
+                return response.Response(
+                    {"error": "You cannot delete a submission that has already been graded."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return super().destroy(request, *args, **kwargs)
 
     def get_queryset(self):
         from apps.users.models import CustomUser
@@ -62,13 +94,22 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
             return AssignmentSubmission.objects.none()
 
         qs = AssignmentSubmission.objects.select_related('student', 'assignment', 'graded_by')
+
         if user.role == 'STUDENT':
             return qs.filter(student=user)
+
         elif user.role == 'STAFF':
-            category = getattr(user, 'staff_profile', None) and user.staff_profile.category
-            if category:
-                return qs.filter(assignment__module__course__category=category)
-            return qs.none()
+            # Filter by directly assigned students only
+            from django.db.models import Q
+            return qs.filter(
+                Q(student__student_profile__assigned_staff=user) |
+                Q(student__student_profile__assigned_live_staff=user)
+            ).distinct()
+
+        # SUPER_ADMIN sees all — optionally filter by student email
+        student_email = self.request.query_params.get('student_email', '').strip()
+        if student_email:
+            qs = qs.filter(student__email__icontains=student_email)
         return qs
 
 
@@ -134,3 +175,35 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
             "status": submission.status,
             "grade": submission.grade
         })
+
+    @decorators.action(detail=False, methods=['delete'], url_path='delete_student')
+    def delete_student(self, request):
+        email = request.query_params.get('email')
+        if not email:
+            return response.Response({"error": "Email parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from apps.users.models import CustomUser
+        user = request.user
+        if not isinstance(user, CustomUser) or user.role not in ['SUPER_ADMIN', 'STAFF']:
+            return response.Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        submissions = AssignmentSubmission.objects.filter(student__email=email)
+        
+        if user.role == 'STAFF':
+            # Only delete submissions for students directly assigned to this staff
+            from django.db.models import Q
+            submissions = submissions.filter(
+                Q(student__student_profile__assigned_staff=user) |
+                Q(student__student_profile__assigned_live_staff=user)
+            )
+                
+        count = submissions.count()
+        submissions.delete()
+        
+        AuditLog.objects.create(
+            user=user,
+            action=f"Deleted all {count} submissions for student {email}",
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        
+        return response.Response({"message": f"Successfully deleted {count} submissions for {email}."}, status=status.HTTP_200_OK)
