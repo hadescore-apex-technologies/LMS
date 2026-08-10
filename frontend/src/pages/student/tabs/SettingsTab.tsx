@@ -190,5 +190,6 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
     </div>
+    </div>
   );
 };

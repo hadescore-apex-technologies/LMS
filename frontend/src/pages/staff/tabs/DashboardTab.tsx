@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
-import type { RootState } from '../../../../store';
+import type { RootState } from '../../../store';
 import api from '../../../services/api';
 import { 
   Users, BookOpen, Layers, FileCheck, Award, 
@@ -140,7 +140,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
 
   const itemVariants = {
     hidden: { y: 15, opacity: 0 },
-    show: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+    show: { y: 0, opacity: 1, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
   };
 
   return (

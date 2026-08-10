@@ -175,3 +175,5 @@ To populate sample data and default test accounts, execute `python seed.py` insi
     *   Email: `hadescore.apex.technologies@gmail.com`
     *   Password: `@Hadescore.com`
 .\venv\Scripts\Activate.ps1
+
+python manage.py runserver 0.0.0.0:8000

@@ -25,6 +25,8 @@ interface Student {
   courses: number[];
   assigned_staff?: number | null;
   assigned_staff_name?: string | null;
+  assigned_live_staff?: number | null;
+  student_type?: string;
 }
 
 

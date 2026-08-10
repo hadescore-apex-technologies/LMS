@@ -17,7 +17,7 @@ interface StaffUser {
   last_name: string;
   role: string;
   is_active: boolean;
-  date_joined: string;
+  date_joined?: string;
   category: number | null;
   category_name: string | null;
 }

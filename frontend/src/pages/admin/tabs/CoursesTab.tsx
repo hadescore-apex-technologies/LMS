@@ -790,13 +790,15 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
           <h2 className="font-extrabold text-base">
             {isRecordingsMode ? 'Mentoring Tracks' : 'Course Tracks'}
           </h2>
-          <button 
-            onClick={() => { resetCourseForm(); setSelectedCourse(null); setShowCourseModal(true); }}
-            className="p-2 bg-primary text-primary-foreground rounded-xl"
-            title="Create New Track"
-          >
-            <Plus size={16} />
-          </button>
+          {!isRecordingsMode && (
+            <button 
+              onClick={() => { resetCourseForm(); setSelectedCourse(null); setShowCourseModal(true); }}
+              className="p-2 bg-primary text-primary-foreground rounded-xl"
+              title="Create New Track"
+            >
+              <Plus size={16} />
+            </button>
+          )}
         </div>
 
         <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">

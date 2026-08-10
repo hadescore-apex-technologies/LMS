@@ -324,7 +324,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
           </span>
         </div>
 
-        {!isRecordingsView && (
+        {!isRecordingsView && !isLiveMode && (
           <button
             onClick={() => {
               resetForm();
@@ -333,7 +333,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
             className="px-5 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-primary/20 hover:brightness-110 active:scale-95 transition-all text-xs"
           >
             <Plus size={15} />
-            <span>{isLiveMode ? 'Schedule Live Class' : 'Schedule Doubt Session'}</span>
+            <span>Schedule Doubt Session</span>
           </button>
         )}
       </div>
@@ -513,7 +513,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
                   : 'Schedule course-specific doubt clearing webinars with Google Meet or Zoom links for enrolled students.'}
               </p>
             </div>
-            {!isRecordingsView && (
+            {!isRecordingsView && !isLiveMode && (
               <button
                 onClick={() => {
                   resetForm();
@@ -522,7 +522,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
                 className="px-5 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-primary/20 hover:brightness-110 active:scale-95 transition-all text-xs mt-2"
               >
                 <Plus size={15} />
-                <span>{isLiveMode ? 'Schedule First Live Class' : 'Schedule First Doubt Session'}</span>
+                <span>Schedule First Doubt Session</span>
               </button>
             )}
           </div>

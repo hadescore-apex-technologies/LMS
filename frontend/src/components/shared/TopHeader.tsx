@@ -14,7 +14,7 @@ const TopHeader: React.FC<TopHeaderProps> = ({ sidebarOpen, setSidebarOpen }) =>
   const { user } = useSelector((state: RootState) => state.auth);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/90 backdrop-blur-xl px-6 shadow-sm">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/90 backdrop-blur-xl px-4 sm:px-6 shadow-sm">
       {/* Toggle Button */}
       <div className="flex flex-1 items-center gap-4">
         <button

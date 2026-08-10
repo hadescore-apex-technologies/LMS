@@ -19,6 +19,7 @@ interface DiscussionPost {
   title: string;
   content: string;
   created_at: string;
+  mentor_name?: string;
   comments: Array<{
     id: number;
     user_details?: UserShort;
