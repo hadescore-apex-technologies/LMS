@@ -390,7 +390,7 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
     );
   }
 
-  // 1. Google Drive Embed (with Top-Bar Crop and Blocker Shield to eliminate the popout button)
+  // 1. Google Drive Embed (with Full Top-Bar Crop, Full-Width Blocker Shield, and Custom Cyber Fullscreen)
   if (parsed.type === 'gdrive') {
     return (
       <div 
@@ -398,13 +398,13 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
         className="relative w-full h-full bg-black overflow-hidden rounded-2xl border border-cyan-500/20 shadow-2xl group select-none"
       >
         {/* Google Drive Iframe with negative top margin to crop out the top bar & popout button */}
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden bg-black">
           <iframe
             src={parsed.url}
             className="w-full border-0 absolute left-0"
             style={{
-              top: '-56px',
-              height: 'calc(100% + 56px)'
+              top: '-64px',
+              height: 'calc(100% + 64px)'
             }}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
             allowFullScreen
@@ -412,11 +412,20 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
           />
         </div>
 
-        {/* Top-Right & Top Blocker Shield to prevent any popout click or interaction */}
+        {/* Full-Width Top Shield to completely block Drive popups, 'save to drive' notifications, and popouts */}
         <div 
-          className="absolute top-0 right-0 w-32 h-20 z-30 pointer-events-auto cursor-default bg-transparent"
+          className="absolute top-0 inset-x-0 h-16 sm:h-20 z-30 pointer-events-auto cursor-default bg-transparent"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onTouchStart={(e) => { e.stopPropagation(); }}
+        />
+
+        {/* Top-Right Blocker Shield (extra safety) */}
+        <div 
+          className="absolute top-0 right-0 w-36 h-24 z-30 pointer-events-auto cursor-default bg-transparent"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onTouchStart={(e) => { e.stopPropagation(); }}
         />
 
         {/* Optional Sleek Title Bar overlay */}
@@ -428,6 +437,17 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
             <h3 className="text-xs font-bold text-white drop-shadow-md truncate max-w-md">{title}</h3>
           </div>
         )}
+
+        {/* Cyber Custom Fullscreen Button */}
+        <div className="absolute bottom-3 right-3 z-30 opacity-80 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 rounded-xl bg-black/60 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 backdrop-blur-md transition-all shadow-lg"
+            title="Toggle Fullscreen"
+          >
+            <Maximize size={18} />
+          </button>
+        </div>
       </div>
     );
   }
