@@ -1,0 +1,19 @@
+# ==============================================================================
+# Apex LMS - Robots Configuration
+# ==============================================================================
+
+User-agent: *
+Allow: /
+Allow: /student/login
+Allow: /course-login
+Allow: /live-login
+Allow: /staff/login
+Allow: /admin/login
+
+# Disallow private/authenticated dashboard views from crawler indexing
+Disallow: /admin/
+Disallow: /staff/
+Disallow: /student/
+
+# Sitemap location
+Sitemap: https://apex.hadescoretech.com/sitemap.xml
