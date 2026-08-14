@@ -36,6 +36,7 @@ class TriggerBackupView(views.APIView):
 
 import os
 import uuid
+import logging
 from threading import Thread
 # pyrefly: ignore [missing-import]
 from django.conf import settings
@@ -47,59 +48,67 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from apps.core.drive_service import has_drive_credentials, upload_file_to_drive
 
+logger = logging.getLogger(__name__)
+
 class FileUploadView(views.APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    def async_upload_to_drive(self, absolute_path, original_filename):
-        """Upload to Google Drive in background thread"""
-        try:
-            upload_file_to_drive(absolute_path, original_filename)
-            # Delete local temporary file after successful upload
-            if os.path.exists(absolute_path):
-                os.remove(absolute_path)
-        except Exception as e:
-            print(f"Background Google Drive upload failed: {e}")
-            # Keep local file as backup if Drive upload fails
-
     def post(self, request):
-        uploaded_file = request.FILES.get('file')
-        if not uploaded_file:
-            return response.Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Check file size (limit to 50MB for faster uploads)
-        max_size = 50 * 1024 * 1024  # 50MB
-        if uploaded_file.size > max_size:
-            return response.Response({"error": "File too large. Maximum size is 50MB."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        ext = os.path.splitext(uploaded_file.name)[1]
-        filename = f"{uuid.uuid4().hex}{ext}"
-        
-        # Always save locally first for immediate access
-        local_file_path = default_storage.save(os.path.join('certificates', filename), uploaded_file)
-        absolute_path = os.path.join(settings.MEDIA_ROOT, local_file_path)
-        
-        # Generate response URL immediately
         try:
-            url = request.build_absolute_uri(default_storage.url(local_file_path))
-        except Exception:
-            url = f"/media/{local_file_path}"
-        
-        # If Google Drive is configured, upload in background (non-blocking)
-        if has_drive_credentials():
-            # Create a copy for background upload
-            temp_file_path = default_storage.save(os.path.join('temp_uploads', filename), uploaded_file)
-            temp_absolute_path = os.path.join(settings.MEDIA_ROOT, temp_file_path)
+            # Look for file under any provided form key
+            uploaded_file = request.FILES.get('file')
+            if not uploaded_file and len(request.FILES) > 0:
+                uploaded_file = next(iter(request.FILES.values()))
+
+            if not uploaded_file:
+                return response.Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Start background upload thread
-            upload_thread = Thread(
-                target=self.async_upload_to_drive,
-                args=(temp_absolute_path, uploaded_file.name)
-            )
-            upload_thread.daemon = True
-            upload_thread.start()
+            # Check file size (limit to 50MB)
+            max_size = 50 * 1024 * 1024  # 50MB
+            if uploaded_file.size > max_size:
+                return response.Response({"error": "File too large. Maximum size is 50MB."}, status=status.HTTP_400_BAD_REQUEST)
             
-        return response.Response({
-            "url": url,
-            "filename": uploaded_file.name
-        }, status=status.HTTP_201_CREATED)
+            # Ensure media directory exists
+            upload_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
+            os.makedirs(upload_dir, exist_ok=True)
+
+            ext = os.path.splitext(uploaded_file.name)[1]
+            filename = f"{uuid.uuid4().hex}{ext}"
+            
+            # Save file to media storage
+            local_file_path = default_storage.save(os.path.join('certificates', filename), uploaded_file)
+            absolute_path = os.path.join(settings.MEDIA_ROOT, local_file_path) if not os.path.isabs(local_file_path) else local_file_path
+            
+            # Generate public URL
+            try:
+                url = request.build_absolute_uri(default_storage.url(local_file_path))
+            except Exception:
+                url = f"/media/{local_file_path}"
+
+            # If Google Drive is configured, upload in background
+            if has_drive_credentials():
+                def _bg_drive_upload(path, orig_name):
+                    try:
+                        upload_file_to_drive(path, orig_name)
+                    except Exception as exc:
+                        logger.warning(f"[Upload] Background Drive upload skipped: {exc}")
+
+                upload_thread = Thread(
+                    target=_bg_drive_upload,
+                    args=(absolute_path, uploaded_file.name),
+                    daemon=True
+                )
+                upload_thread.start()
+                
+            return response.Response({
+                "url": url,
+                "filename": uploaded_file.name,
+                "file_name": uploaded_file.name
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.exception(f"[Upload] File upload failed: {e}")
+            return response.Response({
+                "error": f"Upload failed: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
