@@ -19,7 +19,10 @@ class StudentViewSet(viewsets.ModelViewSet):
             'student_profile', 
             'student_profile__assigned_staff',
             'student_profile__assigned_live_staff'
-        ).prefetch_related('student_profile__courses').annotate(
+        ).prefetch_related(
+            'student_profile__courses',
+            'student_profile__courses__category'
+        ).annotate(
             has_cert=Exists(Certificate.objects.filter(student=OuterRef('pk')))
         )
         

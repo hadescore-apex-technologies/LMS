@@ -52,7 +52,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         else:
             qs = Quiz.objects.all()
 
-        qs = qs.prefetch_related('questions')
+        qs = qs.select_related('module', 'module__course', 'module__course__category').prefetch_related('questions')
 
         if module_id:
             qs = qs.filter(module_id=module_id)

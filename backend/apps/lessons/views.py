@@ -25,8 +25,8 @@ class LessonViewSet(viewsets.ModelViewSet):
         if not isinstance(user, CustomUser):
             return Lesson.objects.none()
 
-        # Build basic queryset with select_related for video
-        qs = Lesson.objects.select_related('video')
+        # Build basic queryset with select_related for video and module hierarchy
+        qs = Lesson.objects.select_related('video', 'module', 'module__course', 'module__course__category')
 
         # Prefetch progress records for this student to avoid N+1 queries in the serializer
         qs = qs.prefetch_related(

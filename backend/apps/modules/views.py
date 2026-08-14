@@ -58,4 +58,4 @@ class ModuleViewSet(viewsets.ModelViewSet):
 
         if course_id:
             qs = qs.filter(course_id=course_id)
-        return qs
+        return qs.select_related('course', 'course__category', 'course__mentor').prefetch_related('lessons')
