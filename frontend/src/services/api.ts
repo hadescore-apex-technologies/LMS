@@ -7,8 +7,13 @@ export const getBaseURL = () => {
     const url = import.meta.env.VITE_API_URL;
     return url.endsWith('/') ? url : `${url}/`;
   }
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-  return `http://${hostname}:8000/api/`;
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+      return `http://${hostname}:8000/api/`;
+    }
+  }
+  return 'https://lms-nv6s.onrender.com/api/';
 };
 
 const api = axios.create({
