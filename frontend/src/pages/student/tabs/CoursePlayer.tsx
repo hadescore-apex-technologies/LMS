@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { ApexAITutorCore } from '../../../components/ApexAITutorCore';
+import { UniversalVideoPlayer } from '../../../components/UniversalVideoPlayer';
 
 interface Course {
   id: number;
@@ -227,13 +228,16 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     },
     onSuccess: (_, variables) => {
       if (variables.completed) {
+        setActiveLesson(prev => prev ? { ...prev, completed: true } : null);
         queryClient.setQueryData(['lessons', course.id], (old: any) => 
           (old || []).map((l: any) => l.id === activeLesson?.id ? { ...l, completed: true } : l)
         );
         refetchLessons();
+        queryClient.invalidateQueries({ queryKey: ['lessons', course.id] });
         queryClient.invalidateQueries({ queryKey: ['certificates'] });
         queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
         queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
+        queryClient.invalidateQueries({ queryKey: ['student-achievements-tab'] });
       }
     }
   });
@@ -245,7 +249,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     const pct = (currentTime / duration) * 100;
     
     // Prevent forward seeking
-    if (currentTime > maxTimeWatchedRef.current + 2) {
+    if (currentTime > maxTimeWatchedRef.current + 2 && !activeLesson.completed) {
       videoRef.current.currentTime = maxTimeWatchedRef.current;
       toast.error('Seeking forward is disabled for learning integrity. Please watch the lesson fully.', {
         id: 'no-seeking' // prevents duplicate toasts
@@ -261,6 +265,12 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
       setVideoDuration(duration);
     }
     
+    // Auto-mark complete when reaching near the end (>= 95% or remaining <= 2s)
+    if (duration > 4 && (pct >= 95 || duration - currentTime <= 2) && !activeLesson.completed) {
+      syncProgressMutation.mutate({ current: duration, pct: 100, completed: true });
+      return;
+    }
+
     if (Math.floor(currentTime) % 10 === 0) {
       syncProgressMutation.mutate({ current: currentTime, pct, completed: false });
     }
@@ -757,26 +767,25 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
           ) : activeLesson ? (
             <div className="space-y-6">
               {/* Custom secured stream player */}
-              <div className="relative aspect-video rounded-2xl bg-black overflow-hidden border border-border shadow-xl">
-                <div className="absolute top-4 left-4 text-[9px] font-mono text-white/80 z-20 bg-black/60 backdrop-blur px-2.5 py-1 rounded-full border border-white/10 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                  <span>SECURED • {localStorage.getItem('user_email') || 'Apex Student'}</span>
-                </div>
-                
+              <div className="relative aspect-video rounded-2xl bg-black overflow-hidden border border-cyan-500/30 shadow-2xl shadow-cyan-950/40">
                 {activeLesson.cf_stream_id ? (
-                  <video
-                    ref={videoRef}
+                  <UniversalVideoPlayer
+                    videoRef={videoRef}
                     src={activeLesson.cf_stream_id}
+                    title={activeLesson.title}
+                    poster={activeLesson.thumbnail || undefined}
                     className="w-full h-full object-cover"
-                    controls
-                    controlsList="nodownload"
                     onTimeUpdate={handleTimeUpdate}
                     onEnded={handleVideoEnded}
+                    disableForwardSeeking={!activeLesson.completed}
+                    initialResumeTime={activeLesson.resume_time || 0}
                     onLoadedMetadata={() => {
                       if (videoRef.current && activeLesson.resume_time) {
                         videoRef.current.currentTime = activeLesson.resume_time;
                       }
                     }}
+                    playbackSpeed={playbackSpeed}
+                    onSpeedChange={setPlaybackSpeed}
                   />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
@@ -800,29 +809,49 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                 )}
               </div>
 
-              {/* Playback speed controls */}
-              <div className="bg-card border border-border p-3 rounded-xl flex items-center justify-between text-[11px]">
+              {/* Video Player Meta & Completion Bar */}
+              <div className="cyber-glass-card p-3 px-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg border border-cyan-500/20">
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold text-muted-foreground">Speed:</span>
-                  <select
-                    value={playbackSpeed}
-                    onChange={(e) => {
-                      const speed = Number(e.target.value);
-                      setPlaybackSpeed(speed);
-                      if (videoRef.current) videoRef.current.playbackRate = speed;
-                    }}
-                    className="bg-muted border border-border rounded p-1"
-                  >
-                    <option value="0.5">0.5x</option>
-                    <option value="1">1x</option>
-                    <option value="1.5">1.5x</option>
-                    <option value="2">2x</option>
-                  </select>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                    Active Stream
+                  </span>
+                  <h3 className="text-xs font-bold text-white truncate max-w-xs sm:max-w-md">
+                    {activeLesson.title}
+                  </h3>
                 </div>
-                <div className="flex gap-2">
-                  <label className="flex items-center gap-1.5 text-muted-foreground font-semibold cursor-pointer">
-                    <input type="checkbox" checked={autoplayNext} onChange={(e) => setAutoplayNext(e.target.checked)} className="accent-primary" />
-                    <span>Autoplay Next</span>
+                
+                <div className="flex items-center gap-3">
+                  {/* Status / Mark Completed Action */}
+                  {activeLesson.completed ? (
+                    <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                      <CheckCircle2 size={13} /> Completed
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        toast.success('Lesson marked as completed!');
+                        syncProgressMutation.mutate({ current: videoDuration || 100, pct: 100, completed: true });
+                        if (autoplayNext) handleNextItem();
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-[11px] shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                    >
+                      <CheckCircle2 size={13} /> Mark as Completed
+                    </button>
+                  )}
+
+                  {/* Autoplay Next Toggle */}
+                  <label className="flex items-center gap-2 cursor-pointer group pl-2 border-l border-slate-700/60">
+                    <div className="relative">
+                      <input 
+                        type="checkbox" 
+                        checked={autoplayNext} 
+                        onChange={(e) => setAutoplayNext(e.target.checked)} 
+                        className="sr-only peer" 
+                      />
+                      <div className="w-9 h-5 bg-slate-800 rounded-full peer-checked:bg-cyan-500 transition-all duration-300 border border-slate-700 peer-checked:border-cyan-400"></div>
+                      <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 peer-checked:translate-x-4 shadow-md"></div>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-300 group-hover:text-white transition-colors">Autoplay Next</span>
                   </label>
                 </div>
               </div>
@@ -833,8 +862,8 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                   {[
                     { id: 'content', label: 'Lesson Content', icon: BookOpen },
                     { id: 'attachments', label: 'Slides & Guides', icon: FileText },
-                    { id: 'study-notes', label: 'Take Notes', icon: Edit3 },
-                    { id: 'bookmarks', label: 'Video Bookmarks', icon: Bookmark }
+                    { id: 'bookmarks', label: 'Saved Bookmarks', icon: Bookmark },
+                    { id: 'study-notes', label: 'Lesson Study Notes', icon: Edit3 }
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -875,47 +904,82 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
 
                   {activeTab === 'bookmarks' && (
                     <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Saved Video Bookmarks</span>
+                        <span className="text-[10px] font-semibold text-primary">{bookmarks.length} saved</span>
+                      </div>
                       <div className="flex gap-2">
                         <input
                           type="text"
                           value={newBookmarkNote}
                           onChange={(e) => setNewBookmarkNote(e.target.value)}
-                          placeholder="Bookmark note..."
-                          className="h-8 px-3 text-[11px] bg-muted/50 border border-border rounded-lg outline-none flex-1"
+                          placeholder="Add bookmark description..."
+                          className="h-9 px-3 text-[11px] bg-muted/50 border border-border rounded-xl outline-none flex-1 focus:border-primary"
                         />
-                        <button onClick={() => addBookmarkMutation.mutate()} className="px-3 h-8 bg-primary text-primary-foreground font-semibold rounded-lg text-[10px]">
+                        <button onClick={() => addBookmarkMutation.mutate()} className="px-4 h-9 bg-primary text-primary-foreground font-bold rounded-xl text-[10px] shadow-sm hover:brightness-110">
                           Save at {Math.floor(videoProgress)}s
                         </button>
                       </div>
-                      <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                      <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pt-1">
                         {bookmarks.map((bm: any) => (
-                          <div key={bm.id} className="flex items-center justify-between bg-muted/20 p-2 border border-border rounded-xl text-[11px]">
-                            <span>Bookmark: <button onClick={() => { if (videoRef.current) videoRef.current.currentTime = bm.position_seconds; }} className="text-primary hover:underline font-bold font-mono">{Math.floor(bm.position_seconds)}s</button> — {bm.note}</span>
+                          <div key={bm.id} className="flex items-center justify-between bg-card p-3 border border-border/80 rounded-xl text-[11px] shadow-2xs hover:border-primary/40 transition-colors">
+                            <span className="font-medium text-foreground">
+                              Bookmark: <button onClick={() => { if (videoRef.current) videoRef.current.currentTime = bm.position_seconds; }} className="text-primary hover:underline font-extrabold font-mono bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">{Math.floor(bm.position_seconds)}s</button> — {bm.note}
+                            </span>
                           </div>
                         ))}
+                        {bookmarks.length === 0 && (
+                          <p className="text-[11px] italic text-muted-foreground py-4 text-center">No video bookmarks saved yet for this lesson.</p>
+                        )}
                       </div>
                     </div>
                   )}
 
                   {activeTab === 'study-notes' && (
-                    <div className="space-y-3">
+                    <div className="space-y-4 pt-1">
+                      <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                        <div>
+                          <h5 className="font-extrabold text-xs text-foreground flex items-center gap-1.5">
+                            <Edit3 size={13} className="text-primary" />
+                            <span>Lesson Study Notes Module</span>
+                          </h5>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Save personal revision notes for this video lesson segment.</p>
+                        </div>
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{notesList.length} Notes</span>
+                      </div>
+
                       <div className="flex gap-2">
                         <input
                           type="text"
                           value={newNoteText}
                           onChange={(e) => setNewNoteText(e.target.value)}
-                          placeholder="Write down a note..."
-                          className="h-8 px-3 text-[11px] bg-muted/50 border border-border rounded-lg outline-none flex-1"
+                          placeholder="Type your study note or concept takeaway..."
+                          className="h-9 px-3.5 text-[11px] bg-muted/40 border border-border rounded-xl outline-none flex-1 focus:border-primary"
                         />
-                        <button onClick={() => addNoteMutation.mutate()} className="px-3 h-8 bg-primary text-primary-foreground font-semibold rounded-lg text-[10px]">Save Note</button>
+                        <button onClick={() => addNoteMutation.mutate()} className="px-4 h-9 bg-primary text-primary-foreground font-bold rounded-xl text-[10px] shadow-sm hover:brightness-110">
+                          Save Note
+                        </button>
                       </div>
-                      <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+
+                      <div className="flex flex-col gap-2 max-h-56 overflow-y-auto">
                         {notesList.map((n: any) => (
-                          <div key={n.id} className="flex justify-between bg-muted/20 p-2.5 border border-border rounded-xl">
-                            <span>{n.text}</span>
-                            <button onClick={() => deleteNoteMutation.mutate(n.id)} className="text-destructive"><Trash2 size={11} /></button>
+                          <div key={n.id} className="flex items-center justify-between bg-card p-3 border border-border/80 rounded-xl text-[11px] shadow-2xs hover:border-border transition-colors">
+                            <div className="space-y-0.5">
+                              <p className="text-foreground font-medium">{n.text}</p>
+                              {n.created_at && (
+                                <span className="text-[9px] text-muted-foreground block">{new Date(n.created_at).toLocaleString()}</span>
+                              )}
+                            </div>
+                            <button onClick={() => deleteNoteMutation.mutate(n.id)} className="text-destructive hover:bg-destructive/10 p-1.5 rounded-lg transition-colors" title="Delete note">
+                              <Trash2 size={13} />
+                            </button>
                           </div>
                         ))}
+                        {notesList.length === 0 && (
+                          <div className="py-6 text-center text-muted-foreground italic text-[11px] border border-dashed border-border/60 rounded-xl">
+                            No study notes created for this lesson yet. Type above to add your first note!
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 interface User {
+  name: any;
   email: string;
   role: 'SUPER_ADMIN' | 'STAFF' | 'STUDENT';
   first_name: string;
@@ -61,6 +62,9 @@ const authSlice = createSlice({
       localStorage.removeItem('user');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      
+      // Clear any polling intervals by dispatching a custom event
+      window.dispatchEvent(new Event('auth-logout'));
     }
   }
 });

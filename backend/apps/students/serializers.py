@@ -1,12 +1,9 @@
-# pyrefly: ignore [missing-import]
 from django.utils import timezone
 from datetime import timedelta
-# pyrefly: ignore [missing-import]
+from django.db.models import Q
 from rest_framework import serializers
 from apps.users.models import CustomUser, StudentProfile
-from apps.categories.models import Category
 from apps.courses.models import Course
-from apps.categories.serializers import CategorySerializer  # to serialize category details on read if needed
 
 class StudentSerializer(serializers.ModelSerializer):
     # Explicitly declare email to strip DRF's auto-added UniqueValidator.

@@ -7,6 +7,7 @@ import {
   ClipboardList, FileText, HelpCircle 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { UniversalVideoPlayer } from '../../components/UniversalVideoPlayer';
 
 interface Course {
   id: number;
@@ -1023,22 +1024,11 @@ const CourseBuilder: React.FC = () => {
                           <div className="space-y-2 mt-2" onClick={(e) => e.stopPropagation()}>
                             <span className="text-[10px] uppercase font-bold text-muted-foreground block">Video Preview Checkpoint</span>
                             <div className="relative aspect-video rounded-xl bg-black overflow-hidden border border-border/80 shadow max-w-xs">
-                              {(les.cf_stream_id.startsWith('http') || les.cf_stream_id.startsWith('/') || les.cf_stream_id.includes('/')) ? (
-                                <video
-                                  src={les.cf_stream_id}
-                                  className="w-full h-full object-contain"
-                                  controls
-                                  controlsList="nodownload"
-                                  poster={les.thumbnail || undefined}
-                                />
-                              ) : (
-                                <iframe
-                                  src={`https://iframe.videodelivery.net/${les.cf_stream_id}`}
-                                  className="w-full h-full border-0 absolute inset-0"
-                                  allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                                  allowFullScreen
-                                />
-                              )}
+                              <UniversalVideoPlayer
+                                src={les.cf_stream_id}
+                                className="w-full h-full object-contain"
+                                poster={les.thumbnail || undefined}
+                              />
                             </div>
                           </div>
                         )}

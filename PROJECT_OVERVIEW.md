@@ -171,9 +171,6 @@ If a student's subscription end date passes, their account is set to inactive au
 
 To populate sample data and default test accounts, execute `python seed.py` inside the `backend/` directory:
 
-*   **Root Super Admin**:
-    *   Email: `hadescore.apex.technologies@gmail.com`
-    *   Password: `@Hadescore.com`
 .\venv\Scripts\Activate.ps1
 
 python manage.py runserver 0.0.0.0:8000

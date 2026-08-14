@@ -36,6 +36,7 @@ class TriggerBackupView(views.APIView):
 
 import os
 import uuid
+from threading import Thread
 # pyrefly: ignore [missing-import]
 from django.conf import settings
 # pyrefly: ignore [missing-import]
@@ -50,49 +51,53 @@ class FileUploadView(views.APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
+    def async_upload_to_drive(self, absolute_path, original_filename):
+        """Upload to Google Drive in background thread"""
+        try:
+            upload_file_to_drive(absolute_path, original_filename)
+            # Delete local temporary file after successful upload
+            if os.path.exists(absolute_path):
+                os.remove(absolute_path)
+        except Exception as e:
+            print(f"Background Google Drive upload failed: {e}")
+            # Keep local file as backup if Drive upload fails
+
     def post(self, request):
         uploaded_file = request.FILES.get('file')
         if not uploaded_file:
             return response.Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Check file size (limit to 50MB for faster uploads)
+        max_size = 50 * 1024 * 1024  # 50MB
+        if uploaded_file.size > max_size:
+            return response.Response({"error": "File too large. Maximum size is 50MB."}, status=status.HTTP_400_BAD_REQUEST)
+        
         ext = os.path.splitext(uploaded_file.name)[1]
         filename = f"{uuid.uuid4().hex}{ext}"
         
-        # Save locally first to a temporary directory
-        file_path = default_storage.save(os.path.join('temp_uploads', filename), uploaded_file)
-        absolute_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        # Always save locally first for immediate access
+        local_file_path = default_storage.save(os.path.join('certificates', filename), uploaded_file)
+        absolute_path = os.path.join(settings.MEDIA_ROOT, local_file_path)
         
-        if has_drive_credentials():
-            try:
-                # Upload to Google Drive inside LMS_STORAGE folder
-                url = upload_file_to_drive(absolute_path, uploaded_file.name)
-                
-                # Delete local temporary file
-                if os.path.exists(absolute_path):
-                    os.remove(absolute_path)
-                    
-                return response.Response({
-                    "url": url,
-                    "filename": uploaded_file.name
-                }, status=status.HTTP_201_CREATED)
-            except Exception as e:
-                # Log error and fall back to local storage
-                print(f"Google Drive upload failed: {e}. Falling back to local storage.")
-                
-        # Fallback to local storage
-        new_file_path = default_storage.save(os.path.join('certificates', filename), uploaded_file)
-        
-        # Clean up the temporary file if it exists
-        if os.path.exists(absolute_path):
-            try:
-                os.remove(absolute_path)
-            except Exception:
-                pass
-                
+        # Generate response URL immediately
         try:
-            url = request.build_absolute_uri(default_storage.url(new_file_path))
+            url = request.build_absolute_uri(default_storage.url(local_file_path))
         except Exception:
-            url = f"/media/{new_file_path}"
+            url = f"/media/{local_file_path}"
+        
+        # If Google Drive is configured, upload in background (non-blocking)
+        if has_drive_credentials():
+            # Create a copy for background upload
+            temp_file_path = default_storage.save(os.path.join('temp_uploads', filename), uploaded_file)
+            temp_absolute_path = os.path.join(settings.MEDIA_ROOT, temp_file_path)
+            
+            # Start background upload thread
+            upload_thread = Thread(
+                target=self.async_upload_to_drive,
+                args=(temp_absolute_path, uploaded_file.name)
+            )
+            upload_thread.daemon = True
+            upload_thread.start()
             
         return response.Response({
             "url": url,

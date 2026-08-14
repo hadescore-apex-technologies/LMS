@@ -1,32 +1,45 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-// Import Tabs
-import { DashboardTab } from './tabs/DashboardTab';
-import { StaffManagementTab } from './tabs/StaffManagementTab';
-import { StudentManagementTab } from './tabs/StudentManagementTab';
-import { CategoriesTab } from './tabs/CategoriesTab';
-import { CoursesTab } from './tabs/CoursesTab';
-import { ModulesTab } from './tabs/ModulesTab';
-import { LessonsTab } from './tabs/LessonsTab';
-import { VideoLibraryTab } from './tabs/VideoLibraryTab';
-import { QuizTab } from './tabs/QuizTab';
-import { AssignmentTab } from './tabs/AssignmentTab';
-import { CertificateTab } from './tabs/CertificateTab';
-import { AttendanceTab } from './tabs/AttendanceTab';
-import { LiveClassesTab } from './tabs/LiveClassesTab';
-import { LiveAssignmentsTab } from './tabs/LiveAssignmentsTab';
-import { AnnouncementsTab } from './tabs/AnnouncementsTab';
-import { NotificationsTab } from './tabs/NotificationsTab';
-import { DiscussionTab } from './tabs/DiscussionTab';
-import { ReportsTab } from './tabs/ReportsTab';
-import { SystemSettingsTab } from './tabs/SystemSettingsTab';
-import { EmailTemplatesTab } from './tabs/EmailTemplatesTab';
-import { SecurityCenterTab } from './tabs/SecurityCenterTab';
-import { ProfileTab } from './tabs/ProfileTab';
-import { SettingsTab } from './tabs/SettingsTab';
-import { MentorAssignmentsTab } from './tabs/MentorAssignmentsTab';
-import { AdminManagerTab } from './tabs/AdminManagerTab';
+// Smooth skeleton fallback during tab transition
+const TabFallback: React.FC = () => (
+  <div className="w-full space-y-6 animate-pulse p-6">
+    <div className="h-8 w-64 bg-slate-200/60 dark:bg-slate-800/60 rounded-xl"></div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="h-32 bg-slate-200/50 dark:bg-slate-800/50 rounded-2xl"></div>
+      <div className="h-32 bg-slate-200/50 dark:bg-slate-800/50 rounded-2xl"></div>
+      <div className="h-32 bg-slate-200/50 dark:bg-slate-800/50 rounded-2xl"></div>
+    </div>
+    <div className="h-80 bg-slate-200/40 dark:bg-slate-800/40 rounded-2xl"></div>
+  </div>
+);
+
+// Dynamic Lazy Tabs
+const DashboardTab = lazy(() => import('./tabs/DashboardTab').then(m => ({ default: m.DashboardTab })));
+const StaffManagementTab = lazy(() => import('./tabs/StaffManagementTab').then(m => ({ default: m.StaffManagementTab })));
+const StudentManagementTab = lazy(() => import('./tabs/StudentManagementTab').then(m => ({ default: m.StudentManagementTab })));
+const CategoriesTab = lazy(() => import('./tabs/CategoriesTab').then(m => ({ default: m.CategoriesTab })));
+const CoursesTab = lazy(() => import('./tabs/CoursesTab').then(m => ({ default: m.CoursesTab })));
+const ModulesTab = lazy(() => import('./tabs/ModulesTab').then(m => ({ default: m.ModulesTab })));
+const LessonsTab = lazy(() => import('./tabs/LessonsTab').then(m => ({ default: m.LessonsTab })));
+const VideoLibraryTab = lazy(() => import('./tabs/VideoLibraryTab').then(m => ({ default: m.VideoLibraryTab })));
+const QuizTab = lazy(() => import('./tabs/QuizTab').then(m => ({ default: m.QuizTab })));
+const AssignmentTab = lazy(() => import('./tabs/AssignmentTab').then(m => ({ default: m.AssignmentTab })));
+const CertificateTab = lazy(() => import('./tabs/CertificateTab').then(m => ({ default: m.CertificateTab })));
+const AttendanceTab = lazy(() => import('./tabs/AttendanceTab').then(m => ({ default: m.AttendanceTab })));
+const LiveClassesTab = lazy(() => import('./tabs/LiveClassesTab').then(m => ({ default: m.LiveClassesTab })));
+const LiveAssignmentsTab = lazy(() => import('./tabs/LiveAssignmentsTab').then(m => ({ default: m.LiveAssignmentsTab })));
+const AnnouncementsTab = lazy(() => import('./tabs/AnnouncementsTab').then(m => ({ default: m.AnnouncementsTab })));
+const NotificationsTab = lazy(() => import('./tabs/NotificationsTab').then(m => ({ default: m.NotificationsTab })));
+const DiscussionTab = lazy(() => import('./tabs/DiscussionTab').then(m => ({ default: m.DiscussionTab })));
+const ReportsTab = lazy(() => import('./tabs/ReportsTab').then(m => ({ default: m.ReportsTab })));
+const SystemSettingsTab = lazy(() => import('./tabs/SystemSettingsTab').then(m => ({ default: m.SystemSettingsTab })));
+const EmailTemplatesTab = lazy(() => import('./tabs/EmailTemplatesTab').then(m => ({ default: m.EmailTemplatesTab })));
+const SecurityCenterTab = lazy(() => import('./tabs/SecurityCenterTab').then(m => ({ default: m.SecurityCenterTab })));
+const ProfileTab = lazy(() => import('./tabs/ProfileTab').then(m => ({ default: m.ProfileTab })));
+const SettingsTab = lazy(() => import('./tabs/SettingsTab').then(m => ({ default: m.SettingsTab })));
+const MentorAssignmentsTab = lazy(() => import('./tabs/MentorAssignmentsTab').then(m => ({ default: m.MentorAssignmentsTab })));
+const AdminManagerTab = lazy(() => import('./tabs/AdminManagerTab').then(m => ({ default: m.AdminManagerTab })));
 
 const AdminDashboard: React.FC = () => {
   const location = useLocation();
@@ -77,32 +90,34 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="relative">
-      {isHome && <DashboardTab onNavigate={handleNavigate} />}
-      {isStaff && <StaffManagementTab />}
-      {isStudents && <StudentManagementTab />}
-      {isCategories && <CategoriesTab type={isLiveClassMode ? 'LIVE' : 'COURSE'} />}
-      {isCourses && <CoursesTab />}
-      {isModules && <ModulesTab />}
-      {isLessons && <LessonsTab />}
-      {isVideos && <VideoLibraryTab />}
-      {isQuizzes && <QuizTab />}
-      {isAssignments && <AssignmentTab />}
-      {isCertificates && <CertificateTab />}
-      {isAttendance && <AttendanceTab />}
-      {isLive && <LiveClassesTab />}
-      {isRecordings && <CoursesTab isRecordingsMode={true} />}
-      {isLiveAssignments && <LiveAssignmentsTab />}
-      {isAnnouncements && <AnnouncementsTab />}
-      {isNotifications && <NotificationsTab />}
-      {isForum && <DiscussionTab />}
-      {isReports && <ReportsTab />}
-      {isSettings && <SystemSettingsTab />}
-      {isEmailTemplates && <EmailTemplatesTab />}
-      {isSecurity && <SecurityCenterTab />}
-      {isProfile && <ProfileTab />}
-      {isPreferences && <SettingsTab />}
-      {isMentorAssignments && <MentorAssignmentsTab />}
-      {isAdminManager && <AdminManagerTab />}
+      <Suspense fallback={<TabFallback />}>
+        {isHome && <DashboardTab onNavigate={handleNavigate} />}
+        {isStaff && <StaffManagementTab />}
+        {isStudents && <StudentManagementTab />}
+        {isCategories && <CategoriesTab type={isLiveClassMode ? 'LIVE' : 'COURSE'} />}
+        {isCourses && <CoursesTab />}
+        {isModules && <ModulesTab />}
+        {isLessons && <LessonsTab />}
+        {isVideos && <VideoLibraryTab />}
+        {isQuizzes && <QuizTab />}
+        {isAssignments && <AssignmentTab />}
+        {isCertificates && <CertificateTab />}
+        {isAttendance && <AttendanceTab />}
+        {isLive && <LiveClassesTab />}
+        {isRecordings && <CoursesTab isRecordingsMode={true} />}
+        {isLiveAssignments && <LiveAssignmentsTab />}
+        {isAnnouncements && <AnnouncementsTab />}
+        {isNotifications && <NotificationsTab />}
+        {isForum && <DiscussionTab />}
+        {isReports && <ReportsTab />}
+        {isSettings && <SystemSettingsTab />}
+        {isEmailTemplates && <EmailTemplatesTab />}
+        {isSecurity && <SecurityCenterTab />}
+        {isProfile && <ProfileTab />}
+        {isPreferences && <SettingsTab />}
+        {isMentorAssignments && <MentorAssignmentsTab />}
+        {isAdminManager && <AdminManagerTab />}
+      </Suspense>
     </div>
   );
 };

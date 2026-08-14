@@ -1,10 +1,10 @@
-from rest_framework import viewsets, status, response
+from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from apps.courses.models import Course, LiveClass
 from apps.categories.models import Category
 from apps.courses.serializers import CourseSerializer, LiveClassSerializer
 from apps.categories.serializers import CategorySerializer
-from apps.core.permissions import IsSuperAdminOrStaff, IsStaff, IsStudent, IsSuperAdmin
+from apps.core.permissions import IsSuperAdminOrStaff, IsSuperAdmin
 from apps.core.models import AuditLog
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -66,7 +66,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         if user.role == 'STUDENT':
             live_mode = self.request.query_params.get('live_mode') == 'true'
             profile = getattr(user, 'student_profile', None)
-            staff = (profile.assigned_live_staff if live_mode else profile.assigned_staff) if profile else None
+            staff = (profile.assigned_live_staff if live_mode else (profile.assigned_staff or profile.assigned_live_staff)) if profile else None
             staff_cat = getattr(getattr(staff, 'staff_profile', None), 'category', None)
             
             qs = Course.objects.filter(is_published=True)
@@ -243,10 +243,10 @@ class LiveClassViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
-            print(f"\n============================================================")
-            print(f"LIVE CLASS CREATION VALIDATION ERROR:")
+            print("\n============================================================")
+            print("LIVE CLASS CREATION VALIDATION ERROR:")
             print(serializer.errors)
-            print(f"============================================================\n")
+            print("============================================================\n")
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
@@ -394,10 +394,10 @@ class CourseDiscussionPostViewSet(viewsets.ModelViewSet):
                     )
 
     def destroy(self, request, *args, **kwargs):
-        from rest_framework import response
+        from rest_framework.response import Response
         instance = self.get_object()
         if request.user.role not in ['SUPER_ADMIN', 'STAFF'] and instance.user != request.user:
-            return response.Response(
+            return Response(
                 {"error": "You do not have permission to delete this post."},
                 status=status.HTTP_403_FORBIDDEN
             )
@@ -445,10 +445,10 @@ class CourseDiscussionCommentViewSet(viewsets.ModelViewSet):
         pass
 
     def destroy(self, request, *args, **kwargs):
-        from rest_framework import response
+        from rest_framework.response import Response
         instance = self.get_object()
         if request.user.role not in ['SUPER_ADMIN', 'STAFF'] and instance.user != request.user:
-            return response.Response(
+            return Response(
                 {"error": "You do not have permission to delete this comment."},
                 status=status.HTTP_403_FORBIDDEN
             )
@@ -478,7 +478,7 @@ def generate_fallback_ai_response(action, lesson, course, prompt):
             summary += f"- **Core Overview** — Introduction to the essential concepts and architectural rules of {title}.\n"
             summary += "- **Practical Takeaway** — Hands-on exercises and coding paradigms discussed in this study block.\n"
             summary += "- **Best Practice** — Ensure modular architecture, fast database queries, and decoupled code.\n"
-        summary += f"\n*This summary was dynamically compiled from the enrolled course material.*"
+        summary += "\n*This summary was dynamically compiled from the enrolled course material.*"
         return {"answer": summary}
 
     elif action == 'notes':
@@ -545,7 +545,7 @@ def generate_fallback_ai_response(action, lesson, course, prompt):
                     "id": 1,
                     "question": f"Which of the following best describes the core principle of {title}?",
                     "options": [
-                        f"Building scalable, high-performance web applications using modern paradigms.",
+                        "Building scalable, high-performance web applications using modern paradigms.",
                         "Relying on deprecated legacy frameworks.",
                         "Avoiding error checking and unit tests.",
                         "Using manual full page reloads for every state update."

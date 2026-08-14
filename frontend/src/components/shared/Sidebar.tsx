@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import type { RootState } from '../../store';
 import { logout } from '../../features/authSlice';
 import api from '../../services/api';
@@ -23,6 +24,27 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const dispatch = useDispatch();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const handlePrefetch = (path: string) => {
+    try {
+      if (path.includes('students')) {
+        queryClient.prefetchQuery({ queryKey: ['admin-students'], queryFn: async () => (await api.get('students/')).data, staleTime: 1000 * 60 * 5 });
+      } else if (path.includes('courses')) {
+        queryClient.prefetchQuery({ queryKey: ['courses'], queryFn: async () => (await api.get('courses/')).data, staleTime: 1000 * 60 * 5 });
+      } else if (path.includes('staff')) {
+        queryClient.prefetchQuery({ queryKey: ['staff'], queryFn: async () => (await api.get('staff/')).data, staleTime: 1000 * 60 * 5 });
+      } else if (path.includes('categories')) {
+        queryClient.prefetchQuery({ queryKey: ['categories'], queryFn: async () => (await api.get('categories/')).data, staleTime: 1000 * 60 * 5 });
+      } else if (path.includes('assignments')) {
+        queryClient.prefetchQuery({ queryKey: ['assignments'], queryFn: async () => (await api.get('assignments/')).data, staleTime: 1000 * 60 * 5 });
+      } else if (path.includes('quizzes')) {
+        queryClient.prefetchQuery({ queryKey: ['quizzes'], queryFn: async () => (await api.get('quizzes/')).data, staleTime: 1000 * 60 * 5 });
+      }
+    } catch {
+      // Ignore background errors
+    }
+  };
 
   const [, setStudentCategories] = React.useState<string[]>(user?.categories || []);
   const [, setStaffCategoryName] = React.useState<string | null>(user?.category_name || null);
@@ -163,7 +185,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         { label: 'My Courses', path: '/student/courses', icon: BookOpen },
         { label: 'Certificates', path: '/student/certificates', icon: Award },
         { label: 'Doubt Clearing Sessions', path: '/student/live', icon: Video },
-        { label: 'Study Notes', path: '/student/notes', icon: FileText },
         { label: 'Queries', path: '/student/forum', icon: MessageSquare },
       ];
       const liveMenu = [
@@ -171,7 +192,6 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         { label: 'Live Videos', path: '/student/courses', icon: Video },
         { label: 'Live Sessions', path: '/student/live', icon: Video },
         { label: 'Assignments', path: '/student/assignments', icon: FileCheck },
-        { label: 'Study Notes', path: '/student/notes', icon: FileText },
         { label: 'Live Q&A Forum', path: '/student/forum', icon: MessageSquare },
       ];
       return isStudentLive ? liveMenu : courseMenu;
@@ -211,57 +231,38 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         bg-white border-r border-slate-200/80 shadow-sm transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Header */}
-        <div className="flex h-16 items-center justify-between px-6 border-b border-slate-200/80 bg-slate-50/50">
-          <div className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              alt="Hadescore Apex Logo" 
-              className="h-9 w-9 object-contain drop-shadow-md"
-            />
-            <div>
-              <span className="font-display font-extrabold text-xs tracking-wider uppercase text-slate-800 block whitespace-nowrap leading-tight">HADESCORE APEX</span>
-              <span className="text-[9px] text-cyan-600 font-extrabold uppercase tracking-widest block">&amp; TECHNOLOGIES</span>
-            </div>
-          </div>
+        {/* Header - Centered Logo & 3-Line Branding */}
+        <div className="relative flex flex-col items-center justify-center text-center pt-5 pb-4 px-4 border-b border-slate-200/90 bg-slate-50/70">
           <button 
             onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-1.5 hover:bg-slate-200/60 text-slate-500 lg:hidden"
+            className="absolute top-3 right-3 rounded-lg p-1.5 hover:bg-slate-200/60 text-slate-500 lg:hidden"
           >
             <X size={18} />
           </button>
-        </div>
 
-        {/* Profile Card Summary */}
-        <div className="p-4 border-b border-slate-200/80 bg-gradient-to-b from-cyan-50/30 to-transparent">
-          {profilePath ? (
-            <Link 
-              to={profilePath} 
-              className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-cyan-400 transition-all duration-300 group block"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 font-black text-sm border border-cyan-100 group-hover:bg-cyan-600 group-hover:text-white transition-all">
-                {user?.first_name?.charAt(0) || 'U'}
-              </div>
-              <div className="overflow-hidden flex-1">
-                <h4 className="font-extrabold text-xs text-slate-800 truncate group-hover:text-cyan-600 transition-colors">{user?.first_name} {user?.last_name}</h4>
-                <span className={`inline-block text-[9px] px-2 py-0.5 mt-1 rounded-md font-bold uppercase tracking-wide ${getRoleBadge(user?.role || '')}`}>
-                  {getRoleLabel(user?.role || '')}
-                </span>
-              </div>
-            </Link>
-          ) : (
-            <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 font-black text-sm border border-cyan-100">
-                {user?.first_name?.charAt(0) || 'U'}
-              </div>
-              <div className="overflow-hidden flex-1">
-                <h4 className="font-extrabold text-xs text-slate-800 truncate">{user?.first_name} {user?.last_name}</h4>
-                <span className={`inline-block text-[9px] px-2 py-0.5 mt-1 rounded-md font-bold uppercase tracking-wide ${getRoleBadge(user?.role || '')}`}>
-                  {getRoleLabel(user?.role || '')}
-                </span>
-              </div>
+          {/* Logo Emblem */}
+          <div className="relative flex items-center justify-center h-16 w-16 mb-2">
+            <img 
+              src="/logo.png" 
+              alt="Hadescore Apex Logo" 
+              className="h-14 w-14 object-contain drop-shadow-[0_4px_12px_rgba(6,182,212,0.35)] hover:scale-105 transition-transform"
+            />
+          </div>
+
+          {/* Typography from Image */}
+          <div className="space-y-0.5">
+            <h2 className="font-display font-black text-sm tracking-wider uppercase text-slate-900 leading-tight">
+              HADESCORE
+            </h2>
+            <div className="flex items-center justify-center gap-2 text-cyan-600 font-black text-[11px] tracking-widest uppercase">
+              <span className="w-3.5 h-px bg-cyan-600/60" />
+              <span>APEX</span>
+              <span className="w-3.5 h-px bg-cyan-600/60" />
             </div>
-          )}
+            <span className="text-[8.5px] text-cyan-600 font-black uppercase tracking-[0.2em] block pt-0.5">
+              &amp; TECHNOLOGIES
+            </span>
+          </div>
         </div>
 
         {/* Nav list */}
@@ -274,6 +275,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               <Link
                 key={item.label}
                 to={item.path}
+                onMouseEnter={() => handlePrefetch(item.path)}
                 onClick={() => {
                   if (window.innerWidth < 1024) {
                     setSidebarOpen(false);

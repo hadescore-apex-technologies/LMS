@@ -1,5 +1,7 @@
 import random
+# pyrefly: ignore [missing-import]
 from rest_framework import viewsets, status, decorators, response
+# pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
 from apps.certificates.models import Certificate
 from apps.certificates.serializers import CertificateSerializer
@@ -111,15 +113,6 @@ class CertificateViewSet(viewsets.ModelViewSet):
             qs = qs.filter(student_id=student_id)
 
         if user.role == 'STUDENT':
-            # Run dynamic on-demand checks for each assigned course
-            from apps.courses.models import Course
-            from apps.categories.models import Category
-            from apps.certificates.utils import check_and_generate_certificate
-            
-            assigned_courses = user.student_profile.courses.filter(is_published=True) if hasattr(user, 'student_profile') else []
-            for course in assigned_courses:
-                check_and_generate_certificate(user, course)
-
             return qs.filter(student=user, is_issued=True)
 
         if user.role == 'STAFF':
@@ -146,7 +139,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
                 "valid": True,
                 "certificate_code": certificate.certificate_code,
                 "student_email": certificate.student.email,
-                "student_name": f"{certificate.student.first_name} {certificate.student.last_name}".strip() or certificate.student.username,
+                "student_name": f"{certificate.student.first_name} {certificate.student.last_name}".strip() or certificate.student.email,
                 "course_title": certificate.course.title,
                 "issued_at": certificate.issued_at,
                 "verification_url": f"https://apex-lms.hadescore.com/verify-certificate?code={certificate.certificate_code}"

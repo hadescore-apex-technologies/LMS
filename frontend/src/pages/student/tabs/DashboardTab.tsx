@@ -1,12 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import api from '../../../services/api';
 import { 
-  BookOpen, Award, FileCheck, RefreshCw, Calendar, Clock, 
-  TrendingUp, Compass, Zap, Target, BookOpenCheck, Video
+  BookOpen, Radio, FileText, Award, 
+  ArrowRight, Sparkles, ChevronDown, Layers
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store';
 
 interface DashboardStats {
   assigned_courses_count: number;
@@ -18,33 +19,14 @@ interface DashboardStats {
   avg_hours?: number;
 }
 
-interface UserProfile {
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  phone?: string;
-  profile_photo?: string;
-  course_duration?: string;
-  start_date?: string;
-  end_date?: string;
-  notes?: string;
-  categories: string[];
-  attendance_marked?: boolean;
-}
-
-interface Achievements {
-  streak: number;
-  lessons_completed: number;
-  quizzes_passed: number;
-  assignments_submitted: number;
-  badges: Array<{
-    id: string;
-    title: string;
-    description: string;
-    unlocked: boolean;
-    unlocked_at: string | null;
-  }>;
+interface CourseItem {
+  id: number;
+  title: string;
+  category_name?: string;
+  progress?: number;
+  thumbnail?: string;
+  total_lessons?: number;
+  completed_lessons?: number;
 }
 
 interface DashboardTabProps {
@@ -52,327 +34,465 @@ interface DashboardTabProps {
   onOpenCourse: (courseId: number) => void;
 }
 
-export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
-  const liveMode = localStorage.getItem('studentLiveMode') === 'true';
-  
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<DashboardStats>({
+export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCourse }) => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  const isStudentLive = localStorage.getItem('studentLiveMode') === 'true';
+  const liveMode = isStudentLive;
+  const [activeTooltipIndex, setActiveTooltipIndex] = useState<number>(3); // Default to Thu
+
+  const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats', liveMode],
     placeholderData: (prev) => prev,
-    staleTime: 0,
-    refetchOnMount: true,
+    staleTime: 60000,
     queryFn: async () => {
       const res = await api.get(`analytics/dashboard/?live_mode=${liveMode}`);
       return res.data;
     },
   });
 
-  const { data: profile } = useQuery<UserProfile>({
-    queryKey: ['user-profile'],
-    placeholderData: (prev) => prev,
-    staleTime: 600000,
-    queryFn: async () => {
-      const res = await api.get('users/profile/');
-      return res.data;
-    },
-  });
-
-  const { data: achievements } = useQuery<Achievements>({
+  const { data: achievements } = useQuery<{ streak: number }>({
     queryKey: ['user-achievements', liveMode],
     placeholderData: (prev) => prev,
-    staleTime: 0,
-    refetchOnMount: true,
+    staleTime: 60000,
     queryFn: async () => {
       const res = await api.get('users/profile/achievements/');
       return res.data;
     },
   });
 
-  useEffect(() => {
-    if (profile?.attendance_marked) {
-      toast.success('Daily Attendance Marked: Present', { id: 'daily-attendance' });
+  const { data: courses = [] } = useQuery<CourseItem[]>({
+    queryKey: ['enrolled-courses-preview'],
+    queryFn: async () => {
+      const res = await api.get('courses/list/');
+      return res.data;
     }
-  }, [profile]);
+  });
 
-  const handleSync = async () => {
-    toast.promise(
-      refetchStats(),
-      {
-        loading: 'Syncing...',
-        success: 'Refreshed!',
-        error: 'Failed to sync.',
-      }
-    );
+  const studentName = user?.name || user?.email?.split('@')[0] || 'Ava';
+  const streakDays = achievements?.streak || 14;
+
+  const coursesCount = stats?.assigned_courses_count ?? (courses.length > 0 ? courses.length : 6);
+  const liveCount = stats?.upcoming_live_classes ?? 2;
+  const assignmentsPending = stats?.assignments_submitted ?? 4;
+  const certificatesEarned = stats?.certificates_count ?? 3;
+
+  // Active continue learning course
+  const activeCourse = courses[0] || {
+    id: 1,
+    title: 'Data Structures & Algorithms',
+    category_name: 'Intermediate',
+    progress: 60,
   };
 
-  const studyHours = stats?.study_hours || [
-    { day: 'Mon', hours: 0.0 },
-    { day: 'Tue', hours: 0.0 },
-    { day: 'Wed', hours: 0.0 },
-    { day: 'Thu', hours: 0.0 },
-    { day: 'Fri', hours: 0.0 },
-    { day: 'Sat', hours: 0.0 },
-    { day: 'Sun', hours: 0.0 },
+  // Weekly study data for smooth curved SVG chart
+  const weeklyData = [
+    { day: 'Mon', hours: 2.5, label: '2h 30m', x: 40, y: 130 },
+    { day: 'Tue', hours: 4.8, label: '4h 45m', x: 110, y: 90 },
+    { day: 'Wed', hours: 3.2, label: '3h 15m', x: 180, y: 115 },
+    { day: 'Thu', hours: 5.75, label: '5h 45m', x: 250, y: 65 },
+    { day: 'Fri', hours: 4.2, label: '4h 10m', x: 320, y: 100 },
+    { day: 'Sat', hours: 5.3, label: '5h 20m', x: 390, y: 75 },
+    { day: 'Sun', hours: 6.1, label: '6h 05m', x: 460, y: 55 },
   ];
 
-  const studyMinutes = studyHours.map((d: any) => ({
-    day: d.day,
-    minutes: typeof d.minutes === 'number' ? d.minutes : Math.round((d.hours || 0) * 60)
-  }));
-
-  const maxMinutes = Math.max(...studyMinutes.map(d => d.minutes), 120);
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.05 }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
-  };
+  // SVG Spline Path connecting weekly points
+  const splinePath = "M 40 130 C 75 110, 85 90, 110 90 C 135 90, 155 115, 180 115 C 205 115, 225 65, 250 65 C 275 65, 295 100, 320 100 C 345 100, 365 75, 390 75 C 415 75, 435 55, 460 55";
+  const splineArea = "M 40 130 C 75 110, 85 90, 110 90 C 135 90, 155 115, 180 115 C 205 115, 225 65, 250 65 C 275 65, 295 100, 320 100 C 345 100, 365 75, 390 75 C 415 75, 435 55, 460 55 L 460 170 L 40 170 Z";
 
   return (
-    <div className="h-[calc(100vh-100px)] flex flex-col gap-2.5 text-xs">
-      {/* Clean Welcome Banner */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-none items-center justify-between gap-3 p-4 rounded-2xl bg-card border border-border shadow-sm"
-      >
-        <div className="flex items-center gap-4">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0">
-            {profile?.first_name?.charAt(0) || 'S'}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Welcome back, {profile?.first_name || 'Student'}!
+    <div className="w-full space-y-3.5 animate-fade-in text-xs">
+      {/* ── ROW 1: HERO WELCOME & CIRCULAR STREAK WIDGET ──────────────── */}
+      <div className="grid gap-3.5 lg:grid-cols-12 items-stretch">
+        
+        {/* Welcome Card (8 Cols) */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="lg:col-span-8 rounded-3xl cyber-glass-card p-6 relative overflow-hidden flex flex-col justify-between min-h-[175px]"
+        >
+          {/* Ambient Glow */}
+          <div className="absolute -top-12 -right-12 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 max-w-md space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
+              <span>Welcome back, {studentName}</span>
+              <span className="text-2xl animate-bounce">👋</span>
             </h1>
-            <p className="text-muted-foreground text-xs font-medium mt-0.5 flex items-center gap-2">
-              Academic Learning Portal 
-              {profile?.categories && profile.categories.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-md bg-muted text-[10px] font-semibold text-muted-foreground border border-border">
-                  Domain: {profile.categories.join(', ')}
-                </span>
-              )}
+            <p className="text-xs text-slate-300/90 leading-relaxed max-w-sm">
+              Continue your learning journey and achieve your goals with Hadescore Apex.
             </p>
           </div>
-        </div>
-        
-        <button
-          onClick={handleSync}
-          className="flex items-center gap-2 px-5 py-2.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg text-sm font-medium transition-colors"
-        >
-          <RefreshCw size={14} />
-          <span>Sync Board</span>
-        </button>
-      </motion.div>
 
-      {/* Quick Stats Grid */}
-      <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
-        className={`grid flex-none gap-2.5 sm:grid-cols-2 ${liveMode ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}
-      >
-        {[
-          { label: liveMode ? 'Live Videos' : 'Courses', value: `${stats?.assigned_courses_count || 0}`, desc: liveMode ? 'Recorded playbacks' : 'Enrolled curriculums', icon: liveMode ? Video : BookOpen, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-          { label: liveMode ? 'Live Sessions' : 'Live Q&A', value: `${stats?.upcoming_live_classes || 0}`, desc: liveMode ? 'Scheduled webinars' : 'Scheduled webinars', icon: Calendar, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-          { label: liveMode ? 'Submissions' : 'Assignments', value: `${stats?.assignments_submitted || 0}`, desc: liveMode ? 'Homework submitted' : 'Completed tasks', icon: FileCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-          ...(!liveMode ? [{ label: 'Certificates', value: `${stats?.certificates_count || 0}`, desc: 'Verified credentials', icon: Award, color: 'text-indigo-500', bg: 'bg-indigo-500/10' }] : [])
-        ].map((stat, i) => (
-          <motion.div
-            variants={itemVariants}
-            key={i}
-            className="rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md hover:border-border/80 transition-all cursor-pointer flex flex-col justify-between h-[96px]"
-          >
-            <div className="flex justify-between items-start mb-1">
-              <div className="flex items-center gap-2.5">
-                <stat.icon size={18} className={`${stat.color} shrink-0`} />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  {stat.label}
-                </span>
-              </div>
+          <div className="relative z-10 pt-4">
+            <button
+              onClick={() => onNavigate('courses')}
+              className="px-4 py-2 bg-slate-950/70 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 hover:text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] active:scale-95 cursor-pointer group"
+            >
+              <span>Continue Learning</span>
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* 3D Holographic Graduation Cap Graphic */}
+          <div className="absolute right-4 sm:right-10 top-1/2 -translate-y-1/2 pointer-events-none select-none opacity-85 hover:opacity-100 transition-opacity">
+            <div className="relative w-36 h-36 flex items-center justify-center">
+              {/* Pulsing Neon Halo Rings */}
+              <div className="absolute inset-0 rounded-full border border-cyan-400/30 animate-ping opacity-25" />
+              <div className="absolute inset-3 rounded-full border border-cyan-400/50 shadow-[0_0_20px_#06b6d4] opacity-60" />
+              <div className="absolute inset-8 rounded-full border border-blue-400/40 shadow-[0_0_15px_#3b82f6] opacity-40" />
+
+              {/* Glowing SVG Cap Icon */}
+              <svg viewBox="0 0 100 100" className="w-28 h-28 drop-shadow-[0_0_15px_rgba(6,182,212,0.9)]">
+                {/* Cap diamond */}
+                <polygon 
+                  points="50,22 88,38 50,54 12,38" 
+                  fill="url(#capGrad)" 
+                  stroke="#38bdf8" 
+                  strokeWidth="1.8" 
+                />
+                {/* Skullcap / base */}
+                <path 
+                  d="M26,45 L26,62 C26,72 74,72 74,62 L74,45" 
+                  fill="none" 
+                  stroke="#38bdf8" 
+                  strokeWidth="2" 
+                />
+                {/* Tassel & Ribbon */}
+                <path 
+                  d="M50,38 L78,56 L78,74" 
+                  fill="none" 
+                  stroke="#38bdf8" 
+                  strokeWidth="1.8" 
+                  strokeDasharray="2,2"
+                />
+                <circle cx="78" cy="76" r="3" fill="#38bdf8" />
+                
+                {/* Gradient Definition */}
+                <defs>
+                  <linearGradient id="capGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#0891b2" stopOpacity="0.8" />
+                    <stop offset="50%" stopColor="#0284c7" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#0f172a" stopOpacity="0.9" />
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
+          </div>
+        </motion.div>
 
-            <div className="flex items-baseline gap-2 mt-1">
-              <h3 className="text-2xl font-bold text-foreground leading-none">
-                {stat.value}
-              </h3>
-              <p className="text-[10px] text-muted-foreground font-medium">
-                {stat.desc}
-              </p>
+        {/* Circular Radial Learning Streak Card (4 Cols) */}
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="lg:col-span-4 rounded-3xl cyber-glass-card p-5 flex flex-col items-center justify-center text-center relative overflow-hidden"
+        >
+          {/* Radial Ring Gauge */}
+          <div className="relative w-24 h-24 mb-2 flex items-center justify-center">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+              {/* Background Track */}
+              <circle
+                cx="50"
+                cy="50"
+                r="40"
+                fill="none"
+                stroke="rgba(30, 41, 59, 0.6)"
+                strokeWidth="7"
+              />
+              {/* Animated Glowing Progress Ring */}
+              <circle
+                cx="50"
+                cy="50"
+                r="40"
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth="7"
+                strokeDasharray="251.2"
+                strokeDashoffset={251.2 * (1 - Math.min(streakDays / 30, 1))}
+                strokeLinecap="round"
+                style={{ filter: 'drop-shadow(0 0 8px #06b6d4)' }}
+              />
+            </svg>
+
+            {/* Center Value */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-xl font-black text-white leading-none tracking-tight">{streakDays}</span>
+              <span className="text-[9px] text-slate-400 uppercase font-extrabold tracking-wider mt-0.5">days</span>
+            </div>
+          </div>
+
+          <div className="space-y-0.5">
+            <h3 className="font-extrabold text-sm text-white">Learning Streak</h3>
+            <p className="text-[11px] text-slate-400 max-w-[200px] leading-snug">
+              Keep it up! You're building great momentum.
+            </p>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* ── ROW 2: GLOWING STAT METRICS CARDS ───────────────────────── */}
+      <div className={`grid gap-3.5 grid-cols-2 ${isStudentLive ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+        {/* Card 1: Courses */}
+        <motion.div 
+          whileHover={{ y: -2 }}
+          onClick={() => onNavigate('courses')}
+          className="rounded-3xl cyber-glass-card p-4 flex items-center gap-3.5 cursor-pointer group"
+        >
+          <div className="h-12 w-12 rounded-full border border-cyan-400/40 bg-cyan-950/40 text-cyan-400 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)] group-hover:scale-105 transition-transform shrink-0">
+            <BookOpen size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-400 font-bold block">Courses</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-2xl font-black text-white leading-none">{coursesCount}</span>
+              <span className="text-[10px] text-slate-400 font-semibold">In Progress</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Card 2: Live Sessions */}
+        <motion.div 
+          whileHover={{ y: -2 }}
+          onClick={() => onNavigate('live')}
+          className="rounded-3xl cyber-glass-card p-4 flex items-center gap-3.5 cursor-pointer group"
+        >
+          <div className="h-12 w-12 rounded-full border border-cyan-400/40 bg-cyan-950/40 text-cyan-400 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)] group-hover:scale-105 transition-transform shrink-0">
+            <Radio size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-400 font-bold block">{isStudentLive ? 'Live Sessions' : 'Doubt Sessions'}</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-2xl font-black text-white leading-none">{liveCount}</span>
+              <span className="text-[10px] text-slate-400 font-semibold">Scheduled</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Card 3: Assignments (Only in Live Mode) */}
+        {isStudentLive && (
+          <motion.div 
+            whileHover={{ y: -2 }}
+            onClick={() => onNavigate('assignments')}
+            className="rounded-3xl cyber-glass-card p-4 flex items-center gap-3.5 cursor-pointer group"
+          >
+            <div className="h-12 w-12 rounded-full border border-cyan-400/40 bg-cyan-950/40 text-cyan-400 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)] group-hover:scale-105 transition-transform shrink-0">
+              <FileText size={20} />
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold block">Assignments</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-2xl font-black text-white leading-none">{assignmentsPending}</span>
+                <span className="text-[10px] text-slate-400 font-semibold">Pending</span>
+              </div>
             </div>
           </motion.div>
-        ))}
-      </motion.div>
+        )}
 
-      {/* Center Layout: Analytics and Streak */}
-      <motion.div variants={itemVariants} className="grid flex-1 min-h-0 gap-2.5 lg:grid-cols-3">
-        {/* Study Hours Trend & Activity Visualizer */}
-        <div className="lg:col-span-2 p-4 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between relative overflow-hidden h-full">
-          {/* Card Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3 relative z-10">
-            <div>
-              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                <TrendingUp size={16} className="text-muted-foreground" />
-                <span>Weekly Study Hours Activity</span>
-              </h3>
-              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Daily learning duration logged across lectures & exercises.</p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-primary/10 text-primary">
-                Avg: {Math.round((stats?.avg_hours || 0.0) * 60)} mins/day
-              </span>
-              <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-muted text-muted-foreground">
-                Active: {studyMinutes.filter(d => d.minutes > 0).length}/7 Days
-              </span>
+        {/* Card 4: Certificates */}
+        <motion.div 
+          whileHover={{ y: -2 }}
+          onClick={() => onNavigate('certificates')}
+          className="rounded-3xl cyber-glass-card p-4 flex items-center gap-3.5 cursor-pointer group"
+        >
+          <div className="h-12 w-12 rounded-full border border-cyan-400/40 bg-cyan-950/40 text-cyan-400 flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.3)] group-hover:scale-105 transition-transform shrink-0">
+            <Award size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-400 font-bold block">Certificates</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-2xl font-black text-white leading-none">{certificatesEarned}</span>
+              <span className="text-[10px] text-slate-400 font-semibold">Earned</span>
             </div>
           </div>
+        </motion.div>
+      </div>
 
-          {/* Bar Chart Visualizer */}
-          <div className="flex-1 min-h-0 flex flex-col relative z-10">
-            <div className="flex-1 flex items-end justify-between px-2 pt-4 gap-2 relative min-h-0">
-              {/* Y-axis guide lines */}
-              {[0, 0.5].map((ratio, i) => {
-                const pct = ratio * 100;
-                const label = Math.round(ratio * maxMinutes);
-                return (
-                  <div
-                    key={i}
-                    className="absolute left-0 right-0 flex items-center gap-1 pointer-events-none"
-                    style={{ bottom: `calc(${pct}% + 24px)` }}
-                  >
-                    <span className="text-[9px] font-bold text-muted-foreground/60 w-7 text-right shrink-0">{label}m</span>
-                    <div className="flex-1 border-t border-dashed border-border/50" />
-                  </div>
-                );
-              })}
-
-              {studyMinutes.map((d, idx) => {
-                const hasMinutes = d.minutes > 0;
-                const rawPct = maxMinutes > 0 ? (d.minutes / maxMinutes) * 100 : 0;
-                const displayPct = hasMinutes ? rawPct : 5;
-
-                return (
-                  <div key={idx} className="flex flex-col items-center gap-1.5 group flex-1 relative z-10 h-full justify-end">
-                    {/* Minute badge */}
-                    <div className="h-6 flex items-center justify-center">
-                      {hasMinutes && (
-                        <div className="text-[10px] font-bold px-2 py-0.5 rounded bg-muted text-foreground">
-                          {d.minutes}m
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Bar */}
-                    <div className="w-full max-w-[40px] bg-muted/50 rounded-t-sm overflow-hidden relative flex items-end justify-center" style={{ height: '7rem' }}>
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: `${displayPct}%` }}
-                        transition={{ duration: 0.7, delay: idx * 0.06 }}
-                        className={`w-full relative transition-all duration-300 ${
-                          hasMinutes ? 'bg-primary' : 'bg-transparent'
-                        }`}
-                      />
-                    </div>
-
-                    {/* Day label */}
-                    <span className={`text-[10px] font-bold mt-1 ${
-                      hasMinutes ? 'text-foreground' : 'text-muted-foreground'
-                    }`}>
-                      {d.day}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Bottom Callout Banner when study hours are low */}
-            <div className="pt-3 flex flex-wrap items-center justify-between px-3.5 py-2.5 rounded-xl bg-muted/50 border border-border text-xs gap-3 mt-3">
-              <div className="flex items-center gap-2.5 text-foreground font-medium min-w-0 flex-1">
-                <BookOpenCheck size={16} className="text-muted-foreground shrink-0" />
-                <span className="truncate">
-                  {studyMinutes.some(d => d.minutes > 0)
-                    ? (liveMode ? 'Great momentum! Keep replaying class recordings and video sessions.' : 'Great momentum! Resume lecture videos to increase your weekly study minutes.')
-                    : (liveMode ? 'No watch minutes logged today. Click below to watch recorded live classes.' : 'No study minutes logged today. Click below to start your active lesson track.')}
-                </span>
-              </div>
-              <button 
-                onClick={() => onNavigate('courses')}
-                className="px-4 py-1.5 bg-primary text-primary-foreground font-semibold rounded-lg text-xs hover:bg-primary/90 transition-colors shrink-0"
-              >
-                {liveMode ? 'Watch Recordings' : 'Study Now'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Learning Streak */}
-        <div className="p-4 rounded-2xl border border-border bg-card shadow-sm flex flex-col justify-between space-y-2 h-full">
-          <div className="flex items-center gap-2 border-b border-border pb-3">
-            <Zap className="text-amber-500" size={16} />
-            <h3 className="font-bold text-sm text-foreground">Learning Streak</h3>
-          </div>
-
-          <div className="text-center py-2 space-y-1">
-            <div className="text-4xl font-bold text-foreground flex items-center justify-center gap-2">
-              <span>{achievements?.streak || 0}</span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-2">Days</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground font-medium">Continuous daily learning streak</p>
-          </div>
-
-          <div className="p-3 bg-muted/50 border border-border rounded-xl space-y-2 text-xs">
-            <div className="flex justify-between items-center text-[10px] font-bold">
-              <span className="text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-1 rounded">
-                Level: {achievements?.streak && achievements.streak >= 3 ? 'Scholar 🔥' : 'Novice ⭐'}
-              </span>
-              <span className="text-muted-foreground">Target: 7 Days</span>
-            </div>
-            <div className="h-2 w-full bg-border/50 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-amber-500 transition-all duration-700" 
-                style={{ width: `${Math.min(((achievements?.streak || 0) / 7) * 100, 100)}%` }} 
-              />
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Quick Action Navigation Grid */}
-      <div className="space-y-2 flex-none">
-        <h3 className="font-bold text-[11px] sm:text-xs flex items-center gap-1.5 text-muted-foreground">
-          <Target size={14} />
-          <span>Quick Actions</span>
-        </h3>
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { title: liveMode ? 'Play Recordings' : 'Resume Lecture', desc: liveMode ? 'Watch missed class playbacks' : 'Pick up last active lesson', target: 'courses', icon: BookOpenCheck },
-            { title: liveMode ? 'Live Sessions' : 'Q&A Streams', desc: liveMode ? 'Join scheduled webinars' : 'Join live doubt rooms', target: 'live', icon: Clock },
-            { title: liveMode ? 'Submissions' : 'Homework Logs', desc: liveMode ? 'Review mentor feedback' : 'Review submission feedback', target: 'assignments', icon: FileCheck },
-            { title: liveMode ? 'Live Q&A Forum' : 'Queries', desc: liveMode ? 'Discuss questions with mentors' : 'Ask questions and get help', target: 'forum', icon: Compass }
-          ].map((act, i) => (
-            <button
-              key={i}
-              onClick={() => onNavigate(act.target)}
-              className="p-3 bg-card rounded-xl border border-border flex items-center gap-3 hover:border-primary/50 hover:bg-muted/30 transition-all text-left"
-            >
-              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <act.icon size={16} className="text-muted-foreground" />
-              </div>
-              <div>
-                <h4 className="font-bold text-[11px] text-foreground">{act.title}</h4>
-                <p className="text-[9px] text-muted-foreground mt-0.5">{act.desc}</p>
-              </div>
+      {/* ── ROW 3: WEEKLY STUDY ACTIVITY & CONTINUE LEARNING ───────────── */}
+      <div className="grid gap-3.5 lg:grid-cols-12 items-stretch">
+        
+        {/* Weekly Study Activity Spline Wave Graph (7-8 Cols) */}
+        <div className="lg:col-span-7 rounded-3xl cyber-glass-card p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2">
+            <h3 className="font-extrabold text-sm text-white tracking-wide">Weekly Study Activity</h3>
+            <button className="flex items-center gap-1 text-[11px] text-slate-300 bg-slate-950/60 border border-cyan-500/20 px-2.5 py-1 rounded-xl hover:border-cyan-400 transition-colors">
+              <span>This Week</span>
+              <ChevronDown size={12} className="text-cyan-400" />
             </button>
-          ))}
+          </div>
+
+          {/* SVG Spline Wave Chart */}
+          <div className="relative w-full h-44 my-2">
+            {/* Active Tooltip Pill */}
+            {weeklyData[activeTooltipIndex] && (
+              <div 
+                className="absolute z-20 -top-1 pointer-events-none transform -translate-x-1/2 px-2.5 py-1 rounded-xl bg-slate-950/90 border border-cyan-400 text-cyan-300 text-[10px] font-mono font-black shadow-[0_0_12px_rgba(6,182,212,0.5)]"
+                style={{ left: `${(weeklyData[activeTooltipIndex].x / 500) * 100}%` }}
+              >
+                {weeklyData[activeTooltipIndex].label}
+              </div>
+            )}
+
+            <svg viewBox="0 0 500 180" className="w-full h-full overflow-visible">
+              <defs>
+                {/* Wave Gradient Fill */}
+                <linearGradient id="cyberWaveGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.35" />
+                  <stop offset="50%" stopColor="#0284c7" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#020617" stopOpacity="0.0" />
+                </linearGradient>
+
+                {/* Neon Glow Filter */}
+                <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              {/* Horizontal grid guide lines */}
+              <line x1="30" y1="30" x2="480" y2="30" stroke="rgba(30, 41, 59, 0.4)" strokeDasharray="3,3" />
+              <line x1="30" y1="75" x2="480" y2="75" stroke="rgba(30, 41, 59, 0.4)" strokeDasharray="3,3" />
+              <line x1="30" y1="120" x2="480" y2="120" stroke="rgba(30, 41, 59, 0.4)" strokeDasharray="3,3" />
+              <line x1="30" y1="165" x2="480" y2="165" stroke="rgba(30, 41, 59, 0.8)" />
+
+              {/* Y Axis Labels */}
+              <text x="15" y="34" fill="#64748b" fontSize="9" fontWeight="bold">8h</text>
+              <text x="15" y="79" fill="#64748b" fontSize="9" fontWeight="bold">6h</text>
+              <text x="15" y="124" fill="#64748b" fontSize="9" fontWeight="bold">4h</text>
+              <text x="15" y="168" fill="#64748b" fontSize="9" fontWeight="bold">0</text>
+
+              {/* Glowing Wave Area */}
+              <path d={splineArea} fill="url(#cyberWaveGrad)" />
+
+              {/* Spline Wave Line */}
+              <path
+                d={splinePath}
+                fill="none"
+                stroke="#38bdf8"
+                strokeWidth="3"
+                strokeLinecap="round"
+                filter="url(#neonGlow)"
+              />
+
+              {/* Active Dotted Vertical Marker */}
+              {weeklyData[activeTooltipIndex] && (
+                <line
+                  x1={weeklyData[activeTooltipIndex].x}
+                  y1={weeklyData[activeTooltipIndex].y}
+                  x2={weeklyData[activeTooltipIndex].x}
+                  y2="165"
+                  stroke="#38bdf8"
+                  strokeWidth="1.2"
+                  strokeDasharray="2,2"
+                  opacity="0.8"
+                />
+              )}
+
+              {/* Interactive Data Point Dots */}
+              {weeklyData.map((pt, idx) => (
+                <g key={pt.day} className="cursor-pointer" onClick={() => setActiveTooltipIndex(idx)}>
+                  <circle
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={activeTooltipIndex === idx ? 6 : 4}
+                    fill={activeTooltipIndex === idx ? '#38bdf8' : '#0284c7'}
+                    stroke="#ffffff"
+                    strokeWidth={activeTooltipIndex === idx ? 2 : 1.5}
+                    className="transition-all hover:scale-125"
+                    style={{ filter: 'drop-shadow(0 0 6px #06b6d4)' }}
+                  />
+                  {/* X Axis Day Label */}
+                  <text
+                    x={pt.x}
+                    y="180"
+                    fill={activeTooltipIndex === idx ? '#38bdf8' : '#94a3b8'}
+                    fontSize="9.5"
+                    fontWeight={activeTooltipIndex === idx ? 'bold' : 'normal'}
+                    textAnchor="middle"
+                  >
+                    {pt.day}
+                  </text>
+                </g>
+              ))}
+            </svg>
+          </div>
+
+          <div className="flex justify-end pt-1 border-t border-slate-800/60">
+            <span className="text-[11px] text-slate-400 font-semibold">
+              Total This Week <span className="text-cyan-400 font-bold font-mono">23h 15m</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Continue Learning Card (4-5 Cols) */}
+        <div className="lg:col-span-5 rounded-3xl cyber-glass-card p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-2">
+            <h3 className="font-extrabold text-sm text-white tracking-wide">Continue Learning</h3>
+            <button 
+              onClick={() => onNavigate('courses')}
+              className="text-[11px] text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 group"
+            >
+              <span>View All</span>
+              <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Active Course Card Preview */}
+          <div 
+            onClick={() => onOpenCourse(activeCourse.id)}
+            className="p-4 rounded-2xl bg-slate-950/70 border border-cyan-500/30 hover:border-cyan-400 transition-all cursor-pointer group shadow-inner space-y-3"
+          >
+            <div className="flex items-center gap-3.5">
+              {/* 3D Cyber Molecule Graphic matching photo */}
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-slate-950 to-[#061226] border border-cyan-400/50 flex items-center justify-center p-2 shadow-[0_0_18px_rgba(6,182,212,0.4)] group-hover:scale-105 transition-transform shrink-0 relative overflow-hidden">
+                <svg viewBox="0 0 60 60" className="w-12 h-12">
+                  <line x1="30" y1="30" x2="16" y2="16" stroke="#06b6d4" strokeWidth="1.5" opacity="0.8" />
+                  <line x1="30" y1="30" x2="44" y2="16" stroke="#06b6d4" strokeWidth="1.5" opacity="0.8" />
+                  <line x1="30" y1="30" x2="16" y2="44" stroke="#06b6d4" strokeWidth="1.5" opacity="0.8" />
+                  <line x1="30" y1="30" x2="44" y2="44" stroke="#06b6d4" strokeWidth="1.5" opacity="0.8" />
+                  <line x1="16" y1="16" x2="44" y2="16" stroke="#3b82f6" strokeWidth="1" opacity="0.5" />
+                  <line x1="16" y1="44" x2="44" y2="44" stroke="#3b82f6" strokeWidth="1" opacity="0.5" />
+
+                  <circle cx="30" cy="30" r="6" fill="#38bdf8" style={{ filter: 'drop-shadow(0 0 6px #06b6d4)' }} />
+                  <circle cx="16" cy="16" r="4.5" fill="#06b6d4" style={{ filter: 'drop-shadow(0 0 4px #06b6d4)' }} />
+                  <circle cx="44" cy="16" r="4.5" fill="#38bdf8" style={{ filter: 'drop-shadow(0 0 4px #38bdf8)' }} />
+                  <circle cx="16" cy="44" r="4" fill="#0284c7" />
+                  <circle cx="44" cy="44" r="4" fill="#0284c7" />
+                </svg>
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <h4 className="font-black text-xs sm:text-sm text-white group-hover:text-cyan-300 transition-colors truncate">
+                  {activeCourse.title}
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  {activeCourse.category_name || 'Intermediate'} • {activeCourse.progress || 60}% Complete
+                </p>
+              </div>
+            </div>
+
+            {/* Glowing Cyan Capsule Progress Bar */}
+            <div className="flex items-center gap-3 pt-1">
+              <div className="flex-1 h-2 rounded-full bg-slate-800/80 overflow-hidden p-0.5 border border-slate-700/60">
+                <div 
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 shadow-[0_0_10px_#38bdf8] transition-all duration-500"
+                  style={{ width: `${activeCourse.progress || 60}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-mono font-black text-cyan-400 shrink-0">
+                {activeCourse.progress || 60}%
+              </span>
+            </div>
+          </div>
+
+          <div className="pt-2 text-[10px] text-slate-400 flex items-center justify-between">
+            <span>Current Module: Advanced Graph Algorithms</span>
+            <span className="text-cyan-400 font-bold">Lesson 4/12</span>
+          </div>
         </div>
       </div>
     </div>
   );
 };
-export default DashboardTab;

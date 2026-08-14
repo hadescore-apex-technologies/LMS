@@ -11,6 +11,12 @@ class MentorListView(APIView):
     permission_classes = [IsSuperAdminOrStaff]
 
     def get(self, request):
+        from django.core.cache import cache
+        cache_key = 'mentors_list_data'
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return response.Response(cached_data)
+
         mentors = CustomUser.objects.filter(role='STAFF', is_active=True).select_related('staff_profile__category')
         data = []
         for m in mentors:
@@ -22,6 +28,7 @@ class MentorListView(APIView):
                 'name': display_name,
                 'email': m.email
             })
+        cache.set(cache_key, data, timeout=120)
         return response.Response(data)
 
 
@@ -289,7 +296,7 @@ class UserProfileViewSet(viewsets.ViewSet):
         from django.db.models import Count, Q
         
         users = CustomUser.objects.filter(role='STUDENT').annotate(
-            lessons_count=Count('lesson_progresses', filter=Q(lesson_progresses__completed=True), distinct=True),
+            lessons_count=Count('lesson_progress', filter=Q(lesson_progress__completed=True), distinct=True),
             quizzes_count=Count('quiz_attempts', filter=Q(quiz_attempts__passed=True), distinct=True),
             assignments_count=Count('assignment_submissions', distinct=True),
         )

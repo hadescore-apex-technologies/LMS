@@ -4,6 +4,7 @@ import type { RootState } from '../../../store';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
+import UniversalVideoPlayer from '../../../components/UniversalVideoPlayer';
 import { 
   Plus, Trash2, Video, ChevronRight, ChevronDown, 
   X, PlusCircle, Edit3, Upload, Loader2,
@@ -124,6 +125,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
   const [lesNotes, setLesNotes] = useState('');
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [targetModuleId, setTargetModuleId] = useState<number | null>(null);
+  const [previewVideoLesson, setPreviewVideoLesson] = useState<{ id: number; title: string; url: string } | null>(null);
 
   // Assignment modal
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -887,19 +889,60 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                                 <Plus size={11} /> Add Lesson
                               </button>
                             </div>
-                            <div className="space-y-1.5">
-                              {modLessons.map(les => (
-                                <div key={les.id} className="p-3 bg-card border border-border/80 rounded-xl flex items-center justify-between gap-4">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <Play size={12} className="text-primary" />
-                                    <span className="font-semibold truncate">{les.title}</span>
+                            <div className="space-y-2">
+                              {modLessons.map(les => {
+                                const hasVideo = !!les.cf_stream_id;
+                                const isPlaying = previewVideoLesson?.id === les.id;
+
+                                return (
+                                  <div key={les.id} className="bg-card border border-border/80 rounded-xl overflow-hidden transition-all">
+                                    <div className="p-3 flex items-center justify-between gap-4">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <Play size={12} className="text-primary shrink-0" />
+                                        <span className="font-semibold truncate">{les.title}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        {hasVideo && (
+                                          <button 
+                                            onClick={() => setPreviewVideoLesson(isPlaying ? null : { id: les.id, title: les.title, url: les.cf_stream_id || '' })}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                              isPlaying 
+                                                ? 'bg-cyan-500 text-white shadow-sm shadow-cyan-500/30' 
+                                                : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                            }`}
+                                            title="Preview uploaded lesson video"
+                                          >
+                                            <Video size={11} />
+                                            <span>{isPlaying ? 'Hide Player' : 'Watch Video'}</span>
+                                          </button>
+                                        )}
+                                        <button onClick={() => openEditLesson(les)} title="Edit lesson" className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded"><Edit3 size={11} /></button>
+                                        <button onClick={() => { if (window.confirm('Delete lesson?')) deleteLessonMutation.mutate(les.id); }} title="Delete lesson" className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded"><Trash2 size={11} /></button>
+                                      </div>
+                                    </div>
+
+                                    {/* Mini Video Preview Box */}
+                                    {isPlaying && (
+                                      <div className="border-t border-border bg-slate-950 p-3.5 space-y-2">
+                                        <div className="flex items-center justify-between text-xs text-slate-300">
+                                          <span className="font-bold flex items-center gap-1.5 text-cyan-400">
+                                            <Video size={13} /> {les.title} (Video Preview)
+                                          </span>
+                                          <button 
+                                            onClick={() => setPreviewVideoLesson(null)} 
+                                            className="px-2 py-0.5 text-[10px] bg-slate-800 text-slate-300 hover:text-white rounded-md flex items-center gap-1"
+                                          >
+                                            <X size={11} /> Close Player
+                                          </button>
+                                        </div>
+                                        <div className="relative aspect-video max-w-lg mx-auto rounded-xl overflow-hidden bg-black border border-cyan-500/30 shadow-2xl">
+                                          <UniversalVideoPlayer src={les.cf_stream_id || ''} title={les.title} autoPlay={true} />
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="flex gap-2">
-                                    <button onClick={() => openEditLesson(les)} className="text-muted-foreground hover:text-foreground"><Edit3 size={11} /></button>
-                                    <button onClick={() => { if (window.confirm('Delete lesson?')) deleteLessonMutation.mutate(les.id); }} className="text-muted-foreground hover:text-destructive"><Trash2 size={11} /></button>
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                               {modLessons.length === 0 && <p className="italic text-muted-foreground">No lessons created in this module.</p>}
                             </div>
                           </div>
@@ -1080,10 +1123,21 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                   <div>
                     <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Cloudflare Stream Video</label>
                     {lesVideoUrl ? (
-                      <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-xl">
-                        <Video size={13} className="shrink-0" />
-                        <span className="truncate flex-1">{lesVideoUrl.split('/').pop()}</span>
-                        <button onClick={() => setLesVideoUrl('')} className="text-destructive"><X size={12} /></button>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-xl">
+                          <Video size={13} className="shrink-0" />
+                          <span className="truncate flex-1">{lesVideoUrl.split('/').pop()}</span>
+                          <button onClick={() => setLesVideoUrl('')} className="text-destructive"><X size={12} /></button>
+                        </div>
+                        {/* Live Mini Preview Box inside modal */}
+                        <div className="p-2.5 bg-slate-950 rounded-xl border border-cyan-500/30 space-y-1.5">
+                          <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1">
+                            <Play size={10} /> Video Live Preview
+                          </span>
+                          <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-slate-800">
+                            <UniversalVideoPlayer src={lesVideoUrl} title={lesTitle || 'Lesson Video'} />
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <label className="flex items-center justify-center gap-1.5 h-10 px-3 bg-muted/40 border border-dashed border-border rounded-xl cursor-pointer">

@@ -1,11 +1,10 @@
-from rest_framework import viewsets, status, decorators, response
-from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
 from django.utils import timezone
+from rest_framework import viewsets, status, decorators, response
 from apps.users.models import CustomUser, StudentProfile
 from apps.students.serializers import StudentSerializer
-from apps.core.permissions import IsSuperAdminOrStaff, IsStaff
+from apps.core.permissions import IsSuperAdminOrStaff
 from apps.core.models import AuditLog
-from apps.categories.models import Category
 
 class StudentViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.filter(role='STUDENT').select_related('student_profile')

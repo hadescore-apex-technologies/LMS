@@ -59,6 +59,7 @@ export const StudentManagementTab: React.FC = () => {
   const [selectedCourses, setSelectedCourses] = useState<number[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [studentCertificates, setStudentCertificates] = useState<any[]>([]);
 
   const [liveMode, setLiveMode] = React.useState(localStorage.getItem('super_adminLiveMode') === 'true');
 
@@ -388,11 +389,17 @@ export const StudentManagementTab: React.FC = () => {
       }
       return { previousStudents };
     },
-    onError: (err, id, context) => {
+    onError: (err: any, id, context) => {
       if (context?.previousStudents) {
         queryClient.setQueryData(['admin-students-roster'], context.previousStudents);
       }
-      toast.error('Failed to delete student.');
+      if (err?.response?.status === 404) {
+        toast.error('Student not found or has already been deleted.');
+        // Refresh the list to get current state
+        queryClient.invalidateQueries({ queryKey: ['admin-students-roster'] });
+      } else {
+        toast.error('Failed to delete student.');
+      }
     },
     onSuccess: (data, id) => {
       // Item already removed in onMutate — just confirm, no refetch
@@ -436,7 +443,10 @@ export const StudentManagementTab: React.FC = () => {
     try {
       const res = await api.get(`certificates/?student=${s.id}`);
       const certs = res.data || [];
+      setStudentCertificates(certs); // Store all certificates
+      
       if (certs.length > 0) {
+        // Show the first certificate by default, but user can see all of them
         const cert = certs.find((c: any) => !c.is_issued) || certs[0];
         setSelectedCourseId(String(cert.course));
         setCertCode(cert.certificate_code || '');
@@ -446,7 +456,9 @@ export const StudentManagementTab: React.FC = () => {
         setCertCode('');
         setCertFileUrl('');
       }
-    } catch {
+    } catch (err) {
+      console.error('Error loading certificates for student:', err);
+      setStudentCertificates([]);
       setSelectedCourseId('');
       setCertCode('');
       setCertFileUrl('');
@@ -601,8 +613,11 @@ export const StudentManagementTab: React.FC = () => {
                           <span className="text-[10px] text-destructive font-bold">Delete?</span>
                           <button
                             onClick={() => { deleteStudentMutation.mutate(s.id); setDeleteConfirmId(null); }}
-                            className="px-2.5 py-1 rounded-lg bg-destructive text-white text-[10px] font-bold hover:bg-destructive/90 transition-colors"
-                          >Yes</button>
+                            disabled={deleteStudentMutation.isPending}
+                            className="px-2.5 py-1 rounded-lg bg-destructive text-white text-[10px] font-bold hover:bg-destructive/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {deleteStudentMutation.isPending ? 'Deleting...' : 'Yes'}
+                          </button>
                           <button
                             onClick={() => setDeleteConfirmId(null)}
                             className="px-2.5 py-1 rounded-lg bg-muted text-foreground text-[10px] font-bold hover:bg-muted/80 transition-colors"

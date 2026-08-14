@@ -40,7 +40,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         if user.role == 'STUDENT':
             profile = getattr(user, 'student_profile', None)
             student_courses = list(profile.courses.all()) if profile else []
-            staff = profile.assigned_staff if profile else None
+            staff = (profile.assigned_staff or profile.assigned_live_staff) if profile else None
             staff_cat = getattr(getattr(staff, 'staff_profile', None), 'category', None)
             
             qs = qs.filter(module__course__is_published=True)
@@ -81,7 +81,16 @@ class LessonViewSet(viewsets.ModelViewSet):
         
         # If the lesson progress was already completed, keep it completed
         already_completed = LP.objects.filter(student=user, lesson=lesson, completed=True).exists()
-        final_completed = completed or already_completed
+        has_video = bool(getattr(lesson, 'video', None) or getattr(lesson, 'video_stream_id', None) or getattr(lesson, 'cf_stream_id', None))
+        
+        if already_completed:
+            final_completed = True
+        elif has_video:
+            # Video lessons must reach at least 90% watch percentage or be completed naturally
+            pct = float(watch_percentage or 0.0)
+            final_completed = bool(completed or pct >= 90.0)
+        else:
+            final_completed = bool(completed)
 
         progress, created = LP.objects.update_or_create(
             student=user,

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { User, Phone, Mail, Award, Save, Loader2 } from 'lucide-react';
+import { User, Phone, Mail, Award, Save, Loader2, Sparkles, Shield, KeyRound } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface ProfileData {
   email: string;
@@ -10,8 +12,6 @@ interface ProfileData {
   phone: string;
   categories: string[];
 }
-
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const StudentProfile: React.FC = () => {
   const queryClient = useQueryClient();
@@ -71,112 +71,133 @@ const StudentProfile: React.FC = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in text-xs">
-      <div className="glass-panel p-6 rounded-2xl shadow-sm space-y-4">
-        <h3 className="text-sm font-bold border-b border-border pb-3 flex items-center gap-2">
-          <User className="text-primary" size={16} />
-          <span>My Profile Credentials</span>
+    <div className="w-full max-w-4xl space-y-5 animate-fade-in text-xs">
+      {/* Clean Header */}
+      <div className="flex items-center gap-4 border-b border-border/50 pb-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white font-black text-lg shadow-md border border-cyan-400">
+          {profile?.first_name ? profile.first_name.charAt(0).toUpperCase() : 'S'}
+        </div>
+        <div>
+          <h1 className="text-xl font-extrabold tracking-tight text-foreground">
+            {profile?.first_name} {profile?.last_name || ''}
+          </h1>
+          <p className="text-xs text-muted-foreground">{profile?.email}</p>
+        </div>
+      </div>
+
+      {/* Profile Form Card */}
+      <motion.div 
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-3xl cyber-glass-card p-6 md:p-8 shadow-sm space-y-5"
+      >
+        <h3 className="text-sm font-extrabold text-white border-b border-cyan-500/20 pb-3 flex items-center gap-2">
+          <User className="text-cyan-400" size={16} />
+          <span>Account Settings & Credentials</span>
         </h3>
 
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase">First Name</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full h-10 px-3.5 bg-background border border-border rounded-xl outline-none focus:border-primary/40 transition-all font-medium text-foreground"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase">Last Name</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="w-full h-10 px-3.5 bg-background border border-border rounded-xl outline-none focus:border-primary/40 transition-all font-medium text-foreground"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase">Email Address</label>
-            <div className="relative">
-              <Mail className="absolute left-3.5 top-3 text-muted-foreground/60" size={14} />
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">First Name</label>
               <input
-                type="email"
-                value={profile?.email}
-                disabled
-                className="w-full h-10 pl-10 pr-3.5 bg-muted/40 border border-border rounded-xl outline-none text-muted-foreground font-semibold cursor-not-allowed"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full h-11 px-4 bg-muted/30 border border-border/80 rounded-2xl outline-none focus:border-cyan-500 font-semibold text-foreground transition-all"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Last Name</label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full h-11 px-4 bg-muted/30 border border-border/80 rounded-2xl outline-none focus:border-cyan-500 font-semibold text-foreground transition-all"
+                required
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase">Phone Number</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Email Address (Read-only)</label>
             <div className="relative">
-              <Phone className="absolute left-3.5 top-3 text-muted-foreground/60" size={14} />
+              <Mail className="absolute left-4 top-3.5 text-muted-foreground/60" size={15} />
+              <input
+                type="email"
+                value={profile?.email}
+                disabled
+                className="w-full h-11 pl-11 pr-4 bg-muted/50 border border-border/60 rounded-2xl outline-none text-muted-foreground font-bold cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
+            <div className="relative">
+              <Phone className="absolute left-4 top-3.5 text-muted-foreground/60" size={15} />
               <input
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+91 XXXXX XXXXX"
-                className="w-full h-10 pl-10 pr-3.5 bg-background border border-border rounded-xl outline-none focus:border-primary/40 transition-all font-medium text-foreground"
+                className="w-full h-11 pl-11 pr-4 bg-muted/30 border border-border/80 rounded-2xl outline-none focus:border-cyan-500 font-semibold text-foreground transition-all"
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-semibold text-muted-foreground uppercase">Update Password (Optional)</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Update Password (Optional)</label>
             <div className="relative">
+              <KeyRound className="absolute left-4 top-3.5 text-muted-foreground/60" size={15} />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter new password to change"
-                className="w-full h-10 px-3.5 bg-background border border-border rounded-xl outline-none focus:border-primary/40 transition-all font-medium text-foreground"
+                placeholder="Enter new password to update"
+                className="w-full h-11 pl-11 pr-4 bg-muted/30 border border-border/80 rounded-2xl outline-none focus:border-cyan-500 font-semibold text-foreground transition-all"
               />
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-3 border-t border-border/60">
             <button
               type="submit"
               disabled={saving}
-              className="px-5 h-10 bg-primary text-primary-foreground font-semibold rounded-xl flex items-center gap-2 hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-50"
+              className="px-6 h-11 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-extrabold rounded-2xl flex items-center gap-2 shadow-lg shadow-cyan-500/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
             >
-              {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
-              <span>Save Profile</span>
+              {saving ? <Loader2 className="animate-spin" size={15} /> : <Save size={15} />}
+              <span>Save Profile Changes</span>
             </button>
           </div>
         </form>
-      </div>
+      </motion.div>
 
       {profile?.categories && profile.categories.length > 0 && (
-        <div className="glass-panel p-6 rounded-2xl shadow-sm space-y-3">
-          <h3 className="text-sm font-bold border-b border-border pb-3 flex items-center gap-2">
-            <Award className="text-primary" size={16} />
+        <motion.div 
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="rounded-3xl border border-border/80 bg-card p-6 shadow-sm space-y-3"
+        >
+          <h3 className="text-sm font-extrabold text-foreground border-b border-border/60 pb-3 flex items-center gap-2">
+            <Award className="text-cyan-600" size={16} />
             <span>Assigned Learning Domains</span>
           </h3>
           <div className="flex flex-wrap gap-2 pt-1">
             {profile.categories.map((cat) => (
               <span
                 key={cat}
-                className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-xl"
+                className="text-[10px] font-black uppercase tracking-wider px-3.5 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-700 rounded-full"
               >
                 {cat}
               </span>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );

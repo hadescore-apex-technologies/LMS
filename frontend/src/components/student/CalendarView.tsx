@@ -70,14 +70,14 @@ const CalendarView: React.FC = () => {
   };
 
   return (
-    <div className="w-full grid gap-6 lg:grid-cols-3 animate-fade-in text-xs">
+    <div className="w-full grid gap-4 lg:grid-cols-3 animate-fade-in text-xs">
       {/* 🗓️ Left Column - Calendar Layout (66% width) */}
-      <div className="lg:col-span-2 glass-panel p-5 rounded-2xl shadow-sm space-y-4">
+      <div className="lg:col-span-2 cyber-glass-card p-5 rounded-2xl shadow-sm space-y-4">
         {/* Navigation header */}
-        <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
           <div className="flex items-center gap-2">
-            <Calendar className="text-primary" size={16} />
-            <h3 className="font-bold text-sm text-foreground">
+            <Calendar className="text-cyan-400" size={16} />
+            <h3 className="font-bold text-sm text-white">
               {monthNames[month]} {year}
             </h3>
           </div>
@@ -146,8 +146,8 @@ const CalendarView: React.FC = () => {
       </div>
 
       {/* 🗓️ Right Column - Selected Day details (33% width) */}
-      <div className="glass-panel p-5 rounded-2xl shadow-sm space-y-4">
-        <h3 className="text-xs font-bold border-b border-border pb-3">
+      <div className="cyber-glass-card p-5 rounded-2xl shadow-sm space-y-4">
+        <h3 className="text-xs font-bold border-b border-cyan-500/20 pb-3 text-white">
           {selectedDate ? `Tasks for ${selectedDate.toLocaleDateString()}` : 'Select a Date to View Tasks'}
         </h3>
 

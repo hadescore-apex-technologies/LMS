@@ -29,7 +29,7 @@ class QuizViewSet(viewsets.ModelViewSet):
         if user.role == 'STUDENT':
             profile = getattr(user, 'student_profile', None)
             student_courses = list(profile.courses.all()) if profile else []
-            staff = profile.assigned_staff if profile else None
+            staff = (profile.assigned_staff or profile.assigned_live_staff) if profile else None
             staff_cat = getattr(getattr(staff, 'staff_profile', None), 'category', None)
             
             qs = Quiz.objects.filter(module__course__is_published=True)

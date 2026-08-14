@@ -58,6 +58,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -111,7 +112,7 @@ elif DATABASE_URL:
             'PASSWORD': db_url.password,
             'HOST': db_url.hostname or 'aws-0-ap-northeast-1.pooler.supabase.com',
             'PORT': db_url.port or 6543,
-            'CONN_MAX_AGE': 0,
+            'CONN_MAX_AGE': 300,
             'CONN_HEALTH_CHECKS': True,
         }
     }
@@ -125,10 +126,19 @@ else:
             'PASSWORD': db_password,
             'HOST': 'aws-0-ap-northeast-1.pooler.supabase.com',
             'PORT': 6543,
-            'CONN_MAX_AGE': 0,
+            'CONN_MAX_AGE': 300,
             'CONN_HEALTH_CHECKS': True,
         }
     }
+
+# In-Memory Cache for ultra-low latency metadata & static responses
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'apex-lms-cache',
+        'TIMEOUT': 300,
+    }
+}
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -184,11 +194,33 @@ SIMPLE_JWT = {
     'USER_ID_CLAIM': 'user_id',
 }
 
+from corsheaders.defaults import default_headers, default_methods
+
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True  # Allow local network & remote devices
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = ['*']
-CORS_ALLOW_METHODS = ['*']
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
+    'content-type',
+    'x-csrftoken',
+    'x-requested-with',
+    'accept',
+    'origin',
+    'user-agent',
+    'dnt',
+    'cache-control',
+    'x-mx-reqtoken',
+    'keep-alive',
+    'if-modified-since',
+]
+CORS_ALLOW_METHODS = list(default_methods) + [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS',
+]
 
 # Celery & Redis Settings
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')

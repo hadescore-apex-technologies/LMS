@@ -52,10 +52,10 @@ class LessonSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        if hasattr(instance, 'video') and instance.video:
+        if hasattr(instance, 'video') and instance.video and instance.video.cf_stream_id:
             ret['cf_stream_id'] = instance.video.cf_stream_id
-        else:
-            ret['cf_stream_id'] = None
+        elif getattr(instance, 'cf_stream_id', None):
+            ret['cf_stream_id'] = instance.cf_stream_id
         return ret
 
     def create(self, validated_data):

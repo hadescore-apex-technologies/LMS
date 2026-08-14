@@ -18,7 +18,9 @@ import threading
 import time
 from email.utils import formataddr
 
+# pyrefly: ignore [missing-import]
 from django.conf import settings
+# pyrefly: ignore [missing-import]
 from django.core.mail import get_connection
 
 logger = logging.getLogger(__name__)
@@ -285,6 +287,7 @@ def send_lms_email(
     Unified anti-spam transactional email sender.
     Sends pure plain-text emails by default, or multipart emails if HTML is explicitly provided.
     """
+    # pyrefly: ignore [missing-import]
     from django.core.mail import EmailMessage, EmailMultiAlternatives
 
     connection, sender_formatted, sender_addr = get_smtp_connection_and_sender()
@@ -472,18 +475,20 @@ def _send_live_class_email_thread(live_class_id: int):
         # Fetch students to notify
         targeted_students = list(live_class.students.filter(is_active=True))
         if not targeted_students and live_class.created_by:
+            # pyrefly: ignore [missing-import]
             from django.db.models import Q
             mentor = live_class.created_by
+            staff_cat = mentor.staff_profile.category if hasattr(mentor, 'staff_profile') and mentor.staff_profile else None
+            filter_q = Q(student_profile__assigned_live_staff=mentor) | Q(student_profile__assigned_staff=mentor)
+            if staff_cat:
+                filter_q |= Q(student_profile__courses__category=staff_cat)
             targeted_students = list(CustomUser.objects.filter(
                 role='STUDENT',
                 is_active=True
-            ).filter(
-                Q(student_profile__assigned_live_staff=mentor) |
-                Q(student_profile__assigned_staff=mentor) |
-                Q(student_profile__category=getattr(mentor, 'staff_profile', None) and mentor.staff_profile.category)
-            ).distinct())
+            ).filter(filter_q).distinct())
 
         if not targeted_students and live_class.course:
+            # pyrefly: ignore [missing-module-attribute]
             from apps.courses.models import Enrollment
             enrolled_user_ids = Enrollment.objects.filter(course=live_class.course).values_list('user_id', flat=True)
             targeted_students = list(CustomUser.objects.filter(id__in=enrolled_user_ids, is_active=True))

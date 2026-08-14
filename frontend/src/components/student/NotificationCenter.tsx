@@ -20,10 +20,21 @@ const NotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchNotifications = async (isFirstLoad = false) => {
     // Don't poll if not authenticated — avoids 401 spam from the interval
     if (!accessToken || user?.role === 'SUPER_ADMIN') return;
+    
+    // Additional check: if user is not properly authenticated, stop polling
+    if (!user?.email) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+    
     try {
       const res = await api.get('notifications/');
       const fetched = res.data;
@@ -47,20 +58,42 @@ const NotificationCenter: React.FC = () => {
       setNotifications(fetched);
       setUnreadCount(fetched.filter((n: Notification) => !n.is_read).length);
     } catch (err: any) {
-      // Silently ignore 401 — token is refreshing or user just logged out
-      if (err?.response?.status !== 401) {
+      // If 401, stop polling immediately to prevent spam
+      if (err?.response?.status === 401) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        // Clear notifications on auth failure
+        setNotifications([]);
+        setUnreadCount(0);
+      } else if (err?.response?.status !== 401) {
         console.error('Failed to load notifications', err);
       }
     }
   };
 
   useEffect(() => {
-    if (!accessToken) return; // Don't start polling if not logged in
+    if (!accessToken) {
+      // Clear everything if no token
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    // Don't start polling if user doesn't have proper authentication
+    if (!user?.email || user?.role === 'SUPER_ADMIN') {
+      return;
+    }
 
     fetchNotifications(true);
 
-    // Poll for notifications every 10 seconds (faster real-time updates)
-    const interval = setInterval(() => fetchNotifications(false), 10000);
+    // Poll for notifications every 10 seconds - store in ref for cleanup
+    intervalRef.current = setInterval(() => fetchNotifications(false), 10000);
 
     // Close on click outside
     const handleOutsideClick = (e: MouseEvent) => {
@@ -70,11 +103,26 @@ const NotificationCenter: React.FC = () => {
     };
     document.addEventListener('mousedown', handleOutsideClick);
 
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('mousedown', handleOutsideClick);
+    // Listen for logout events to immediately stop polling
+    const handleLogout = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      setNotifications([]);
+      setUnreadCount(0);
     };
-  }, [accessToken]); // restart/stop polling when auth state changes
+    window.addEventListener('auth-logout', handleLogout);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      document.removeEventListener('mousedown', handleOutsideClick);
+      window.removeEventListener('auth-logout', handleLogout);
+    };
+  }, [accessToken, user?.email, user?.role]); // Re-run when token or user changes
 
   const handleMarkAllRead = async () => {
     try {

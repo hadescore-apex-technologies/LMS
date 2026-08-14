@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion, type Variants } from 'framer-motion';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { 
   FileText, Upload, Download, 
-  Loader2, X, Trash2 
+  Loader2, X, Trash2, CheckCircle2, Clock, 
+  AlertCircle, Sparkles, Filter, FileCheck 
 } from 'lucide-react';
 
 interface Assignment {
@@ -30,11 +32,25 @@ interface Submission {
   submitted_at: string;
 }
 
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06 }
+  }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
+};
+
 export const AssignmentsTab: React.FC = () => {
   const queryClient = useQueryClient();
   const [localUrls, setLocalUrls] = useState<Record<number, string>>({});
   const [localNotes, setLocalNotes] = useState<Record<number, string>>({});
   const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'NOT_SUBMITTED' | 'PENDING' | 'GRADED'>('ALL');
 
   // 1. Fetch Assignments
   const { data: assignments = [] } = useQuery<Assignment[]>({
@@ -83,11 +99,10 @@ export const AssignmentsTab: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submissions-tracker'] });
-      toast.success('Submission deleted successfully.');
+      toast.success('Submission removed.');
     },
-    onError: (err: any) => {
-      const errMsg = err.response?.data?.error || 'Failed to delete submission.';
-      toast.error(errMsg);
+    onError: () => {
+      toast.error('Failed to delete submission.');
     }
   });
 
@@ -97,7 +112,7 @@ export const AssignmentsTab: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, assignId: number) => {
+  const handleFileUpload = async (assignId: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -118,34 +133,86 @@ export const AssignmentsTab: React.FC = () => {
     }
   };
 
+  const filteredAssignments = assignments.filter(assign => {
+    const sub = submissions.find(s => s.assignment === assign.id);
+    if (filterStatus === 'ALL') return true;
+    if (filterStatus === 'NOT_SUBMITTED') return !sub;
+    if (filterStatus === 'PENDING') return sub?.status === 'PENDING';
+    if (filterStatus === 'GRADED') return sub?.status === 'GRADED';
+    return true;
+  });
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Homework Tracker</h1>
-        <p className="text-muted-foreground text-sm mt-1">Submit deliverables and check grading reports.</p>
+    <div className="w-full space-y-3.5 text-xs animate-fade-in">
+      {/* ── UNIFIED COMPACT HEADER & FILTERS BAR ────────────────────────── */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5 border-b border-border/50 pb-2.5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black shadow-md shadow-emerald-500/20 border border-emerald-400">
+            <FileCheck size={18} />
+          </div>
+          <div>
+            <h1 className="text-lg font-black tracking-tight text-foreground flex items-center gap-2">
+              <span>Academic Homework & Deliverables</span>
+            </h1>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Submit coursework deliverables, track grading verdicts, and view mentor feedback.
+            </p>
+          </div>
+        </div>
+
+        {/* Filter Pills (Integrated in header row) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          {[
+            { label: `All (${assignments.length})`, val: 'ALL' },
+            { label: `Pending (${assignments.filter(a => !submissions.some(s => s.assignment === a.id)).length})`, val: 'NOT_SUBMITTED' },
+            { label: `Review (${submissions.filter(s => s.status === 'PENDING').length})`, val: 'PENDING' },
+            { label: `Graded (${submissions.filter(s => s.status === 'GRADED').length})`, val: 'GRADED' },
+          ].map(tab => (
+            <button
+              key={tab.val}
+              onClick={() => setFilterStatus(tab.val as any)}
+              className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap border cursor-pointer ${
+                filterStatus === tab.val
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-sm shadow-emerald-500/20 scale-102'
+                  : 'bg-card text-muted-foreground border-border/80 hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="space-y-6">
-        {assignments.length === 0 ? (
-          <div className="py-20 text-center text-muted-foreground bg-card border border-dashed border-border rounded-2xl">
-            No assignments have been assigned to your course modules yet.
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="space-y-6"
+      >
+        {filteredAssignments.length === 0 ? (
+          <div className="py-20 text-center text-muted-foreground bg-card border border-dashed border-border rounded-3xl p-8 shadow-xs">
+            No assignments match the selected status filter.
           </div>
         ) : (
-          assignments.map(assign => {
+          filteredAssignments.map(assign => {
             const submission = submissions.find(s => s.assignment === assign.id);
             const uUrl = localUrls[assign.id] || '';
             const uNotes = localNotes[assign.id] || '';
 
             return (
-              <div key={assign.id} className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4 hover:border-primary/20 transition-all flex flex-col justify-between">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border pb-3">
+              <motion.div 
+                variants={itemVariants}
+                key={assign.id} 
+                className="rounded-3xl cyber-glass-card p-5 shadow-sm space-y-4 hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all flex flex-col justify-between"
+              >
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-cyan-500/20 pb-3">
                   <div className="space-y-1">
-                    <span className="text-[9px] font-bold text-primary uppercase tracking-wider block">
+                    <span className="text-[9px] font-black text-cyan-400 uppercase tracking-wider block">
                       {assign.course_title || 'Apex Track'} &rsaquo; {assign.module_title || 'Module'}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-extrabold text-base leading-snug">{assign.title}</h3>
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 font-extrabold uppercase tracking-wider">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h3 className="font-extrabold text-sm leading-snug text-white">{assign.title}</h3>
+                      <span className="text-[9px] px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-extrabold uppercase tracking-wider">
                         Open Submission • No Deadline
                       </span>
                     </div>
@@ -153,20 +220,20 @@ export const AssignmentsTab: React.FC = () => {
 
                   <div>
                     {!submission ? (
-                      <span className="text-[9px] px-2.5 py-1 rounded-xl bg-muted border border-border text-muted-foreground font-bold uppercase tracking-wider">
+                      <span className="text-[9px] px-3 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-400 font-black uppercase tracking-wider">
                         Not Submitted
                       </span>
                     ) : submission.status === 'PENDING' ? (
-                      <span className="text-[9px] px-2.5 py-1 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-500 font-bold uppercase tracking-wider">
-                        Pending Review
+                      <span className="text-[9px] px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 font-black uppercase tracking-wider flex items-center gap-1">
+                        <Clock size={11} /> Pending Review
                       </span>
                     ) : submission.status === 'GRADED' ? (
-                      <span className="text-[9px] px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 font-bold uppercase tracking-wider">
-                        Graded ({submission.grade})
+                      <span className="text-[9px] px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-black uppercase tracking-wider flex items-center gap-1">
+                        <CheckCircle2 size={11} /> Graded ({submission.grade})
                       </span>
                     ) : (
-                      <span className="text-[9px] px-2.5 py-1 rounded-xl bg-destructive/10 border border-destructive/25 text-destructive font-bold uppercase tracking-wider">
-                        Needs Revision
+                      <span className="text-[9px] px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 font-black uppercase tracking-wider flex items-center gap-1">
+                        <AlertCircle size={11} /> Needs Revision
                       </span>
                     )}
                   </div>
@@ -179,23 +246,23 @@ export const AssignmentsTab: React.FC = () => {
                     href={assign.file_attachment}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[11px] text-primary font-semibold hover:underline bg-primary/5 border border-primary/10 px-3 py-1.5 rounded-xl transition-all self-start"
+                    className="inline-flex items-center gap-1.5 text-[11px] text-cyan-600 font-bold hover:underline bg-cyan-500/5 border border-cyan-500/15 px-3.5 py-2 rounded-2xl transition-all self-start"
                   >
-                    <Download size={11} />
+                    <Download size={13} />
                     <span>Download Assignment Guidelines</span>
                   </a>
                 )}
 
                 {/* Submissions & reviews */}
                 {submission && (
-                  <div className="p-4 bg-muted/40 border border-border/80 rounded-xl space-y-3 text-xs">
+                  <div className="p-5 bg-muted/30 border border-border/80 rounded-2xl space-y-3 text-xs">
                     <div className="flex justify-between items-center pb-2 border-b border-border/50">
-                      <span className="text-[10px] font-bold text-muted-foreground block uppercase">Submission Details</span>
+                      <span className="text-[10px] font-extrabold text-muted-foreground block uppercase tracking-wider">Submission Details</span>
                       {submission.status !== 'GRADED' && (
                         <button
                           onClick={() => handleDeleteSubmission(submission.id)}
                           disabled={deleteSubmissionMutation.isPending}
-                          className="px-2 py-1 text-[10px] text-destructive hover:bg-destructive/10 disabled:opacity-50 rounded-lg transition-all font-bold flex items-center gap-1"
+                          className="px-2.5 py-1 text-[10px] text-rose-600 hover:bg-rose-50 disabled:opacity-50 rounded-xl transition-all font-bold flex items-center gap-1 cursor-pointer"
                         >
                           <Trash2 size={12} />
                           <span>Delete Submission</span>
@@ -205,17 +272,15 @@ export const AssignmentsTab: React.FC = () => {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <span className="text-[10px] font-bold text-muted-foreground block uppercase">Submission File</span>
-                        <a href={submission.file_submission} target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium truncate block">
+                        <a href={submission.file_submission} target="_blank" rel="noreferrer" className="text-cyan-600 hover:underline font-bold truncate block">
                           {submission.file_submission.split('/').pop() || 'Submitted Homework File'}
                         </a>
                       </div>
                       <div>
                         <span className="text-[10px] font-bold text-muted-foreground block uppercase">Submitted At</span>
-                        <span className="text-foreground/90 font-medium">{new Date(submission.submitted_at).toLocaleString()}</span>
+                        <span className="text-foreground font-semibold">{new Date(submission.submitted_at).toLocaleString()}</span>
                       </div>
                     </div>
-
-
 
                     {submission.notes && (
                       <div>
@@ -225,9 +290,9 @@ export const AssignmentsTab: React.FC = () => {
                     )}
 
                     {(submission.feedback || submission.grade) && (
-                      <div className="pt-2.5 border-t border-border/60 bg-primary/5 -mx-4 -mb-4 p-4 rounded-b-xl space-y-1">
-                        <span className="text-[10px] font-bold text-primary uppercase block">Instructor Review Verdict</span>
-                        {submission.grade && <p className="font-bold text-foreground">Score / Grade: <span className="text-primary">{submission.grade}</span></p>}
+                      <div className="pt-3 border-t border-border/60 bg-cyan-500/5 -mx-5 -mb-5 p-5 rounded-b-2xl space-y-1">
+                        <span className="text-[10px] font-extrabold text-cyan-700 uppercase block tracking-wider">Mentor Review Verdict</span>
+                        {submission.grade && <p className="font-bold text-foreground">Score / Grade: <span className="text-cyan-600 font-extrabold">{submission.grade}</span></p>}
                         {submission.feedback && <p className="text-muted-foreground leading-relaxed mt-1 italic">"{submission.feedback}"</p>}
                       </div>
                     )}
@@ -236,21 +301,21 @@ export const AssignmentsTab: React.FC = () => {
 
                 {(!submission || submission.status === 'REJECTED') && (
                   <div className="space-y-3 pt-3 border-t border-border/50">
-                    <h5 className="font-bold text-xs text-foreground/80">{submission ? 'Submit Revised Deliverable' : 'Upload Deliverable'}</h5>
+                    <h5 className="font-extrabold text-xs text-foreground">{submission ? 'Submit Revised Deliverable' : 'Upload Deliverable'}</h5>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Assignment File</label>
                         {uUrl ? (
-                          <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-xl">
-                            <FileText size={13} className="shrink-0" />
-                            <span className="text-[10px] truncate flex-1">{uUrl.split('/').pop()}</span>
-                            <button onClick={() => setLocalUrls(prev => ({ ...prev, [assign.id]: '' }))} className="text-destructive"><X size={12} /></button>
+                          <div className="flex items-center gap-2 h-11 px-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-2xl">
+                            <FileText size={14} className="shrink-0" />
+                            <span className="text-[10px] truncate flex-1 font-semibold">{uUrl.split('/').pop()}</span>
+                            <button onClick={() => setLocalUrls(prev => ({ ...prev, [assign.id]: '' }))} className="text-rose-500 cursor-pointer"><X size={13} /></button>
                           </div>
                         ) : (
-                          <label className="flex items-center justify-center gap-2 h-10 px-3 bg-muted/40 border border-dashed border-border rounded-xl cursor-pointer hover:border-primary/45 transition-all text-muted-foreground">
-                            {uploadingId === assign.id ? <Loader2 size={13} className="animate-spin text-primary" /> : <Upload size={13} />}
+                          <label className="flex items-center justify-center gap-2 h-11 px-3 bg-muted/40 border border-dashed border-border/80 rounded-2xl cursor-pointer hover:border-cyan-500 hover:bg-cyan-50/30 transition-all text-muted-foreground font-semibold">
+                            {uploadingId === assign.id ? <Loader2 size={14} className="animate-spin text-cyan-600" /> : <Upload size={14} />}
                             <span>Select Deliverable (.zip, .pdf, .docx...)</span>
-                            <input type="file" onChange={(e) => handleFileUpload(e, assign.id)} className="hidden" />
+                            <input type="file" onChange={(e) => handleFileUpload(assign.id, e)} className="hidden" />
                           </label>
                         )}
                       </div>
@@ -261,25 +326,25 @@ export const AssignmentsTab: React.FC = () => {
                           value={uNotes}
                           onChange={(e) => setLocalNotes(prev => ({ ...prev, [assign.id]: e.target.value }))}
                           placeholder="Provide details on your answer..."
-                          className="w-full h-10 px-3 text-xs bg-muted/40 border border-border rounded-xl outline-none focus:border-primary/45 focus:bg-background transition-all"
+                          className="w-full h-11 px-3.5 text-xs bg-muted/30 border border-border/80 rounded-2xl outline-none focus:border-cyan-500 focus:bg-background transition-all"
                         />
                       </div>
                     </div>
                     <button
                       onClick={() => submitHomeworkMutation.mutate({ assignId: assign.id, url: uUrl, notes: uNotes })}
                       disabled={!uUrl || submitHomeworkMutation.isPending}
-                      className="py-2.5 px-4 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center gap-2 self-start transform active:scale-95"
+                      className="py-2.5 px-5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-extrabold text-xs rounded-2xl hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center gap-2 self-start transform active:scale-95 shadow-md shadow-cyan-500/20 cursor-pointer"
                     >
-                      <Upload size={12} />
+                      <Upload size={13} />
                       <span>{submission ? 'Resubmit Deliverable' : 'Push Submission'}</span>
                     </button>
                   </div>
                 )}
-              </div>
+              </motion.div>
             );
           })
         )}
-      </div>
+      </motion.div>
     </div>
   );
 };

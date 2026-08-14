@@ -1,4 +1,5 @@
 import os
+# pyrefly: ignore [missing-import]
 import django
 
 # Set Django environment settings
@@ -12,6 +13,7 @@ from apps.modules.models import Module
 from apps.lessons.models import Lesson
 from apps.quizzes.models import Quiz, Question
 from apps.assignments.models import Assignment
+# pyrefly: ignore [missing-import]
 from django.utils import timezone
 from datetime import timedelta
 
@@ -114,7 +116,7 @@ def seed():
             scheduled_time=timezone.now() + timedelta(minutes=10),
             meeting_url='https://meet.google.com/apex-live-qa',
             status='LIVE',
-            created_by=staff_user
+            created_by=root_admin
         )
         LiveClass.objects.create(
             course=course,
@@ -122,7 +124,7 @@ def seed():
             scheduled_time=timezone.now() + timedelta(days=2),
             meeting_url='https://meet.google.com/abc-defg-hij',
             status='UPCOMING',
-            created_by=staff_user
+            created_by=root_admin
         )
         print("Seeding operations completed successfully.")
 

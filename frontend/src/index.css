@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,26 +6,48 @@
 
 @layer base {
   :root {
-    --background: 195 30% 98%;
-    --foreground: 215 47.1% 10.5%;
-    --card: 0 0% 100%;
-    --card-foreground: 215 47.1% 10.5%;
+    --background: 210 40% 98%; /* Light Clean Slate #f8fafc */
+    --foreground: 222.2 84% 4.9%; /* Deep Navy Text #020817 */
+    --card: 0 0% 100%; /* Pure White Card #ffffff */
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 215 47.1% 10.5%;
-    --primary: 191 95% 42%; /* Logo Electric Cyan / Teal (#00b4d8) */
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 191 95% 40%; /* Cyan 600 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 190 40% 96%;
-    --secondary-foreground: 191 95% 25%;
-    --muted: 195 25% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 191 90% 95%;
-    --accent-foreground: 191 95% 32%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 191 95% 40%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 0 0% 0%; /* Pure Pitch Black #000000 */
+    --foreground: 210 40% 98%; /* Crisp White */
+    --card: 224 71% 4%; /* Ultra Dark Charcoal #020617 */
+    --card-foreground: 210 40% 98%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 191 95% 45%; /* Electric Cyan */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 10%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 10%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 12%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 20% 98%;
-    --border: 195 30% 91%;
-    --input: 195 30% 91%;
-    --ring: 191 95% 42%;
-    --radius: 1rem;
+    --border: 191 95% 45% / 0.25;
+    --input: 217 33% 12%;
+    --ring: 191 95% 45%;
   }
 }
 
@@ -35,40 +57,115 @@
   }
 
   body {
-    @apply bg-slate-50/80 text-slate-900 font-sans antialiased selection:bg-cyan-500/20 selection:text-cyan-800 transition-colors duration-300;
+    @apply bg-background text-foreground font-sans antialiased selection:bg-cyan-500/25 selection:text-cyan-600 transition-colors duration-300;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight text-slate-900;
+    @apply font-display tracking-tight text-foreground;
   }
 }
 
-/* Company Logo Brand UI Elements (Electric Cyan / Teal) */
-.glass-panel {
-  @apply bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-sm transition-all duration-300;
+/* Pure Pitch Black Ambient Background */
+.student-ambient-bg {
+  position: relative;
+  background-color: #000000 !important;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(6, 182, 212, 0.07) 0px, transparent 35%),
+    radial-gradient(circle at 85% 85%, rgba(14, 165, 233, 0.05) 0px, transparent 35%);
 }
 
-.glass-card {
-  @apply bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-sm hover:shadow-xl hover:border-cyan-400/70 transition-all duration-300;
+/* ── AUTHENTIC PHOTO CYBER GLASS BOX STYLES (RICH BLUE-CYAN HOLOGRAPHIC GLASS) ────────────────── */
+.cyber-glass-card {
+  background: radial-gradient(circle at 50% -20%, rgba(6, 182, 212, 0.22) 0%, rgba(6, 22, 48, 0.88) 50%, rgba(2, 9, 24, 0.94) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 10px 35px 0 rgba(0, 0, 0, 0.9), 0 0 22px 0 rgba(6, 182, 212, 0.3), inset 0 1px 1px 0 rgba(255, 255, 255, 0.2), inset 0 0 25px 0 rgba(6, 182, 212, 0.1);
 }
 
-.lms-card {
-  @apply bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-lg hover:border-cyan-300 hover:-translate-y-0.5 transition-all duration-300;
+.cyber-glass-card:hover {
+  border-color: rgba(56, 189, 248, 0.85);
+  box-shadow: 0 14px 40px 0 rgba(0, 0, 0, 0.95), 0 0 32px 0 rgba(6, 182, 212, 0.45), inset 0 1px 2px 0 rgba(255, 255, 255, 0.3), inset 0 0 30px 0 rgba(6, 182, 212, 0.15);
 }
 
-.lms-card-glow {
-  @apply bg-white rounded-2xl border border-slate-200/80 shadow-md shadow-cyan-500/5 hover:shadow-xl hover:shadow-cyan-500/15 hover:border-cyan-400 transition-all duration-300;
+.cyber-glass-sidebar {
+  background: radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.2) 0%, rgba(4, 16, 38, 0.92) 40%, rgba(1, 6, 18, 0.98) 100%);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.95), 0 0 28px 0 rgba(6, 182, 212, 0.3), inset 0 1px 1px 0 rgba(255, 255, 255, 0.2), inset 0 0 25px 0 rgba(6, 182, 212, 0.08);
+}
+
+.cyber-glass-pill {
+  background: linear-gradient(135deg, rgba(6, 26, 56, 0.85) 0%, rgba(2, 10, 26, 0.92) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 6px 25px 0 rgba(0, 0, 0, 0.8), 0 0 18px 0 rgba(6, 182, 212, 0.25), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.cyber-active-nav {
+  background: linear-gradient(90deg, rgba(6, 182, 212, 0.3) 0%, rgba(14, 165, 233, 0.15) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.75);
+  box-shadow: 0 0 22px 0 rgba(6, 182, 212, 0.4), inset 0 0 12px 0 rgba(6, 182, 212, 0.25);
+  color: #38bdf8;
+}
+
+.cyber-glow-cyan {
+  box-shadow: 0 0 30px -2px rgba(6, 182, 212, 0.45);
+}
+
+.cyber-glow-icon {
+  background: rgba(6, 28, 56, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 18px 0 rgba(6, 182, 212, 0.38), inset 0 0 10px 0 rgba(6, 182, 212, 0.2);
+}
+
+/* Animations */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pulseRadar {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.3; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+@keyframes shimmerGlow {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-float {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+.animate-radar {
+  animation: pulseRadar 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.shimmer-badge {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmerGlow 2.5s infinite;
 }
 
 /* Custom Smooth Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  @apply bg-slate-100/50;
+  background: rgba(6, 10, 20, 0.8);
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300/80 rounded-full hover:bg-cyan-500/80 transition-colors;
+  background: rgba(6, 182, 212, 0.35);
+  border-radius: 9999px;
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.7);
 }

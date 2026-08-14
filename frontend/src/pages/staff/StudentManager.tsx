@@ -225,8 +225,16 @@ const StudentManager: React.FC = () => {
       setShowEditModal(false);
       setStudents(prev => prev.map(s => s.id === selectedStudent.id ? res.data : s));
       resetForm();
-    } catch (err) {
-      toast.error("Failed to update student profile.");
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        toast.error("Student not found or has been deleted. Refreshing list...");
+        // Remove the non-existent student from local state and close modal
+        setStudents(prev => prev.filter(s => s.id !== selectedStudent.id));
+        setShowEditModal(false);
+        resetForm();
+      } else {
+        toast.error("Failed to update student profile.");
+      }
     }
   };
 
@@ -262,27 +270,42 @@ const StudentManager: React.FC = () => {
     if (!window.confirm("Permanently delete this student? Access locks, course logs and certifications will be wiped.")) return;
     const originalStudents = [...students];
     setStudents(prev => prev.filter(s => s.id !== id));
-    toast.success("Student account deleted.");
     try {
       await api.delete(`students/${id}/`);
-    } catch (err) {
+      toast.success("Student account deleted.");
+    } catch (err: any) {
       setStudents(originalStudents);
-      toast.error("Failed to delete student account.");
+      if (err?.response?.status === 404) {
+        toast.error("Student not found or has already been deleted.");
+        // Refresh the students list to get current state
+        window.location.reload();
+      } else {
+        toast.error("Failed to delete student account.");
+      }
     }
   };
 
   const openEdit = (student: Student) => {
-    setSelectedStudent(student);
-    setEmail(student.email);
-    setFirstName(student.first_name);
-    setLastName(student.last_name);
-    setPhone(student.phone || '');
-    setProfilePhoto(student.profile_photo || '');
-    setCourseDuration(student.course_duration);
-    setStartDate(student.start_date || '');
-    setEndDate(student.end_date || '');
-    setNotes(student.notes || '');
-    setSelectedCatIds(student.courses || (student as any).categories || []);
+    // Validate that student exists in current students list
+    const currentStudent = students.find(s => s.id === student.id);
+    if (!currentStudent) {
+      toast.error("Student no longer exists. Refreshing list...");
+      // Refresh the page or student list
+      window.location.reload();
+      return;
+    }
+    
+    setSelectedStudent(currentStudent);
+    setEmail(currentStudent.email);
+    setFirstName(currentStudent.first_name);
+    setLastName(currentStudent.last_name);
+    setPhone(currentStudent.phone || '');
+    setProfilePhoto(currentStudent.profile_photo || '');
+    setCourseDuration(currentStudent.course_duration);
+    setStartDate(currentStudent.start_date || '');
+    setEndDate(currentStudent.end_date || '');
+    setNotes(currentStudent.notes || '');
+    setSelectedCatIds(currentStudent.courses || (currentStudent as any).categories || []);
     setShowEditModal(true);
   };
 
@@ -947,8 +970,13 @@ const StudentManager: React.FC = () => {
                                       });
                                       toast.success("Certificate uploaded & locked successfully.");
                                       setCertificates(prev => [...prev, certRes.data]);
-                                    } catch {
-                                      toast.error("Failed to upload certificate.");
+                                    } catch (err: any) {
+                                      if (err?.response?.status === 404) {
+                                        toast.error("Student not found. Cannot upload certificate.");
+                                      } else {
+                                        toast.error("Failed to upload certificate.");
+                                      }
+                                      console.error('Certificate upload error:', err);
                                     } finally {
                                       setUploadingCertCourseId(null);
                                     }

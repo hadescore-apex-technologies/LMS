@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../../services/api';
-import { Search, RefreshCw, Loader2, Play } from 'lucide-react';
+import UniversalVideoPlayer from '../../../components/UniversalVideoPlayer';
+import { Search, RefreshCw, Loader2, Play, Video, X } from 'lucide-react';
 
 interface Lesson {
   id: number;
   module: number;
   title: string;
   order: number;
+  cf_stream_id?: string;
 }
 
 export const LessonsTab: React.FC = () => {
   const [search, setSearch] = useState('');
+  const [previewVideoLesson, setPreviewVideoLesson] = useState<{ id: number; title: string; url: string } | null>(null);
 
   // Fetch Lessons
   const { data: lessons = [], isLoading, refetch } = useQuery<Lesson[]>({
@@ -55,26 +58,67 @@ export const LessonsTab: React.FC = () => {
       </div>
 
       {/* List logs */}
-      
-        <div className="space-y-3">
-          {filtered.map(les => (
-            <div key={les.id} className="p-4 bg-card border border-border rounded-xl flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0"><Play size={14} /></div>
-                <div className="min-w-0">
-                  <h4 className="font-bold text-sm text-foreground truncate">{les.title}</h4>
-                  <span className="text-[10px] text-muted-foreground font-semibold">Module ID: {les.module}</span>
+      <div className="space-y-3">
+        {filtered.map(les => {
+          const hasVideo = !!les.cf_stream_id;
+          const isPlaying = previewVideoLesson?.id === les.id;
+
+          return (
+            <div key={les.id} className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0"><Play size={14} /></div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-sm text-foreground truncate">{les.title}</h4>
+                    <span className="text-[10px] text-muted-foreground font-semibold">Module ID: {les.module}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {hasVideo && (
+                    <button 
+                      onClick={() => setPreviewVideoLesson(isPlaying ? null : { id: les.id, title: les.title, url: les.cf_stream_id || '' })}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        isPlaying 
+                          ? 'bg-cyan-500 text-white shadow-sm shadow-cyan-500/30' 
+                          : 'bg-primary/10 text-primary hover:bg-primary/20'
+                      }`}
+                    >
+                      <Video size={13} />
+                      <span>{isPlaying ? 'Hide Video' : 'Watch Video'}</span>
+                    </button>
+                  )}
+                  <span className="font-mono text-muted-foreground font-semibold">Seq #{les.order}</span>
                 </div>
               </div>
-              <span className="font-mono text-muted-foreground font-semibold">Seq #{les.order}</span>
+
+              {/* Video Preview Box */}
+              {isPlaying && (
+                <div className="border-t border-border bg-slate-950 p-4 space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-300">
+                    <span className="font-bold flex items-center gap-1.5 text-cyan-400">
+                      <Video size={14} /> {les.title} (Video Preview)
+                    </span>
+                    <button 
+                      onClick={() => setPreviewVideoLesson(null)} 
+                      className="px-2 py-0.5 text-[10px] bg-slate-800 text-slate-300 hover:text-white rounded-md flex items-center gap-1"
+                    >
+                      <X size={11} /> Close Player
+                    </button>
+                  </div>
+                  <div className="relative aspect-video max-w-lg mx-auto rounded-xl overflow-hidden bg-black border border-cyan-500/30 shadow-2xl">
+                    <UniversalVideoPlayer src={les.cf_stream_id || ''} title={les.title} autoPlay={true} />
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
-          {filtered.length === 0 && (
-            <div className="py-20 text-center text-muted-foreground font-medium bg-card border border-border border-dashed rounded-2xl">
-              No lessons registry found in catalog database.
-            </div>
-          )}
-        </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div className="py-20 text-center text-muted-foreground font-medium bg-card border border-border border-dashed rounded-2xl">
+            No lessons registry found in catalog database.
+          </div>
+        )}
+      </div>
     </div>
   );
 };

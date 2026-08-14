@@ -430,6 +430,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                   <span>{roleConfig.portalLabel}</span>
                 </div>
 
+
+
                 <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
                   {view === 'LOGIN' ? (
                     <>Sign in to <br /><span className={`bg-gradient-to-r ${roleConfig.gradient} bg-clip-text text-transparent`}>{roleConfig.portalFull}</span></>
@@ -472,7 +474,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                       <input
                         id="login-email"
                         type="email"
-                        placeholder="you@domain.com"
+                        placeholder="Enter the email address"
                         autoComplete="email"
                         {...register('email')}
                         onFocus={() => setFocusedField('email')}
@@ -505,7 +507,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                       <input
                         id="login-password"
                         type={showPassword ? "text" : "password"}
-                        placeholder="••••••••"
+                        placeholder="Enter the password"
                         autoComplete="current-password"
                         {...register('password')}
                         onFocus={() => setFocusedField('password')}
@@ -523,10 +525,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                       </motion.p>
                     )}
                   </div>
-
-
-
-
 
                   {/* Submit */}
                   <motion.button
@@ -568,7 +566,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                         <Mail size={16} />
                       </div>
                       <input
-                        id="forgot-email" type="email" placeholder="admin@domain.com"
+                        id="forgot-email" type="email" placeholder="Enter the email address"
                         value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
                         onFocus={() => setFocusedField('reset-email')} onBlur={() => setFocusedField(null)}
                         className={inputCls} required
@@ -606,10 +604,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                         <KeyRound size={16} />
                       </div>
                       <input
-                        id="reset-otp" type="text" placeholder="• • • • • •" maxLength={6}
+                        id="reset-otp" type="text" placeholder="Enter the OTP code" maxLength={6}
                         value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                         onFocus={() => setFocusedField('otp')} onBlur={() => setFocusedField(null)}
-                        className={`${inputCls} tracking-[0.6em] text-center font-mono text-base`} required
+                        className={`${inputCls} tracking-[0.3em] text-center font-mono text-sm`} required
                       />
                     </div>
                   </div>
@@ -621,7 +619,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                         <Lock size={16} />
                       </div>
                       <input
-                        id="reset-new-password" type={showNewPassword ? "text" : "password"} placeholder="••••••••"
+                        id="reset-new-password" type={showNewPassword ? "text" : "password"} placeholder="Enter the new password"
                         value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
                         autoComplete="new-password"
                         onFocus={() => setFocusedField('new-pw')} onBlur={() => setFocusedField(null)}
@@ -634,6 +632,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                     </div>
                   </div>
                   {/* Confirm Password */}
+                  {/* Confirm Password */}
                   <div className="space-y-2">
                     <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 pl-1">Confirm Password</label>
                     <div className="relative">
@@ -641,7 +640,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                         <Lock size={16} />
                       </div>
                       <input
-                        id="reset-confirm-password" type={showNewPassword ? "text" : "password"} placeholder="••••••••"
+                        id="reset-confirm-password" type={showNewPassword ? "text" : "password"} placeholder="Enter the confirm password"
                         value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
                         autoComplete="new-password"
                         onFocus={() => setFocusedField('confirm-pw')} onBlur={() => setFocusedField(null)}

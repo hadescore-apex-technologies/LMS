@@ -87,24 +87,33 @@ def upload_file_to_drive(file_path, file_name):
         'parents': [folder_id]
     }
 
-    media = MediaFileUpload(file_path, resumable=True)
+    # Use non-resumable upload for faster small files
+    file_size = os.path.getsize(file_path)
+    resumable = file_size > 5 * 1024 * 1024  # Only use resumable for files > 5MB
+    
+    media = MediaFileUpload(file_path, resumable=resumable)
 
-    file = service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields='id'
-    ).execute()
+    try:
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id'
+        ).execute()
+    except Exception as e:
+        print(f"Google Drive upload failed: {e}")
+        raise
 
     file_id = file.get('id')
 
-    # Grant read access to the uploaded file specifically
+    # Grant read access to the uploaded file specifically (skip if fails)
     try:
         service.permissions().create(
             fileId=file_id,
             body={'type': 'anyone', 'role': 'reader'}
         ).execute()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Failed to set permissions for Drive file {file_id}: {e}")
+        # Continue anyway - file is uploaded even if permissions fail
 
     return f"https://drive.google.com/file/d/{file_id}/view"
 

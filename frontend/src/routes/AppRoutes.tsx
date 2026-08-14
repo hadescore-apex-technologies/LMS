@@ -51,8 +51,17 @@ const AppRoutes: React.FC = () => {
       <Route path="/" element={<Navigate to="/student/login" replace />} />
       <Route path="/admin/login" element={<LoginPage role="SUPER_ADMIN" />} />
       <Route path="/staff/login" element={<LoginPage role="STAFF" />} />
+
+      {/* Course Student Dedicated Login Routes */}
       <Route path="/student/login" element={<LoginPage role="STUDENT" mode="COURSE" />} />
+      <Route path="/course/login" element={<LoginPage role="STUDENT" mode="COURSE" />} />
+      <Route path="/course-login" element={<LoginPage role="STUDENT" mode="COURSE" />} />
+
+      {/* Live Student Dedicated Login Routes */}
       <Route path="/student/live-login" element={<LoginPage role="STUDENT" mode="LIVE" />} />
+      <Route path="/live/login" element={<LoginPage role="STUDENT" mode="LIVE" />} />
+      <Route path="/live-login" element={<LoginPage role="STUDENT" mode="LIVE" />} />
+      <Route path="/live-student/login" element={<LoginPage role="STUDENT" mode="LIVE" />} />
 
       {/* Authenticated Dashboard Core */}
       <Route element={<DashboardLayout />}>
@@ -123,19 +132,15 @@ const AppRoutes: React.FC = () => {
             </ProtectedRoute>
           } 
         />
-        {/* Support sidebar sub-paths for students */}
+        {/* Student Navigation Routes */}
         <Route path="/student/courses" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/live" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/assignments" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/certificates" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/profile" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
-        <Route path="/student/notes" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
-        <Route path="/student/calendar" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/achievements" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/leaderboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/forum" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
-        <Route path="/student/downloads" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
-        <Route path="/student/settings" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
       </Route>
 
       {/* Root Fallback */}

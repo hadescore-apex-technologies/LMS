@@ -1,6 +1,10 @@
+# pyrefly: ignore [missing-import]
 from django.utils import timezone
+# pyrefly: ignore [missing-import]
 from django.db.models import Q
+# pyrefly: ignore [missing-import]
 from rest_framework import viewsets, status, decorators, response
+# pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
 from apps.assignments.models import Assignment, AssignmentSubmission
 from apps.assignments.serializers import AssignmentSerializer, AssignmentSubmissionSerializer
@@ -26,6 +30,7 @@ class AssignmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from typing import cast
+        # pyrefly: ignore [missing-import]
         from rest_framework.request import Request
         from apps.users.models import CustomUser
         
@@ -70,7 +75,7 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             qs = qs.filter(Q(module__course_id=course_id) | Q(course_id=course_id)).distinct()
         if module_id:
             qs = qs.filter(module_id=module_id)
-        return qs
+        return qs.select_related('created_by', 'module', 'course').prefetch_related('students')
 
 class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
     serializer_class = AssignmentSubmissionSerializer
@@ -98,13 +103,24 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
         if not isinstance(user, CustomUser):
             return AssignmentSubmission.objects.none()
 
-        qs = AssignmentSubmission.objects.select_related('student', 'assignment', 'graded_by')
+        qs = AssignmentSubmission.objects.select_related(
+            'student',
+            'student__student_profile',
+            'student__student_profile__assigned_staff',
+            'student__student_profile__assigned_live_staff',
+            'assignment',
+            'assignment__created_by',
+            'assignment__course',
+            'assignment__module',
+            'graded_by'
+        ).prefetch_related('student__student_profile__courses__category')
 
         if user.role == 'STUDENT':
             return qs.filter(student=user)
 
         elif user.role == 'STAFF':
             # Filter by directly assigned students only
+            # pyrefly: ignore [missing-import]
             from django.db.models import Q
             return qs.filter(
                 Q(student__student_profile__assigned_staff=user) |
@@ -205,6 +221,7 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
         
         if user.role == 'STAFF':
             # Only delete submissions for students directly assigned to this staff
+            # pyrefly: ignore [missing-import]
             from django.db.models import Q
             submissions = submissions.filter(
                 Q(student__student_profile__assigned_staff=user) |
