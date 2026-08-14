@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <!-- Home / Main Entry -->
   <url>
-    <loc>https://apex.hadescoretech.com/</loc>
+    <loc>https://lms.hadescoretech.com/</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -10,13 +10,13 @@
 
   <!-- Student Course Mode Login -->
   <url>
-    <loc>https://apex.hadescoretech.com/student/login</loc>
+    <loc>https://lms.hadescoretech.com/student/login</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://apex.hadescoretech.com/course-login</loc>
+    <loc>https://lms.hadescoretech.com/course-login</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -24,13 +24,13 @@
 
   <!-- Student Live Mentoring Mode Login -->
   <url>
-    <loc>https://apex.hadescoretech.com/student/live-login</loc>
+    <loc>https://lms.hadescoretech.com/student/live-login</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://apex.hadescoretech.com/live-login</loc>
+    <loc>https://lms.hadescoretech.com/live-login</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -38,7 +38,7 @@
 
   <!-- Staff Portal Login -->
   <url>
-    <loc>https://apex.hadescoretech.com/staff/login</loc>
+    <loc>https://lms.hadescoretech.com/staff/login</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
@@ -46,7 +46,7 @@
 
   <!-- Admin Portal Login -->
   <url>
-    <loc>https://apex.hadescoretech.com/admin/login</loc>
+    <loc>https://lms.hadescoretech.com/admin/login</loc>
     <lastmod>2026-08-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>

@@ -452,7 +452,7 @@ def send_welcome_email(
     Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
     """
     if not login_url:
-        login_url = getattr(settings, 'FRONTEND_URL', 'https://apex-lms.com/login')
+        login_url = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com/student/login')
 
     thread = threading.Thread(
         target=_send_email_thread,
@@ -592,10 +592,10 @@ def _send_course_completion_email_thread(certificate_id: int):
         student_name = f"{cert.student.first_name} {cert.student.last_name}".strip() or cert.student.email.split('@')[0]
         course_title = cert.course.title if cert.course else "Your Course Track"
         certificate_code = cert.certificate_code or "N/A"
-        certificate_url = cert.file_url or "https://apex-lms.com/dashboard/certificates"
+        certificate_url = cert.file_url or "https://lms.hadescoretech.com/student"
         completion_date = cert.issued_at.strftime("%b %d, %Y") if cert.issued_at else time.strftime("%b %d, %Y")
 
-        portal_url = getattr(settings, 'FRONTEND_URL', 'https://apex-lms.com/login')
+        portal_url = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com/student/login')
         fmt_args = dict(
             student_name=student_name,
             full_name=student_name,

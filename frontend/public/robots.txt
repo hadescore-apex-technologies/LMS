@@ -16,4 +16,4 @@ Disallow: /staff/
 Disallow: /student/
 
 # Sitemap location
-Sitemap: https://apex.hadescoretech.com/sitemap.xml
+Sitemap: https://lms.hadescoretech.com/sitemap.xml
