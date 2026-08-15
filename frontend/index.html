@@ -1,14 +1,48 @@
 <!doctype html>
+<!-- © 2026 HadesCore Technologies. All Rights Reserved. APEX LMS — Proprietary & Confidential -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hadescore Apex & Technologies</title>
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="copyright" content="© 2026 HadesCore Technologies. All Rights Reserved." />
+    <meta name="author" content="HadesCore Technologies" />
+    <meta name="description" content="Apex LMS — Proprietary Learning Management System by HadesCore Technologies." />
+    <title>Hadescore Apex &amp; Technologies</title>
+
+    <!-- Early protection: runs before any bundle -->
     <script>
+      // © 2026 HadesCore Technologies – Proprietary
       document.documentElement.classList.remove('dark');
       localStorage.removeItem('theme');
+
+      // Block right-click early
+      document.addEventListener('contextmenu', function(e) {
+        var t = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+        if (t !== 'input' && t !== 'textarea') e.preventDefault();
+      }, true);
+
+      // Block F12, Ctrl+Shift+I, Ctrl+U early
+      document.addEventListener('keydown', function(e) {
+        var ctrl = e.ctrlKey || e.metaKey;
+        if (
+          e.key === 'F12' ||
+          (ctrl && e.shiftKey && 'ijcIJC'.indexOf(e.key) >= 0) ||
+          (ctrl && (e.key === 'u' || e.key === 'U'))
+        ) {
+          e.preventDefault(); e.stopPropagation();
+        }
+      }, true);
     </script>
+
+    <style>
+      /* Prevent text selection on non-editable content */
+      body { -webkit-user-select: none; user-select: none; }
+      input, textarea, [contenteditable="true"] { -webkit-user-select: text; user-select: text; }
+      /* Prevent drag on images and links */
+      img, a { -webkit-user-drag: none; user-drag: none; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

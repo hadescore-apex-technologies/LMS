@@ -58,6 +58,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    # ── HadesCore Apex LMS Protection Layer ─────────────────
+    'apps.core.middleware.SecurityMiddleware',          # Rate limiting + headers
+    'apps.core.middleware.ObjectOwnershipMiddleware',   # Unauthenticated write guard
+    # ────────────────────────────────────────────────────────
     'django.middleware.gzip.GZipMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -197,8 +201,24 @@ SIMPLE_JWT = {
 # pyrefly: ignore [missing-import]
 from corsheaders.defaults import default_headers, default_methods
 
-# CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True  # Allow local network & remote devices
+# ── CORS Configuration ─────────────────────────────────────
+# Explicitly whitelist known origins — wildcard removed for security
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    # Production
+    "https://apex-lms.hadescore.com",
+    "https://www.apex-lms.hadescore.com",
+    # Local development
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    # Allow any LAN device on the local network during development
+    r"^http://192\.168\.[0-9]+\.[0-9]+(:[0-9]+)?$",
+    r"^http://10\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?$",
+]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'authorization',
@@ -214,14 +234,33 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     'keep-alive',
     'if-modified-since',
 ]
-CORS_ALLOW_METHODS = list(default_methods) + [
-    'GET',
-    'POST',
-    'PUT',
-    'PATCH',
-    'DELETE',
-    'OPTIONS',
-]
+CORS_ALLOW_METHODS = list(default_methods)
+
+# ── Rate Limiting Tuning ────────────────────────────────────
+RATE_LIMIT_MAX_REQUESTS = 300   # Max requests per IP per window
+RATE_LIMIT_WINDOW_SECONDS = 60  # Sliding window duration (seconds)
+
+# ── Django Security Hardening ───────────────────────────────
+# Redirect HTTP → HTTPS in production (set True via env for deploy)
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False') == 'True'
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_BROWSER_XSS_FILTER = True
+
+# Cookie security — True in production (HTTPS), False in dev
+_is_prod = os.environ.get('SECURE_SSL_REDIRECT', 'False') == 'True'
+SESSION_COOKIE_SECURE = _is_prod
+CSRF_COOKIE_SECURE    = _is_prod
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY  = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE  = 'Lax'
+
+
 
 # Celery & Redis Settings
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')

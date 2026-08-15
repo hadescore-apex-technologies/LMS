@@ -1,0 +1,12 @@
+# HadesCore Apex LMS — Proprietary
+# All files in this repository are proprietary and confidential.
+* linguist-vendored=false
+*.py    linguist-language=Python
+*.tsx   linguist-language=TypeScript
+*.ts    linguist-language=TypeScript
+
+# Mark all files as proprietary binary for diffing protection
+# (keeps line endings consistent, avoids accidental patches)
+*.env   binary
+*.key   binary
+*.pem   binary
