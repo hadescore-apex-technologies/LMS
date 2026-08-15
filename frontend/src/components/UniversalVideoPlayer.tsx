@@ -4,6 +4,7 @@ import {
   Maximize, Minimize, PictureInPicture2, Loader2, Check, AlertCircle, Lock 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getBaseURL } from '../services/api';
 
 interface UniversalVideoPlayerProps {
   src: string;
@@ -26,12 +27,13 @@ function parseVideoSource(srcStr: string) {
 
   const trimmed = srcStr.trim();
 
-  // 1. Google Drive -> Stream securely via Preview embed with top crop & popout protection
+  // 1. Google Drive -> Stream via high-performance backend proxy for custom Apex Cyber UI
   const driveMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (trimmed.includes('drive.google.com') || driveMatch) {
     const fileId = driveMatch ? driveMatch[1] : '';
-    const embedUrl = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : trimmed;
-    return { type: 'gdrive', url: embedUrl };
+    const apiBase = getBaseURL().replace(/\/+$/, '');
+    const streamProxyUrl = fileId ? `${apiBase}/videos/stream/?id=${fileId}` : trimmed;
+    return { type: 'video', url: streamProxyUrl };
   }
 
   // 2. YouTube
