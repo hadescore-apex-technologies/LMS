@@ -53,6 +53,8 @@ class DashboardStatsView(views.APIView):
                 total_assignments = Assignment.objects.filter(module__course__is_mentoring_track=True).count()
                 total_lessons = Lesson.objects.filter(module__course__is_mentoring_track=True).count()
                 total_videos = Video.objects.filter(lesson__module__course__is_mentoring_track=True).count()
+                # Strictly Live Mentoring sessions created in Live Class Mentoring page (course__isnull=True)
+                live_classes_base_qs = LiveClass.objects.filter(course__isnull=True)
             else:
                 total_courses = Course.objects.filter(is_mentoring_track=False).count()
                 total_categories = Category.objects.filter(category_type='COURSE').count()
@@ -60,14 +62,16 @@ class DashboardStatsView(views.APIView):
                 total_assignments = Assignment.objects.filter(module__course__is_mentoring_track=False).count()
                 total_lessons = Lesson.objects.filter(module__course__is_mentoring_track=False).count()
                 total_videos = Video.objects.filter(lesson__module__course__is_mentoring_track=False).count()
-
+                # Strictly Course Doubt Clearing sessions (course__isnull=False)
+                live_classes_base_qs = LiveClass.objects.filter(course__isnull=False)
 
             from apps.certificates.models import Certificate
             certificates_issued = Certificate.objects.filter(is_issued=True).count()
 
-            live_classes_today = LiveClass.objects.filter(
+            live_classes_today = live_classes_base_qs.filter(
                 Q(scheduled_time__date=today) | Q(status__in=['UPCOMING', 'LIVE'])
             ).count()
+            total_live_classes = live_classes_base_qs.count()
             pending_assignments = AssignmentSubmission.objects.filter(
                 status='PENDING',
                 assignment__module__course__is_mentoring_track=live_mode
@@ -91,7 +95,6 @@ class DashboardStatsView(views.APIView):
 
             trend_data = []
             upcoming_data = []
-            total_live_classes = LiveClass.objects.count()
             activity_trend_data = []
             
             if live_mode:
@@ -108,7 +111,7 @@ class DashboardStatsView(views.APIView):
                         "count": count
                     })
                 
-                upcoming_sessions = LiveClass.objects.filter(
+                upcoming_sessions = live_classes_base_qs.filter(
                     status='UPCOMING'
                 ).order_by('scheduled_time')[:4]
                 upcoming_data = [{
@@ -117,8 +120,6 @@ class DashboardStatsView(views.APIView):
                     "scheduled_time": lc.scheduled_time,
                     "meeting_url": lc.meeting_url
                 } for lc in upcoming_sessions]
-                
-                total_live_classes = LiveClass.objects.count()
             else:
                 for i in range(6, -1, -1):
                     d = today - timezone.timedelta(days=i)
@@ -246,6 +247,15 @@ class DashboardStatsView(views.APIView):
                 "created_at": log.created_at
             } for log in recent_logs]
 
+            if category:
+                total_live_classes = LiveClass.objects.filter(
+                    Q(course__category=category) | Q(course__mentor=user) | Q(created_by=user)
+                ).distinct().count()
+            else:
+                total_live_classes = LiveClass.objects.filter(
+                    Q(course__mentor=user) | Q(created_by=user)
+                ).distinct().count()
+
             return response.Response({
                 "total_students": total_students,
                 "active_students": active_students,
@@ -260,6 +270,7 @@ class DashboardStatsView(views.APIView):
                 "total_assignments": total_assignments,
                 "pending_assignments": pending_assignments,
                 "today_live_classes": live_classes_today,
+                "total_live_classes": total_live_classes,
                 "recent_activity": logs_data,
                 "upcoming_expiry_students": expiries_data,
                 "student_growth": growth_data
@@ -298,10 +309,20 @@ class DashboardStatsView(views.APIView):
             
             total_assigned = assigned_courses.count()
 
-            upcoming_live_classes = LiveClass.objects.filter(
-                Q(course__in=assigned_courses) | Q(students=user),
-                status='UPCOMING'
-            ).distinct().count()
+            if live_mode:
+                # Live Mentoring Mode: only sessions created in Live Class Mentoring (course__isnull=True)
+                upcoming_live_classes = LiveClass.objects.filter(
+                    Q(students=user) | (Q(created_by=staff) if staff else Q(students=user)),
+                    course__isnull=True,
+                    status='UPCOMING'
+                ).distinct().count()
+            else:
+                # Course Doubt Session Mode: only sessions for assigned courses (course__isnull=False)
+                upcoming_live_classes = LiveClass.objects.filter(
+                    course__in=assigned_courses,
+                    course__isnull=False,
+                    status='UPCOMING'
+                ).distinct().count()
             
             sub_qs = AssignmentSubmission.objects.filter(student=user)
             if live_mode:

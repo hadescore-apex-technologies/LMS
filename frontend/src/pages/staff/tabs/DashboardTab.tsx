@@ -28,6 +28,7 @@ interface StaffStats {
   courses_count: number;
   pending_assignments: number;
   today_live_classes: number;
+  total_live_classes?: number;
   upcoming_expiry_students: { email: string; name: string; end_date: string }[];
   student_growth?: { week: string; count: number }[];
 }
@@ -112,8 +113,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
     },
     { 
       label: 'Live Classes', 
-      count: stats?.today_live_classes ?? 0, 
-      sub: 'Scheduled today', 
+      count: stats?.total_live_classes ?? stats?.today_live_classes ?? 0, 
+      sub: `${stats?.today_live_classes || 0} scheduled today`, 
       icon: Video, 
       iconBg: 'bg-amber-100 dark:bg-amber-900/30',
       iconColor: 'text-amber-600 dark:text-amber-400',

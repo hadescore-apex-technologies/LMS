@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from django.urls import path
 from apps.analytics.views import DashboardStatsView, MentorAssignmentsView, AdminReportsView, BroadcastAnnouncementView
 
