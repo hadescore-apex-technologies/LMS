@@ -6,6 +6,7 @@ import { logout } from '../../features/authSlice';
 import { Menu, User, Settings, Award, Trophy, LogOut, ChevronDown, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import NotificationCenter from '../student/NotificationCenter';
+import { getInitials } from '../../utils/stringUtils';
 
 interface TopHeaderProps {
   sidebarOpen: boolean;
@@ -72,7 +73,7 @@ const TopHeader: React.FC<TopHeaderProps> = ({ sidebarOpen, setSidebarOpen }) =>
           >
             <div className="relative">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white font-black text-xs shadow-sm border border-cyan-400/40 group-hover:scale-105 transition-transform">
-                {user?.first_name ? user.first_name.charAt(0).toUpperCase() : 'A'}
+                {getInitials(user?.first_name ? `${user.first_name} ${user.last_name || ''}` : '', 'A')}
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white" />
             </div>
@@ -100,7 +101,7 @@ const TopHeader: React.FC<TopHeaderProps> = ({ sidebarOpen, setSidebarOpen }) =>
                 <div className="p-3 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border border-slate-800 rounded-xl text-white mb-2 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500 text-white font-black text-sm border border-cyan-400">
-                      {user?.first_name ? user.first_name.charAt(0).toUpperCase() : 'A'}
+                      {getInitials(user?.first_name ? `${user.first_name} ${user.last_name || ''}` : '', 'A')}
                     </div>
                     <div className="overflow-hidden min-w-0">
                       <h4 className="font-extrabold text-xs text-white truncate">

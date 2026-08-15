@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { RootState } from '../../store';
 import { Search, Wifi, Clock, Sun, Bell, Menu } from 'lucide-react';
 import NotificationCenter from './NotificationCenter';
+import { getInitials } from '../../utils/stringUtils';
 
 interface StudentCyberHeaderProps {
   onToggleSidebar: () => void;
@@ -83,7 +84,7 @@ export const StudentCyberHeader: React.FC<StudentCyberHeaderProps> = ({ onToggle
         >
           <div className="h-9 w-9 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 shadow-[0_0_12px_rgba(6,182,212,0.4)] group-hover:scale-105 transition-transform">
             <div className="h-full w-full rounded-[14px] bg-slate-950 flex items-center justify-center text-cyan-300 font-extrabold text-xs">
-              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'ST'}
+              {getInitials(user?.name || user?.first_name, 'ST')}
             </div>
           </div>
           <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-950 rounded-full shadow-[0_0_6px_#34d399]" />

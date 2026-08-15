@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { User, Phone, Mail, Award, Save, Loader2, Sparkles, Shield, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { getInitials } from '../../utils/stringUtils';
 import { motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -76,7 +77,7 @@ const StudentProfile: React.FC = () => {
       {/* Clean Header */}
       <div className="flex items-center gap-4 border-b border-border/50 pb-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white font-black text-lg shadow-md border border-cyan-400">
-          {profile?.first_name ? profile.first_name.charAt(0).toUpperCase() : 'S'}
+          {getInitials(profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}` : '', 'S')}
         </div>
         <div>
           <h1 className="text-xl font-extrabold tracking-tight text-foreground">
