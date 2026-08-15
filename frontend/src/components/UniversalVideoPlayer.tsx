@@ -315,41 +315,7 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
 
   // Keyboard controls
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    switch (e.key) {
-      case ' ':
-      case 'k':
-        e.preventDefault();
-        togglePlay();
-        break;
-      case 'ArrowLeft':
-      case 'j':
-        e.preventDefault();
-        seekRelative(-10);
-        break;
-      case 'ArrowRight':
-      case 'l':
-        e.preventDefault();
-        seekRelative(10);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        handleVolumeChange(volume + 0.1);
-        break;
-      case 'ArrowDown':
-        e.preventDefault();
-        handleVolumeChange(volume - 0.1);
-        break;
-      case 'm':
-      case 'M':
-        e.preventDefault();
-        toggleMute();
-        break;
-      case 'f':
-      case 'F':
-        e.preventDefault();
-        toggleFullscreen();
-        break;
-    }
+    // Keyboard shortcuts removed as per request
   };
 
   // Native Video Event Listeners

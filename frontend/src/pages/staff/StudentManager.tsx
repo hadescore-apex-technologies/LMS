@@ -930,8 +930,8 @@ const StudentManager: React.FC = () => {
                           <div className="flex items-center gap-2">
                             {studentCert ? (
                               <div className="flex items-center gap-1.5">
-                                <button type="button" onClick={() => downloadFileDirectly(studentCert.file_url, `Certificate_${course.title || 'Course'}.pdf`)} className="p-1.5 bg-muted hover:bg-muted/80 rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Download Certificate File">
-                                  <Download size={11} />
+                                <button type="button" onClick={() => downloadFileDirectly(studentCert.file_url || `/api/certificates/${studentCert.id}/download/`, `Certificate_${course.title || 'Course'}.pdf`)} className="p-1.5 bg-muted hover:bg-muted/80 rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Download Certificate File">
+                                  <Download size={13} />
                                 </button>
                                 <button type="button" onClick={async () => {
                                   if (!window.confirm("Remove this certificate? This cannot be undone.")) return;

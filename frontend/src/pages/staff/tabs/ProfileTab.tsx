@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
-import { Users, Key, Save, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Users, Key, Save, Eye, EyeOff } from 'lucide-react';
+import { getInitials } from '../../../utils/stringUtils';
 
 interface UserProfile {
   email: string;
@@ -100,7 +101,7 @@ export const ProfileTab: React.FC = () => {
 
             <div className="flex items-center gap-3.5 pb-2">
               <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-primary-foreground font-extrabold text-lg shadow shadow-primary/10">
-                {profile?.first_name?.charAt(0) || 'O'}
+                {getInitials(profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}` : '', 'O')}
               </div>
               <div>
                 <h4 className="font-extrabold text-foreground">{profile?.first_name} {profile?.last_name}</h4>

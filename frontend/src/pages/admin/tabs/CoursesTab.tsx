@@ -219,7 +219,8 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
     setUploadingField(targetField);
     try {
       const res = await api.post('core/upload/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 0 // Disable timeout for large video uploads
       });
       const fileUrl = res.data.url;
       if (targetField === 'thumbnail') setCourseThumb(fileUrl);

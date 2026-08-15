@@ -215,16 +215,14 @@ export const CertificateTab: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                {cert.file_url && (
                   <button
                     type="button"
-                    onClick={() => downloadFileDirectly(cert.file_url!, `Certificate_${cert.certificate_code || cert.student_name || 'Certificate'}.pdf`)}
+                    onClick={() => downloadFileDirectly(cert.file_url || `/api/certificates/${cert.id}/download/`, `Certificate_${cert.certificate_code || cert.student_name || 'Certificate'}.pdf`)}
                     className="p-1.5 bg-muted hover:bg-muted/80 rounded-xl text-muted-foreground hover:text-foreground cursor-pointer"
                     title="Download Certificate"
                   >
                     <Download size={13} />
                   </button>
-                )}
                 <button onClick={() => { if (window.confirm('Revoke certificate?')) revokeCertificateMutation.mutate(cert.id); }} className="p-1.5 hover:bg-destructive/10 rounded-xl text-muted-foreground hover:text-destructive">
                   <Trash2 size={13} />
                 </button>

@@ -100,6 +100,17 @@ class CertificateViewSet(viewsets.ModelViewSet):
             return []
         return [IsSuperAdminOrStaff()]
 
+    def get_object(self):
+        # For public actions (download, pdf, verify), bypass queryset filtering
+        # so unauthenticated users can still retrieve the certificate by PK
+        if self.action in ['download', 'pdf', 'verify']:
+            # pyrefly: ignore [missing-import]
+            from django.shortcuts import get_object_or_404
+            obj = get_object_or_404(Certificate, pk=self.kwargs.get(self.lookup_field))
+            self.check_object_permissions(self.request, obj)
+            return obj
+        return super().get_object()
+
     def get_queryset(self):
         user = self.request.user
         from apps.users.models import CustomUser

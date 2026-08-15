@@ -71,18 +71,7 @@ const FormattedMessage: React.FC<{ text: string }> = ({ text }) => {
             <div key={bIdx} className="my-2 rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 overflow-hidden shadow-sm font-mono text-[10px]">
               <div className="flex items-center justify-between px-3 py-1 bg-zinc-900 border-b border-zinc-800 text-[9px] font-bold text-zinc-400">
                 <span className="uppercase tracking-wider text-primary">{lang}</span>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(codeContent);
-                    setCodeCopiedIdx(bIdx);
-                    toast.success('Code copied!');
-                    setTimeout(() => setCodeCopiedIdx(null), 2000);
-                  }}
-                  className="hover:text-white flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded bg-zinc-800/80"
-                >
-                  {codeCopiedIdx === bIdx ? <Check size={10} className="text-emerald-400" /> : <Copy size={10} />}
-                  <span>{codeCopiedIdx === bIdx ? 'Copied' : 'Copy'}</span>
-                </button>
+                {/* Copy button removed for student security */}
               </div>
               <pre className="p-2.5 overflow-x-auto whitespace-pre leading-normal font-mono text-[10.5px] text-zinc-200">
                 <code>{codeContent}</code>

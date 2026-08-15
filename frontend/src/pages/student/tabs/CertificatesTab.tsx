@@ -114,7 +114,7 @@ export const CertificatesTab: React.FC = () => {
                 
                 <button
                   type="button"
-                  onClick={() => downloadFileDirectly(cert.file_url, `Certificate_${cert.certificate_code || cert.course_title}.pdf`)}
+                  onClick={() => downloadFileDirectly(cert.file_url || `/api/certificates/${cert.id}/download/`, `Certificate_${cert.certificate_code || cert.course_title}.pdf`)}
                   className="w-full py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-extrabold rounded-xl text-center flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20 hover:brightness-110 active:scale-95 transition-all text-[11px] cursor-pointer"
                 >
                   <Download size={12} />

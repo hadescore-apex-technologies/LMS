@@ -29,7 +29,7 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
       } else if (path.includes('certificates')) {
         queryClient.prefetchQuery({ queryKey: ['certificates'], queryFn: async () => (await api.get('certificates/')).data, staleTime: 1000 * 60 * 5 });
       } else if (path.includes('live')) {
-        queryClient.prefetchQuery({ queryKey: ['live-classes'], queryFn: async () => (await api.get('live-classes/')).data, staleTime: 1000 * 60 * 5 });
+        queryClient.prefetchQuery({ queryKey: ['live-classes'], queryFn: async () => (await api.get('courses/live/')).data, staleTime: 1000 * 60 * 5 });
       }
     } catch {
       // Background prefetch fail silently
