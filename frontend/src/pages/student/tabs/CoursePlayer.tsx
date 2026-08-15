@@ -74,6 +74,10 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
   const videoRef = useRef<HTMLVideoElement>(null);
   const maxTimeWatchedRef = useRef(0);
 
+  const isLiveStudent = localStorage.getItem('studentLiveMode') === 'true' ||
+                        Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+                        (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS');
+
   // States
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
@@ -119,30 +123,30 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
 
   // 1. Fetch Course Modules
   const { data: modules = [] } = useQuery<Module[]>({
-    queryKey: ['modules', course.id],
+    queryKey: ['modules', course.id, isLiveStudent],
     refetchInterval: 10000,
     queryFn: async () => {
-      const res = await api.get(`modules/?course=${course.id}`);
+      const res = await api.get(`modules/?course=${course.id}&live_mode=${isLiveStudent}`);
       return res.data;
     }
   });
 
   // 2. Fetch Lessons
   const { data: lessons = [], refetch: refetchLessons } = useQuery<Lesson[]>({
-    queryKey: ['lessons', course.id],
+    queryKey: ['lessons', course.id, isLiveStudent],
     refetchInterval: 10000,
     queryFn: async () => {
-      const res = await api.get(`lessons/?course=${course.id}`);
+      const res = await api.get(`lessons/?course=${course.id}&live_mode=${isLiveStudent}`);
       return res.data;
     }
   });
 
   // 3. Fetch Quizzes
   const { data: courseQuizzes = [] } = useQuery<Quiz[]>({
-    queryKey: ['quizzes', course.id],
+    queryKey: ['quizzes', course.id, isLiveStudent],
     refetchInterval: 10000,
     queryFn: async () => {
-      const res = await api.get(`quizzes/list/?course=${course.id}`);
+      const res = await api.get(`quizzes/list/?course=${course.id}&live_mode=${isLiveStudent}`);
       return res.data;
     }
   });
@@ -777,7 +781,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                     className="w-full h-full object-cover"
                     onTimeUpdate={handleTimeUpdate}
                     onEnded={handleVideoEnded}
-                    disableForwardSeeking={!activeLesson.completed}
+                    disableForwardSeeking={isLiveStudent ? false : !activeLesson.completed}
                     initialResumeTime={activeLesson.resume_time || 0}
                     onLoadedMetadata={() => {
                       if (videoRef.current && activeLesson.resume_time) {
@@ -1030,7 +1034,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                     const allAssignmentsSubmitted = modAssignments.every(a => submissions.some(s => s.assignment === a.id));
 
                     const isCompleted = allLessonsCompleted && allQuizzesPassed && allAssignmentsSubmitted;
-                    const isLocked = index === 0 ? false : !allPreviousCompleted;
+                    const isLocked = isLiveStudent ? false : (index === 0 ? false : !allPreviousCompleted);
                     
                     if (!isCompleted) {
                       allPreviousCompleted = false;
@@ -1045,7 +1049,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                         <div className="space-y-1 pl-1">
                           {modLessons.map((les, i) => {
                             const isCurrent = activeLesson?.id === les.id;
-                            const buttonLocked = isLocked || les.locked;
+                            const buttonLocked = isLiveStudent ? false : (isLocked || les.locked);
                             return (
                               <button
                                 key={les.id}
@@ -1065,10 +1069,11 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                             const attempts = quizAttempts.filter(att => att.quiz === quiz.id);
                             const hasPassed = attempts.some(att => att.passed);
                             const attemptsCount = attempts.length;
+                            const quizLocked = isLiveStudent ? false : isLocked;
                             return (
                               <button
                                 key={quiz.id}
-                                disabled={isLocked}
+                                disabled={quizLocked}
                                 onClick={() => {
                                   setActiveQuiz(quiz);
                                   setActiveLesson(null);
@@ -1081,7 +1086,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                                     setQuizTimeLeft(null);
                                   }
                                 }}
-                                className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasPassed ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10 font-bold' : isLocked ? 'opacity-40 cursor-not-allowed text-muted-foreground border-transparent' : 'text-primary border-transparent hover:bg-muted/40'}`}
+                                className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasPassed ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10 font-bold' : quizLocked ? 'opacity-40 cursor-not-allowed text-muted-foreground border-transparent' : 'text-primary border-transparent hover:bg-muted/40'}`}
                               >
                                 <HelpCircle size={10} />
                                 <span className="truncate flex-1 font-semibold">
@@ -1090,7 +1095,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                                     : `Checkpoint: ${quiz.title} (${attemptsCount}/${quiz.max_retries} attempts)`
                                   }
                                 </span>
-                                {isLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />}
+                                {quizLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />}
                               </button>
                             );
                           })}
@@ -1098,21 +1103,22 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                           {/* Assignments list inside modules */}
                           {modAssignments.map(assign => {
                             const hasSub = submissions.some(s => s.assignment === assign.id);
+                            const assignLocked = isLiveStudent ? false : isLocked;
                             return (
                               <button
                                 key={assign.id}
-                                disabled={isLocked}
+                                disabled={assignLocked}
                                 onClick={() => {
                                   setActiveAssignment(assign);
                                   setActiveLesson(null);
                                   setActiveQuiz(null);
                                   setForceRetakeQuizId(null);
                                 }}
-                                className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasSub ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' : isLocked ? 'opacity-40 cursor-not-allowed text-muted-foreground border-transparent' : 'text-primary border-transparent hover:bg-muted/40'}`}
+                                className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasSub ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' : assignLocked ? 'opacity-40 cursor-not-allowed text-muted-foreground border-transparent' : 'text-primary border-transparent hover:bg-muted/40'}`}
                               >
                                 <ClipboardList size={10} />
                                 <span className="truncate flex-1 font-semibold">{hasSub ? 'Homework Submitted' : `Homework: ${assign.title}`}</span>
-                                {isLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />}
+                                {assignLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />}
                               </button>
                             );
                           })}

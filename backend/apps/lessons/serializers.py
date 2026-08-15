@@ -91,6 +91,14 @@ class LessonSerializer(serializers.ModelSerializer):
         if user.role != 'STUDENT':
             return False
             
+        # Live Class students / live mode: NEVER lock any lesson or module
+        profile = getattr(user, 'student_profile', None)
+        if profile and profile.student_type == 'LIVE_CLASS':
+            return False
+            
+        if request.query_params.get('live_mode') == 'true':
+            return False
+
         course = obj.module.course
         from apps.modules.models import Module
         from apps.quizzes.models import Quiz, QuizAttempt
