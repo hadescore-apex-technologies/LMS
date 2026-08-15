@@ -34,6 +34,12 @@
           e.preventDefault(); e.stopPropagation();
         }
       }, true);
+
+      // Block dragging on images and links early
+      document.addEventListener('dragstart', function(e) {
+        var t = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+        if (t === 'img' || t === 'a') e.preventDefault();
+      }, true);
     </script>
 
     <style>
@@ -41,7 +47,7 @@
       body { -webkit-user-select: none; user-select: none; }
       input, textarea, [contenteditable="true"] { -webkit-user-select: text; user-select: text; }
       /* Prevent drag on images and links */
-      img, a { -webkit-user-drag: none; user-drag: none; }
+      img, a { user-select: none; }
     </style>
   </head>
   <body>
