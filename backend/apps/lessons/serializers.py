@@ -94,7 +94,7 @@ class LessonSerializer(serializers.ModelSerializer):
             
         # Live Class students / live mode: NEVER lock any lesson or module
         profile = getattr(user, 'student_profile', None)
-        if profile and profile.student_type == 'LIVE_CLASS':
+        if profile and profile.student_type in ['LIVE_CLASS', 'BOTH']:
             return False
             
         if request.query_params.get('live_mode') == 'true':

@@ -116,6 +116,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
             return qs.filter(student=user, is_issued=True)
 
         if user.role == 'STAFF':
+            # pyrefly: ignore [missing-import]
             from django.db.models import Q
             return qs.filter(
                 Q(student__student_profile__assigned_staff=user) |
@@ -246,21 +247,27 @@ class CertificateViewSet(viewsets.ModelViewSet):
         # If a real local uploaded file exists on disk
         if certificate.file_url and not 'cloudflarestorage.com' in certificate.file_url:
             if certificate.file_url.startswith('/media/'):
+                # pyrefly: ignore [missing-import]
                 from django.conf import settings
                 import os
+                # pyrefly: ignore [missing-import]
                 from django.http import FileResponse
                 relative_path = certificate.file_url.replace('/media/', '', 1)
                 disk_path = os.path.join(settings.MEDIA_ROOT, relative_path)
                 if os.path.exists(disk_path):
-                    return FileResponse(open(disk_path, 'rb'), content_type='application/pdf')
+                    response_obj = FileResponse(open(disk_path, 'rb'), content_type='application/pdf')
+                    response_obj['Content-Disposition'] = f'attachment; filename="Certificate_{cert_code}.pdf"'
+                    response_obj['Access-Control-Allow-Origin'] = '*'
+                    return response_obj
 
         # Otherwise, dynamically generate high-res official vector PDF
         from apps.certificates.pdf_generator import generate_certificate_pdf_bytes
+        # pyrefly: ignore [missing-import]
         from django.http import HttpResponse
         pdf_bytes = generate_certificate_pdf_bytes(cert_code, student_name, course_title, issued_date)
         response_obj = HttpResponse(pdf_bytes, content_type='application/pdf')
         filename = f"Certificate_{cert_code}.pdf"
-        response_obj['Content-Disposition'] = f'inline; filename="{filename}"'
+        response_obj['Content-Disposition'] = f'attachment; filename="{filename}"'
         response_obj['Access-Control-Allow-Origin'] = '*'
         return response_obj
 
@@ -280,6 +287,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
         issued_date = certificate.issued_at.strftime('%B %d, %Y') if certificate.issued_at else "August 15, 2026"
 
         from apps.certificates.pdf_generator import generate_certificate_pdf_bytes
+        # pyrefly: ignore [missing-import]
         from django.http import HttpResponse
         pdf_bytes = generate_certificate_pdf_bytes(code, student_name, course_title, issued_date)
         response_obj = HttpResponse(pdf_bytes, content_type='application/pdf')

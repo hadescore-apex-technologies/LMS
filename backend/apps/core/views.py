@@ -137,7 +137,9 @@ class FileUploadView(views.APIView):
 import mimetypes
 import re
 import requests
+# pyrefly: ignore [missing-import]
 from django.http import StreamingHttpResponse, HttpResponse, FileResponse
+# pyrefly: ignore [missing-import]
 from rest_framework.permissions import AllowAny
 
 class FileDownloadProxyView(views.APIView):
@@ -180,6 +182,11 @@ class FileDownloadProxyView(views.APIView):
             filename = os.path.basename(clean_url.split('?')[0]) or 'download'
             if '.' not in filename:
                 filename += '.pdf'
+                
+        # Fix relative URLs for internal fetches
+        if clean_url.startswith('/'):
+            # Convert to absolute URL using the request's host
+            clean_url = request.build_absolute_uri(clean_url)
 
         try:
             req_headers = {
