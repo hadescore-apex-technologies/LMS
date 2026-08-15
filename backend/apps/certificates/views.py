@@ -96,7 +96,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticated()]
-        if self.action == 'verify':
+        if self.action in ['verify', 'download', 'pdf']:
             return []
         return [IsSuperAdminOrStaff()]
 
@@ -217,15 +217,12 @@ class CertificateViewSet(viewsets.ModelViewSet):
         rand_num = random.randint(10000, 99999)
         cert_code = f"HA-APEX-{rand_num}"
 
-        # In production, this PDF is compiled and saved to Cloudflare R2
-        mock_file_url = f"https://hadescore-apex-lms-storage.r2.cloudflarestorage.com/certificates/{cert_code}.pdf"
-
         # Create record
         certificate = Certificate.objects.create(
             student_id=student_id,
             course_id=course_id,
             certificate_code=cert_code,
-            file_url=mock_file_url,
+            file_url="",
             issued_by=request.user
         )
 
@@ -237,3 +234,56 @@ class CertificateViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(certificate)
         return response.Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @decorators.action(detail=True, methods=['get'], url_path='download', permission_classes=[])
+    def download(self, request, pk=None):
+        certificate = self.get_object()
+        student_name = f"{certificate.student.first_name} {certificate.student.last_name}".strip() or certificate.student.email
+        course_title = certificate.course.title if certificate.course else "Academic Course"
+        issued_date = certificate.issued_at.strftime('%B %d, %Y') if certificate.issued_at else "August 15, 2026"
+        cert_code = certificate.certificate_code or f"HA-APEX-{certificate.id}"
+
+        # If a real local uploaded file exists on disk
+        if certificate.file_url and not 'cloudflarestorage.com' in certificate.file_url:
+            if certificate.file_url.startswith('/media/'):
+                from django.conf import settings
+                import os
+                from django.http import FileResponse
+                relative_path = certificate.file_url.replace('/media/', '', 1)
+                disk_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+                if os.path.exists(disk_path):
+                    return FileResponse(open(disk_path, 'rb'), content_type='application/pdf')
+
+        # Otherwise, dynamically generate high-res official vector PDF
+        from apps.certificates.pdf_generator import generate_certificate_pdf_bytes
+        from django.http import HttpResponse
+        pdf_bytes = generate_certificate_pdf_bytes(cert_code, student_name, course_title, issued_date)
+        response_obj = HttpResponse(pdf_bytes, content_type='application/pdf')
+        filename = f"Certificate_{cert_code}.pdf"
+        response_obj['Content-Disposition'] = f'inline; filename="{filename}"'
+        response_obj['Access-Control-Allow-Origin'] = '*'
+        return response_obj
+
+    @decorators.action(detail=False, methods=['get'], url_path='pdf', permission_classes=[])
+    def pdf(self, request):
+        code = request.query_params.get('code')
+        if not code:
+            return response.Response({"error": "code query parameter required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            certificate = Certificate.objects.get(certificate_code=code)
+        except Certificate.DoesNotExist:
+            return response.Response({"error": "Certificate not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        student_name = f"{certificate.student.first_name} {certificate.student.last_name}".strip() or certificate.student.email
+        course_title = certificate.course.title if certificate.course else "Academic Course"
+        issued_date = certificate.issued_at.strftime('%B %d, %Y') if certificate.issued_at else "August 15, 2026"
+
+        from apps.certificates.pdf_generator import generate_certificate_pdf_bytes
+        from django.http import HttpResponse
+        pdf_bytes = generate_certificate_pdf_bytes(code, student_name, course_title, issued_date)
+        response_obj = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response_obj['Content-Disposition'] = f'inline; filename="Certificate_{code}.pdf"'
+        response_obj['Access-Control-Allow-Origin'] = '*'
+        return response_obj
+

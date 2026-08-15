@@ -73,13 +73,12 @@ def check_and_generate_certificate(student, course):
             # Generate a default certificate automatically!
             rand_num = random.randint(100000, 999999)
             cert_code = f"HA-APEX-{rand_num}"
-            mock_file_url = f"https://hadescore-apex-lms-storage.r2.cloudflarestorage.com/certificates/{cert_code}.pdf"
             
             new_cert = Certificate.objects.create(
                 student=student,
                 course=course,
                 certificate_code=cert_code,
-                file_url=mock_file_url,
+                file_url="",
                 is_issued=True
             )
             AuditLog.objects.create(
