@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion, type Variants } from 'framer-motion';
 import api from '../../../services/api';
 import { Award, Download, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { downloadFileDirectly } from '../../../utils/downloadHelper';
 
 interface Certificate {
   id: number;
@@ -111,15 +112,14 @@ export const CertificatesTab: React.FC = () => {
                   </span>
                 </div>
                 
-                <a
-                  href={cert.file_url}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => downloadFileDirectly(cert.file_url, `Certificate_${cert.certificate_code || cert.course_title}.pdf`)}
                   className="w-full py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-extrabold rounded-xl text-center flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20 hover:brightness-110 active:scale-95 transition-all text-[11px] cursor-pointer"
                 >
                   <Download size={12} />
                   <span>Download PDF</span>
-                </a>
+                </button>
               </div>
             </motion.div>
           ))

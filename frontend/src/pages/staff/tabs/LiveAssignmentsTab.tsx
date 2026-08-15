@@ -6,6 +6,7 @@ import {
   Plus, Edit3, Trash2, X, Save, Clock, Users, CheckSquare, Square, 
   Search, FileEdit, FileText, Loader2, ArrowLeft, Download 
 } from 'lucide-react';
+import { downloadFileDirectly } from '../../../utils/downloadHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Student {
@@ -379,10 +380,14 @@ export const LiveAssignmentsTab: React.FC = () => {
                         </td>
                         <td className="py-3.5 px-4">
                           {sub.file_submission ? (
-                            <a href={sub.file_submission} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary font-bold hover:underline">
+                            <button
+                              type="button"
+                              onClick={() => downloadFileDirectly(sub.file_submission!, `Submission_${sub.student_name || sub.student_email || 'Live_Student'}.pdf`)}
+                              className="inline-flex items-center gap-1 text-primary font-bold hover:underline cursor-pointer"
+                            >
                               <Download size={12} />
                               <span>Download PDF</span>
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-muted-foreground italic">No file attached</span>
                           )}

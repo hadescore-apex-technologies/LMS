@@ -6,6 +6,7 @@ import {
   ShieldAlert, X, Save, Upload, Download, Activity,
   Eye, EyeOff
 } from 'lucide-react';
+import { downloadFileDirectly } from '../../utils/downloadHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Student {
@@ -692,9 +693,9 @@ const StudentManager: React.FC = () => {
                           <div className="flex items-center gap-2">
                             {pendingUrl ? (
                               <div className="flex items-center gap-1.5">
-                                <a href={pendingUrl} target="_blank" rel="noreferrer" className="p-1.5 bg-muted hover:bg-muted/80 rounded-lg text-muted-foreground hover:text-foreground transition-colors" title="View Certificate File">
+                                <button type="button" onClick={() => downloadFileDirectly(pendingUrl, `Certificate_${course.title || 'Course'}.pdf`)} className="p-1.5 bg-muted hover:bg-muted/80 rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Download Certificate File">
                                   <Download size={11} />
-                                </a>
+                                </button>
                                 <button type="button" onClick={() => {
                                   const updated = { ...pendingCerts };
                                   delete updated[course.id];
@@ -929,9 +930,9 @@ const StudentManager: React.FC = () => {
                           <div className="flex items-center gap-2">
                             {studentCert ? (
                               <div className="flex items-center gap-1.5">
-                                <a href={studentCert.file_url} target="_blank" rel="noreferrer" className="p-1.5 bg-muted hover:bg-muted/80 rounded-lg text-muted-foreground hover:text-foreground transition-colors" title="View Certificate File">
+                                <button type="button" onClick={() => downloadFileDirectly(studentCert.file_url, `Certificate_${course.title || 'Course'}.pdf`)} className="p-1.5 bg-muted hover:bg-muted/80 rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer" title="Download Certificate File">
                                   <Download size={11} />
-                                </a>
+                                </button>
                                 <button type="button" onClick={async () => {
                                   if (!window.confirm("Remove this certificate? This cannot be undone.")) return;
                                   const originalCerts = [...certificates];

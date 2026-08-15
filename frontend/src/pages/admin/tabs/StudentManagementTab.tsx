@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { UserPlus, Trash2, Edit3, Key, ShieldCheck, ShieldAlert, X, Save, Search, Loader2, Download, UserCheck, ExternalLink, Award, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { downloadFileDirectly } from '../../../utils/downloadHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface StaffMentor {
@@ -906,9 +907,9 @@ export const StudentManagementTab: React.FC = () => {
                           <div className="flex items-center gap-2 h-10 px-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 rounded-xl text-[11px] font-semibold">
                             <CheckCircle size={14} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
                             <span className="truncate flex-1 font-mono">{certFileUrl.split('/').pop()}</span>
-                            <a href={certFileUrl} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400 transition-colors" title="View Uploaded File">
-                              <ExternalLink size={13} />
-                            </a>
+                            <button type="button" onClick={() => downloadFileDirectly(certFileUrl, `Certificate_File.pdf`)} className="p-1.5 hover:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400 transition-colors cursor-pointer" title="Download Uploaded File">
+                              <Download size={13} />
+                            </button>
                             <button type="button" onClick={() => setCertFileUrl('')} className="p-1 hover:bg-destructive/20 rounded text-destructive font-bold" title="Remove Certificate">&times;</button>
                           </div>
                           <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold block">✓ Certificate attached & ready for student</span>

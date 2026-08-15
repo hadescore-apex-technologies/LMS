@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { Award, Plus, Trash2, X, Download, Search, Loader2, Check } from 'lucide-react';
+import { downloadFileDirectly } from '../../../utils/downloadHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Certificate {
@@ -215,9 +216,14 @@ export const CertificateTab: React.FC = () => {
 
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 {cert.file_url && (
-                  <a href={cert.file_url} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-muted hover:bg-muted/80 rounded-xl text-muted-foreground hover:text-foreground">
+                  <button
+                    type="button"
+                    onClick={() => downloadFileDirectly(cert.file_url!, `Certificate_${cert.certificate_code || cert.student_name || 'Certificate'}.pdf`)}
+                    className="p-1.5 bg-muted hover:bg-muted/80 rounded-xl text-muted-foreground hover:text-foreground cursor-pointer"
+                    title="Download Certificate"
+                  >
                     <Download size={13} />
-                  </a>
+                  </button>
                 )}
                 <button onClick={() => { if (window.confirm('Revoke certificate?')) revokeCertificateMutation.mutate(cert.id); }} className="p-1.5 hover:bg-destructive/10 rounded-xl text-muted-foreground hover:text-destructive">
                   <Trash2 size={13} />

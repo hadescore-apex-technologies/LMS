@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { Download, FileText, Archive, Search, Plus, Loader2, Check, X } from 'lucide-react';
+import { downloadFileDirectly } from '../../../utils/downloadHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Lesson {
@@ -148,15 +149,14 @@ export const DownloadsTab: React.FC = () => {
                   </div>
                 </div>
 
-                <a
-                  href={res.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl flex items-center gap-1 hover:brightness-110 shadow-md shadow-primary/10 text-[11px] shrink-0"
+                <button
+                  type="button"
+                  onClick={() => downloadFileDirectly(res.url, `${res.name || 'Resource'}.pdf`)}
+                  className="px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl flex items-center gap-1.5 hover:brightness-110 shadow-md shadow-primary/10 text-[11px] shrink-0 cursor-pointer"
                 >
-                  <Download size={11} />
+                  <Download size={12} />
                   <span>Download</span>
-                </a>
+                </button>
               </div>
             ))}
             {filteredResources.length === 0 && (

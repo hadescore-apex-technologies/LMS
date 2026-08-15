@@ -11,6 +11,7 @@ import {
 import { AnimatePresence } from 'framer-motion';
 import { ApexAITutorCore } from '../../../components/ApexAITutorCore';
 import { UniversalVideoPlayer } from '../../../components/UniversalVideoPlayer';
+import { downloadFileDirectly } from '../../../utils/downloadHelper';
 
 interface Course {
   id: number;
@@ -683,9 +684,14 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
               <p className="text-xs text-muted-foreground whitespace-pre-wrap">{activeAssignment.description}</p>
               
               {activeAssignment.file_attachment && (
-                <a href={activeAssignment.file_attachment} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-xl font-semibold">
-                  <Download size={11} /> Download Guidelines
-                </a>
+                <button 
+                  type="button"
+                  onClick={() => downloadFileDirectly(activeAssignment.file_attachment!, `${activeAssignment.title || 'Homework'}_Guidelines.pdf`)}
+                  className="inline-flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-xl font-semibold hover:bg-primary/20 transition-all cursor-pointer text-xs"
+                >
+                  <Download size={12} />
+                  <span>Download Guidelines</span>
+                </button>
               )}
 
               <div className="space-y-4 pt-3 border-t border-border">
@@ -891,14 +897,24 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                   {activeTab === 'attachments' && (
                     <div className="flex flex-col gap-2">
                       {activeLesson.pdf_ppt_url && (
-                        <a href={activeLesson.pdf_ppt_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2.5 bg-muted/20 border border-border rounded-xl font-semibold hover:bg-muted/40">
-                          <FileText size={14} className="text-primary" /> Slide Deck Presentation Slides
-                        </a>
+                        <button 
+                          type="button"
+                          onClick={() => downloadFileDirectly(activeLesson.pdf_ppt_url!, `${activeLesson.title || 'Lesson'}_Slides.pdf`)}
+                          className="flex items-center gap-2 p-2.5 bg-muted/20 border border-border rounded-xl font-semibold hover:bg-muted/40 transition-all text-left cursor-pointer"
+                        >
+                          <FileText size={14} className="text-primary shrink-0" />
+                          <span>Slide Deck Presentation Slides</span>
+                        </button>
                       )}
                       {activeLesson.zip_source_url && (
-                        <a href={activeLesson.zip_source_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2.5 bg-muted/20 border border-border rounded-xl font-semibold hover:bg-muted/40">
-                          <Download size={14} className="text-primary" /> Core Resource files (.zip template)
-                        </a>
+                        <button 
+                          type="button"
+                          onClick={() => downloadFileDirectly(activeLesson.zip_source_url!, `${activeLesson.title || 'Lesson'}_Source.zip`)}
+                          className="flex items-center gap-2 p-2.5 bg-muted/20 border border-border rounded-xl font-semibold hover:bg-muted/40 transition-all text-left cursor-pointer"
+                        >
+                          <Download size={14} className="text-primary shrink-0" />
+                          <span>Core Resource files (.zip template)</span>
+                        </button>
                       )}
                       {!activeLesson.pdf_ppt_url && !activeLesson.zip_source_url && (
                         <p className="text-[11px] italic text-muted-foreground">No downloadable files attached to this module lesson.</p>

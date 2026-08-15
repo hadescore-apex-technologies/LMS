@@ -8,6 +8,7 @@ import {
   Loader2, X, Trash2, CheckCircle2, Clock, 
   AlertCircle, Sparkles, Filter, FileCheck 
 } from 'lucide-react';
+import { downloadFileDirectly } from '../../../utils/downloadHelper';
 
 interface Assignment {
   id: number;
@@ -242,15 +243,14 @@ export const AssignmentsTab: React.FC = () => {
                 <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{assign.description}</p>
 
                 {assign.file_attachment && (
-                  <a
-                    href={assign.file_attachment}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[11px] text-cyan-600 font-bold hover:underline bg-cyan-500/5 border border-cyan-500/15 px-3.5 py-2 rounded-2xl transition-all self-start"
+                  <button
+                    type="button"
+                    onClick={() => downloadFileDirectly(assign.file_attachment!, `${assign.title || 'Assignment'}_Guidelines.pdf`)}
+                    className="inline-flex items-center gap-1.5 text-[11px] text-cyan-600 font-bold hover:underline bg-cyan-500/5 border border-cyan-500/15 px-3.5 py-2 rounded-2xl transition-all self-start cursor-pointer"
                   >
                     <Download size={13} />
                     <span>Download Assignment Guidelines</span>
-                  </a>
+                  </button>
                 )}
 
                 {/* Submissions & reviews */}
@@ -272,9 +272,14 @@ export const AssignmentsTab: React.FC = () => {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
                         <span className="text-[10px] font-bold text-muted-foreground block uppercase">Submission File</span>
-                        <a href={submission.file_submission} target="_blank" rel="noreferrer" className="text-cyan-600 hover:underline font-bold truncate block">
-                          {submission.file_submission.split('/').pop() || 'Submitted Homework File'}
-                        </a>
+                        <button
+                          type="button"
+                          onClick={() => downloadFileDirectly(submission.file_submission, `Submission_${submission.id || 'Homework'}.pdf`)}
+                          className="text-cyan-600 hover:underline font-bold truncate block text-left cursor-pointer flex items-center gap-1.5 mt-0.5"
+                        >
+                          <Download size={12} className="shrink-0" />
+                          <span className="truncate">{submission.file_submission.split('/').pop() || 'Submitted Homework File'}</span>
+                        </button>
                       </div>
                       <div>
                         <span className="text-[10px] font-bold text-muted-foreground block uppercase">Submitted At</span>

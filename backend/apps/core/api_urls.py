@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from apps.core.views import AuditLogViewSet, PlatformSettingsViewSet, TriggerBackupView, FileUploadView
+from apps.core.views import AuditLogViewSet, PlatformSettingsViewSet, TriggerBackupView, FileUploadView, FileDownloadProxyView
 
 router = DefaultRouter()
 router.register('logs', AuditLogViewSet, basename='audit-logs')
@@ -10,4 +10,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('backup/', TriggerBackupView.as_view(), name='trigger-backup'),
     path('upload/', FileUploadView.as_view(), name='file-upload'),
+    path('download/', FileDownloadProxyView.as_view(), name='file-download-proxy'),
 ]

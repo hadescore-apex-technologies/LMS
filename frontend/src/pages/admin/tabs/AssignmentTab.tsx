@@ -6,6 +6,7 @@ import {
   FileText, Download, Trash2, Search, X, Save, Loader2, ArrowLeft,
   Plus, Settings, Upload, CheckCircle, Users, Tag
 } from 'lucide-react';
+import { downloadFileDirectly } from '../../../utils/downloadHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Submission {
@@ -470,10 +471,14 @@ export const AssignmentTab: React.FC = () => {
                         </td>
                         <td className="py-3.5 px-4">
                           {sub.file_submission ? (
-                            <a href={sub.file_submission} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary font-bold hover:underline">
+                            <button
+                              type="button"
+                              onClick={() => downloadFileDirectly(sub.file_submission!, `Submission_${sub.student_name || sub.student_email || 'Student'}.pdf`)}
+                              className="inline-flex items-center gap-1 text-primary font-bold hover:underline cursor-pointer"
+                            >
                               <Download size={12} />
                               <span>Download PDF</span>
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-muted-foreground italic">No file attached</span>
                           )}
@@ -610,10 +615,14 @@ export const AssignmentTab: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4">
                       {assign.file_attachment ? (
-                        <a href={assign.file_attachment} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary font-bold hover:underline">
+                        <button
+                          type="button"
+                          onClick={() => downloadFileDirectly(assign.file_attachment!, `${assign.title || 'Assignment'}_Attachment.pdf`)}
+                          className="inline-flex items-center gap-1 text-primary font-bold hover:underline cursor-pointer"
+                        >
                           <Download size={11} />
                           <span>Attachment</span>
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-[10px] text-muted-foreground italic">None</span>
                       )}

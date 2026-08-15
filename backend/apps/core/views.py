@@ -132,3 +132,94 @@ class FileUploadView(views.APIView):
             return response.Response({
                 "error": f"Upload failed: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+import mimetypes
+import re
+import requests
+from django.http import StreamingHttpResponse, HttpResponse, FileResponse
+from rest_framework.permissions import AllowAny
+
+class FileDownloadProxyView(views.APIView):
+    """
+    Proxies file downloads with explicit 'Content-Disposition: attachment; filename=...'
+    forcing browsers to immediately download any file (PDF, PPT, DOC, ZIP, certificates, guides, etc.)
+    directly to local disk rather than opening or rendering in a new browser tab.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        target_url = request.query_params.get('url')
+        filename = request.query_params.get('name') or request.query_params.get('filename')
+
+        if not target_url:
+            return HttpResponse("Missing url parameter", status=400)
+
+        clean_url = target_url.strip()
+
+        # 1. Local /media/ file path handling
+        if '/media/' in clean_url:
+            rel_path = clean_url.split('/media/', 1)[1].split('?')[0]
+            disk_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+            if os.path.exists(disk_path):
+                if not filename:
+                    filename = os.path.basename(disk_path)
+                content_type, _ = mimetypes.guess_type(disk_path)
+                resp = FileResponse(open(disk_path, 'rb'), content_type=content_type or 'application/octet-stream')
+                resp['Content-Disposition'] = f'attachment; filename="{filename}"'
+                resp['Access-Control-Allow-Origin'] = '*'
+                resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
+                return resp
+
+        # 2. Google Drive / Remote HTTP URL handling
+        drive_match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', clean_url) or re.search(r'[?&]id=([a-zA-Z0-9_-]+)', clean_url)
+        if 'drive.google.com' in clean_url and drive_match:
+            clean_url = f"https://drive.google.com/uc?id={drive_match.group(1)}&export=download"
+
+        if not filename:
+            filename = os.path.basename(clean_url.split('?')[0]) or 'download'
+            if '.' not in filename:
+                filename += '.pdf'
+
+        try:
+            req_headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+            session = requests.Session()
+            remote_resp = session.get(clean_url, headers=req_headers, stream=True, timeout=30, allow_redirects=True)
+
+            # Handle Google Drive large file confirmation warning
+            if 'text/html' in remote_resp.headers.get('Content-Type', ''):
+                cookies = session.cookies.get_dict()
+                confirm_token = None
+                for k, v in cookies.items():
+                    if k.startswith('download_warning'):
+                        confirm_token = v
+                        break
+                if not confirm_token and 'confirm=' in remote_resp.text:
+                    m = re.search(r'confirm=([0-9A-Za-z_-]+)', remote_resp.text)
+                    if m:
+                        confirm_token = m.group(1)
+                if confirm_token and drive_match:
+                    clean_url = f"https://drive.google.com/uc?id={drive_match.group(1)}&export=download&confirm={confirm_token}"
+                    remote_resp = session.get(clean_url, headers=req_headers, stream=True, timeout=30, allow_redirects=True)
+
+            def stream_iterator():
+                try:
+                    for chunk in remote_resp.iter_content(chunk_size=65536):
+                        if chunk:
+                            yield chunk
+                finally:
+                    remote_resp.close()
+
+            content_type = remote_resp.headers.get('Content-Type') or mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+            response_obj = StreamingHttpResponse(stream_iterator(), content_type=content_type)
+            response_obj['Content-Disposition'] = f'attachment; filename="{filename}"'
+            if 'Content-Length' in remote_resp.headers:
+                response_obj['Content-Length'] = remote_resp.headers['Content-Length']
+            response_obj['Access-Control-Allow-Origin'] = '*'
+            response_obj['Access-Control-Expose-Headers'] = 'Content-Disposition, Content-Length'
+            return response_obj
+        except Exception as err:
+            logger.exception(f"[DownloadProxy] Failed to fetch remote file: {err}")
+            return HttpResponse(f"Download failed: {err}", status=500)
