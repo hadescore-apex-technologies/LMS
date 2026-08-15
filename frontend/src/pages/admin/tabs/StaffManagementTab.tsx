@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
-import { UserPlus, Trash2, Edit3, Key, ShieldCheck, ShieldAlert, X, Save, Search, Loader2, Layers } from 'lucide-react';
+import { UserPlus, Trash2, Edit3, Key, ShieldCheck, ShieldAlert, X, Save, Search, Loader2, Layers, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Category {
@@ -40,7 +40,9 @@ export const StaffManagementTab: React.FC = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [role, setRole] = useState<'STAFF' | 'SUPER_ADMIN'>('STAFF');
   const [categoryId, setCategoryId] = useState<string>('');
 
@@ -515,7 +517,25 @@ export const StaffManagementTab: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Default Password *</label>
-                  <input name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" placeholder="Defaults to: apex123" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  <div className="relative">
+                    <input 
+                      name="password" 
+                      type={showPassword ? "text" : "password"} 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                      autoComplete="new-password" 
+                      placeholder="Defaults to: apex123" 
+                      className="w-full h-10 pl-3 pr-10 bg-muted/40 border border-border rounded-xl outline-none" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                      title={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Role Assignment</label>
@@ -605,7 +625,24 @@ export const StaffManagementTab: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">New Security Password *</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required autoComplete="new-password" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  <div className="relative">
+                    <input 
+                      type={showNewPassword ? "text" : "password"} 
+                      value={newPassword} 
+                      onChange={(e) => setNewPassword(e.target.value)} 
+                      required 
+                      autoComplete="new-password" 
+                      className="w-full h-10 pl-3 pr-10 bg-muted/40 border border-border rounded-xl outline-none" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                      title={showNewPassword ? "Hide password" : "Show password"}
+                    >
+                      {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
                 </div>
                 <button type="submit" disabled={resetPasswordMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-primary/10">
                   <Key size={12} />

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
-import { Users, Key, Save, Loader2 } from 'lucide-react';
+import { Users, Key, Save, Loader2, Eye, EyeOff } from 'lucide-react';
 
 interface UserProfile {
   email: string;
@@ -18,7 +18,9 @@ export const ProfileTab: React.FC = () => {
 
   // Password reset inputs
   const [oldPassword, setOldPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   // Profile fields state
   const [firstName, setFirstName] = useState('');
@@ -147,12 +149,48 @@ export const ProfileTab: React.FC = () => {
 
             <div>
               <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Current Account Password</label>
-              <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} required placeholder="••••••••" autoComplete="current-password" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+              <div className="relative">
+                <input 
+                  type={showOldPassword ? "text" : "password"} 
+                  value={oldPassword} 
+                  onChange={(e) => setOldPassword(e.target.value)} 
+                  required 
+                  placeholder="••••••••" 
+                  autoComplete="current-password" 
+                  className="w-full h-10 pl-3 pr-10 bg-muted/40 border border-border rounded-xl outline-none" 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOldPassword(!showOldPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                  title={showOldPassword ? "Hide password" : "Show password"}
+                >
+                  {showOldPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
 
             <div>
               <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">New Security Password</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="••••••••" autoComplete="new-password" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+              <div className="relative">
+                <input 
+                  type={showNewPassword ? "text" : "password"} 
+                  value={newPassword} 
+                  onChange={(e) => setNewPassword(e.target.value)} 
+                  required 
+                  placeholder="••••••••" 
+                  autoComplete="new-password" 
+                  className="w-full h-10 pl-3 pr-10 bg-muted/40 border border-border rounded-xl outline-none" 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                  title={showNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
           </div>
 

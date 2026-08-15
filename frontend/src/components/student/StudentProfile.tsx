@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-import { User, Phone, Mail, Award, Save, Loader2, Sparkles, Shield, KeyRound } from 'lucide-react';
+import { User, Phone, Mail, Award, Save, Loader2, Sparkles, Shield, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -20,6 +20,7 @@ const StudentProfile: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const { data: profile } = useQuery<ProfileData>({
     queryKey: ['student-profile-tab'],
@@ -154,12 +155,20 @@ const StudentProfile: React.FC = () => {
             <div className="relative">
               <KeyRound className="absolute left-4 top-3.5 text-muted-foreground/60" size={15} />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter new password to update"
-                className="w-full h-11 pl-11 pr-4 bg-muted/30 border border-border/80 rounded-2xl outline-none focus:border-cyan-500 font-semibold text-foreground transition-all"
+                className="w-full h-11 pl-11 pr-11 bg-muted/30 border border-border/80 rounded-2xl outline-none focus:border-cyan-500 font-semibold text-foreground transition-all"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
           </div>
 

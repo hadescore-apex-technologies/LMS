@@ -59,6 +59,7 @@ export const StudentsTab: React.FC = () => {
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showEnrollPassword, setShowEnrollPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   // Bulk Import
   const [showImportModal, setShowImportModal] = useState(false);
@@ -727,7 +728,25 @@ export const StudentsTab: React.FC = () => {
               <form onSubmit={(e) => { e.preventDefault(); resetPasswordMutation.mutate(); }} className="space-y-4">
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">New Security Password</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="••••••••" autoComplete="new-password" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                  <div className="relative">
+                    <input 
+                      type={showResetPassword ? "text" : "password"} 
+                      value={newPassword} 
+                      onChange={(e) => setNewPassword(e.target.value)} 
+                      required 
+                      placeholder="••••••••" 
+                      autoComplete="new-password" 
+                      className="w-full h-10 pl-3 pr-10 bg-muted/40 border border-border rounded-xl outline-none" 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword(!showResetPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                      title={showResetPassword ? "Hide password" : "Show password"}
+                    >
+                      {showResetPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
                 </div>
                 <button type="submit" disabled={resetPasswordMutation.isPending} className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl">Update Password</button>
               </form>
