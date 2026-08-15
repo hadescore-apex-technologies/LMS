@@ -64,20 +64,36 @@ class FileUploadView(views.APIView):
             if not uploaded_file:
                 return response.Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Check file size (limit to 50MB)
-            max_size = 50 * 1024 * 1024  # 50MB
+            # Check file size (limit to 5GB for video and asset files)
+            max_size = 5 * 1024 * 1024 * 1024  # 5GB
             if uploaded_file.size > max_size:
-                return response.Response({"error": "File too large. Maximum size is 50MB."}, status=status.HTTP_400_BAD_REQUEST)
+                return response.Response({"error": "File too large. Maximum allowed size is 5GB."}, status=status.HTTP_400_BAD_REQUEST)
             
+            ext = os.path.splitext(uploaded_file.name)[1].lower()
+            video_exts = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.wmv', '.m4v', '.3gp', '.ts']
+            image_exts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.bmp', '.ico']
+            doc_exts = ['.pdf', '.ppt', '.pptx', '.doc', '.docx', '.xls', '.xlsx', '.zip', '.rar', '.7z', '.txt']
+            
+            if ext in video_exts:
+                subfolder = 'videos'
+            elif 'cert' in str(request.data.get('type', '')).lower() or 'cert' in uploaded_file.name.lower():
+                subfolder = 'certificates'
+            elif ext in image_exts:
+                subfolder = 'images'
+            elif ext in doc_exts:
+                subfolder = 'documents'
+            else:
+                subfolder = 'uploads'
+
             # Ensure media directory exists
-            upload_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
+            upload_dir = os.path.join(settings.MEDIA_ROOT, subfolder)
             os.makedirs(upload_dir, exist_ok=True)
 
-            ext = os.path.splitext(uploaded_file.name)[1]
             filename = f"{uuid.uuid4().hex}{ext}"
+            rel_storage_path = os.path.join(subfolder, filename).replace('\\', '/')
             
             # Save file to media storage
-            local_file_path = default_storage.save(os.path.join('certificates', filename), uploaded_file)
+            local_file_path = default_storage.save(rel_storage_path, uploaded_file)
             absolute_path = os.path.join(settings.MEDIA_ROOT, local_file_path) if not os.path.isabs(local_file_path) else local_file_path
             
             # Generate public URL
@@ -103,8 +119,12 @@ class FileUploadView(views.APIView):
                 
             return response.Response({
                 "url": url,
+                "file_url": url,
                 "filename": uploaded_file.name,
-                "file_name": uploaded_file.name
+                "file_name": uploaded_file.name,
+                "size": uploaded_file.size,
+                "folder": subfolder,
+                "status": "success"
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:

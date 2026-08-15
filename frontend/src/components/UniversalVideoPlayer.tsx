@@ -52,12 +52,18 @@ function parseVideoSource(srcStr: string) {
     return { type: 'iframe', url: embedUrl };
   }
 
-  // 4. Cloudflare Stream ID (non-URL string like "d3a4b..." or "cf-stream-...")
+  // 4. Relative /media/ path -> Prepend backend server host
+  if (trimmed.startsWith('/media/')) {
+    const apiBase = getBaseURL().replace(/\/api\/?$/, '').replace(/\/+$/, '');
+    return { type: 'video', url: `${apiBase}${trimmed}` };
+  }
+
+  // 5. Cloudflare Stream ID (non-URL string like "d3a4b..." or "cf-stream-...")
   if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://') && !trimmed.startsWith('/')) {
     return { type: 'iframe', url: `https://iframe.videodelivery.net/${trimmed}?preload=true&autoplay=true` };
   }
 
-  // 5. Direct Video File URL (MP4, WebM, CDN link, etc.)
+  // 6. Direct Video File URL (MP4, WebM, CDN link, etc.)
   return { type: 'video', url: trimmed };
 }
 

@@ -194,6 +194,7 @@ SIMPLE_JWT = {
     'USER_ID_CLAIM': 'user_id',
 }
 
+# pyrefly: ignore [missing-import]
 from corsheaders.defaults import default_headers, default_methods
 
 # CORS Configuration
@@ -248,6 +249,12 @@ CLOUDFLARE_STREAM_API_TOKEN = os.environ.get('CF_STREAM_API_TOKEN', '')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Large file & video upload configurations (up to 5GB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5368709120  # 5 GB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5368709120  # 5 GB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+FILE_UPLOAD_PERMISSIONS = 0o644
 
 # ─── Email / SMTP Configuration ───────────────────────────────────────────────
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

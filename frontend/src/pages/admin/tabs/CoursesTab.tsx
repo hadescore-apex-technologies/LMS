@@ -229,8 +229,9 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
       else if (targetField === 'attachment') setAssignFileUrl(fileUrl);
 
       toast.success('Upload complete.');
-    } catch {
-      toast.error('Failed to upload file.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || 'Failed to upload file.';
+      toast.error(msg);
     } finally {
       setUploadingField(null);
     }
