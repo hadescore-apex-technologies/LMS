@@ -265,7 +265,7 @@ def get_smtp_connection_and_sender():
         sender = formataddr((display_name, email_addr))
         return connection, sender, email_addr
 
-    # Fallback to Django settings
+    # Fallback to Django settings (which come from .env)
     from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
     display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
     if not email_addr or '@' not in email_addr:
@@ -275,8 +275,29 @@ def get_smtp_connection_and_sender():
     if not email_addr:
         email_addr = 'noreply@apex-lms.com'
 
+    # Build a real connection from Django settings so email actually sends
+    host = getattr(settings, 'EMAIL_HOST', '')
+    port = int(getattr(settings, 'EMAIL_PORT', 587))
+    user = getattr(settings, 'EMAIL_HOST_USER', '')
+    password = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
+    use_tls = getattr(settings, 'EMAIL_USE_TLS', True)
+    use_ssl = getattr(settings, 'EMAIL_USE_SSL', False)
+
+    if host and user and password:
+        connection = get_connection(
+            backend='django.core.mail.backends.smtp.EmailBackend',
+            host=host,
+            port=port,
+            username=user,
+            password=password,
+            use_tls=use_tls,
+            use_ssl=use_ssl,
+        )
+    else:
+        connection = None
+
     sender = formataddr((display_name, email_addr))
-    return None, sender, email_addr
+    return connection, sender, email_addr
 
 
 def send_lms_email(
