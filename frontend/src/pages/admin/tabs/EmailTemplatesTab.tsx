@@ -351,13 +351,13 @@ export const EmailTemplatesTab: React.FC = () => {
         .replace(/\{\{\s*role\s*\}\}/g, 'Course Student');
 
   const availableTabs: { label: string; value: EmailTemplateKey }[] = liveMode ? [
-    { label: '🎥 Live Student Welcome', value: 'LIVE_STUDENT' },
-    { label: '📅 Live Mentoring Session Scheduled', value: 'LIVE_CLASS' },
-    { label: '👨‍🏫 Live Mentor / Staff Welcome', value: 'STAFF' },
+    { label: 'Live Student Welcome', value: 'LIVE_STUDENT' },
+    { label: 'Live Mentoring Session Scheduled', value: 'LIVE_CLASS' },
+    { label: 'Live Mentor / Staff Welcome', value: 'STAFF' },
   ] : [
-    { label: '🎓 Course Student Welcome', value: 'STUDENT' },
-    { label: '🏆 Certificate & Completion', value: 'COURSE_COMPLETED' },
-    { label: '💬 Doubt Clearing Session', value: 'LIVE_CLASS' },
+    { label: 'Course Student Welcome', value: 'STUDENT' },
+    { label: 'Certificate & Completion', value: 'COURSE_COMPLETED' },
+    { label: 'Doubt Clearing Session', value: 'LIVE_CLASS' },
   ];
 
   const currentVariables = activeRole === 'LIVE_CLASS'
@@ -376,7 +376,7 @@ export const EmailTemplatesTab: React.FC = () => {
             <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
               liveMode ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border border-violet-200 dark:border-violet-700/50' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-700/50'
             }`}>
-              {liveMode ? '🎥 Live Mentoring Mode' : '🎓 Course Portal Mode'}
+              {liveMode ? 'Live Mentoring Mode' : 'Course Portal Mode'}
             </span>
           </div>
           <p className="text-slate-500 dark:text-muted-foreground text-xs">
