@@ -77,3 +77,11 @@ frontend/.env
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Archives & Bundle Dumps
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
