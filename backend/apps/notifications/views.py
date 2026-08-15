@@ -8,7 +8,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')[:40]
+        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()[:40]
+        serializer = self.get_serializer(queryset, many=True)
+        return response.Response(serializer.data)
 
     def perform_create(self, serializer):
         # Allow programmatic scheduling of notification

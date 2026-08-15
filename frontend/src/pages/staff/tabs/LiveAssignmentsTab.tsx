@@ -41,6 +41,9 @@ interface Assignment {
   file_attachment?: string;
   due_date?: string;
   course?: number;
+  course_title?: string;
+  module?: number;
+  module_title?: string;
   students?: number[];
   students_details?: Array<{ id: number; email: string; name: string }>;
   created_by?: number;
@@ -81,7 +84,7 @@ export const LiveAssignmentsTab: React.FC = () => {
     queryKey: ['staff-live-submissions-list'],
     queryFn: async () => {
       const res = await api.get('assignments/submissions/');
-      return res.data;
+      return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
 
@@ -90,7 +93,7 @@ export const LiveAssignmentsTab: React.FC = () => {
     queryKey: ['staff-live-assignments'],
     queryFn: async () => {
       const res = await api.get('assignments/list/');
-      return res.data.filter((a: any) => !a.module);
+      return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
 
@@ -464,8 +467,11 @@ export const LiveAssignmentsTab: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px]">
-                    <span className="text-muted-foreground font-semibold">Pending Evaluation</span>
-                    <span className={`font-bold ${pendingSubs > 0 ? 'text-amber-500 font-mono text-xs' : 'text-muted-foreground'}`}>{pendingSubs} Tasks</span>
+                    <span className="text-muted-foreground font-semibold">Pending Evaluation: <strong className={pendingSubs > 0 ? 'text-amber-500 font-mono' : 'text-muted-foreground'}>{pendingSubs} Tasks</strong></span>
+                    <button className="px-3 py-1 bg-primary text-primary-foreground font-bold rounded-lg hover:brightness-110 transition-all text-[11px] flex items-center gap-1">
+                      <FileEdit size={12} />
+                      <span>Grade / Review</span>
+                    </button>
                   </div>
                 </div>
               );
@@ -497,6 +503,18 @@ export const LiveAssignmentsTab: React.FC = () => {
                 <div>
                   <h3 className="font-extrabold text-base leading-snug group-hover:text-primary transition-colors">{a.title}</h3>
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{a.description}</p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {a.module_title && (
+                      <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-600 border border-cyan-500/20">
+                        Module: {a.module_title}
+                      </span>
+                    )}
+                    {a.course_title && (
+                      <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                        Course: {a.course_title}
+                      </span>
+                    )}
+                  </div>
                   {a.created_by_name && (
                     <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block mt-1.5">
                       Created By / Mentor: {a.created_by_name}
@@ -520,17 +538,30 @@ export const LiveAssignmentsTab: React.FC = () => {
                 </div>
               </div>
 
-              {a.file_attachment && (
-                <a
-                  href={a.file_attachment}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 flex items-center justify-center gap-1.5 w-full py-2 bg-muted/50 border border-border text-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary rounded-xl text-[11px] font-bold transition-all relative z-10"
+              <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                {a.file_attachment && (
+                  <a
+                    href={a.file_attachment}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-muted/50 border border-border text-foreground hover:bg-muted rounded-xl text-[11px] font-bold transition-all relative z-10"
+                  >
+                    <FileText size={13} />
+                    <span>View Attachment</span>
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSubTab('submissions');
+                    setSubSearch(a.title);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-primary text-primary-foreground hover:brightness-110 rounded-xl text-[11px] font-bold transition-all relative z-10 cursor-pointer"
                 >
-                  <FileText size={13} />
-                  <span>View Attachment</span>
-                </a>
-              )}
+                  <FileEdit size={13} />
+                  <span>Grade Submissions</span>
+                </button>
+              </div>
             </div>
           ))}
           {filteredAssignments.length === 0 && (

@@ -33,9 +33,13 @@ const TopHeader: React.FC<TopHeaderProps> = ({ sidebarOpen, setSidebarOpen }) =>
 
   const handleLogout = () => {
     const role = user?.role;
+    const isLive = localStorage.getItem('studentLiveMode') === 'true' ||
+      Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+      (user as any)?.student_type === 'LIVE_CLASS';
     dispatch(logout());
     if (role === 'SUPER_ADMIN') navigate('/admin/login');
     else if (role === 'STAFF') navigate('/staff/login');
+    else if (isLive) navigate('/student/live-login');
     else navigate('/student/login');
   };
 

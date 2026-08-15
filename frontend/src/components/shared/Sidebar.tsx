@@ -28,11 +28,11 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   const handlePrefetch = (path: string) => {
     try {
-      if (path.includes('students')) {
+      if (path === '/admin/students' || path === '/staff/students') {
         queryClient.prefetchQuery({ queryKey: ['admin-students'], queryFn: async () => (await api.get('students/')).data, staleTime: 1000 * 60 * 5 });
       } else if (path.includes('courses')) {
         queryClient.prefetchQuery({ queryKey: ['courses'], queryFn: async () => (await api.get('courses/')).data, staleTime: 1000 * 60 * 5 });
-      } else if (path.includes('staff')) {
+      } else if (user?.role === 'SUPER_ADMIN' && path === '/admin/staff') {
         queryClient.prefetchQuery({ queryKey: ['staff'], queryFn: async () => (await api.get('users/staff/')).data, staleTime: 1000 * 60 * 5 });
       } else if (path.includes('categories')) {
         queryClient.prefetchQuery({ queryKey: ['categories'], queryFn: async () => (await api.get('categories/')).data, staleTime: 1000 * 60 * 5 });
@@ -95,11 +95,14 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   }, [user]);
 
   const handleLogout = () => {
-    // Capture role BEFORE dispatch clears user from state
     const role = user?.role;
+    const isLive = localStorage.getItem('studentLiveMode') === 'true' ||
+      Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+      (user as any)?.student_type === 'LIVE_CLASS';
     dispatch(logout());
     if (role === 'SUPER_ADMIN') navigate('/admin/login');
     else if (role === 'STAFF') navigate('/staff/login');
+    else if (isLive) navigate('/student/live-login');
     else navigate('/student/login');
   };
 

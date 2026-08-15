@@ -5,6 +5,19 @@ from rest_framework import serializers
 from apps.users.models import CustomUser, StudentProfile
 from apps.courses.models import Course
 
+class SafePrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+    """
+    Tolerates invalid, stale, or deleted PKs gracefully by returning None
+    instead of failing validation with a 400 error.
+    """
+    def to_internal_value(self, data):
+        if data in (None, '', 'null', 0, '0'):
+            return None
+        try:
+            return super().to_internal_value(data)
+        except Exception:
+            return None
+
 class StudentSerializer(serializers.ModelSerializer):
     # Explicitly declare email to strip DRF's auto-added UniqueValidator.
     # Our create() handles duplicates by re-activating the existing user.
@@ -26,13 +39,13 @@ class StudentSerializer(serializers.ModelSerializer):
         required=False,
         source='student_profile.courses'
     )
-    assigned_staff = serializers.PrimaryKeyRelatedField(
+    assigned_staff = SafePrimaryKeyRelatedField(
         queryset=CustomUser.objects.filter(role__in=['STAFF', 'SUPER_ADMIN']),
         required=False,
         allow_null=True,
         source='student_profile.assigned_staff'
     )
-    assigned_live_staff = serializers.PrimaryKeyRelatedField(
+    assigned_live_staff = SafePrimaryKeyRelatedField(
         queryset=CustomUser.objects.filter(role__in=['STAFF', 'SUPER_ADMIN']),
         required=False,
         allow_null=True,

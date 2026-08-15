@@ -281,6 +281,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
         STUDENT: isStudentLiveMode ? '/student/live-login' : '/student/login',
       };
       const loginPath = roleLoginPath[user.role] || '/student/login';
+      if (user.role === 'STUDENT') {
+        localStorage.setItem('studentLiveMode', isStudentLiveMode ? 'true' : 'false');
+      }
       dispatch(loginSuccess({ user, access, refresh, loginPath }));
       toast.success(`Welcome back, ${user.first_name || 'User'}!`);
       if (user.role === 'SUPER_ADMIN') navigate('/admin');

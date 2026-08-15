@@ -237,13 +237,18 @@ def get_smtp_connection_and_sender():
     smtp = _get_cached_smtp_settings()
 
     if smtp:
+        port = int(smtp.get('port', 587) or 587)
+        use_ssl = (port == 465)
+        use_tls = not use_ssl
+
         connection = get_connection(
             backend='django.core.mail.backends.smtp.EmailBackend',
             host=smtp['host'],
-            port=smtp['port'],
+            port=port,
             username=smtp['user'],
             password=smtp['password'],
-            use_tls=True,
+            use_tls=use_tls,
+            use_ssl=use_ssl,
         )
 
         from_email = smtp['from_email']
@@ -285,40 +290,33 @@ def send_lms_email(
 ):
     """
     Unified anti-spam transactional email sender.
-    Sends pure plain-text emails by default, or multipart emails if HTML is explicitly provided.
+    Sends high-deliverability dual-part (plain-text + clean HTML) emails.
+    Avoids bot headers so emails land directly in the user's primary inbox.
     """
     # pyrefly: ignore [missing-import]
-    from django.core.mail import EmailMessage, EmailMultiAlternatives
+    from django.core.mail import EmailMultiAlternatives
 
     connection, sender_formatted, sender_addr = get_smtp_connection_and_sender()
 
     reply_to_addr = reply_to or sender_formatted
 
+    # Clean, legitimate transactional headers only
     headers = {
         'Reply-To': reply_to_addr,
-        'Auto-Submitted': 'auto-generated',
-        'X-Auto-Response-Suppress': 'OOF, AutoReply',
     }
 
-    if html_body:
-        email_message = EmailMultiAlternatives(
-            subject=subject,
-            body=text_body,
-            from_email=sender_formatted,
-            to=[to_email],
-            connection=connection,
-            headers=headers,
-        )
-        email_message.attach_alternative(html_body, "text/html")
-    else:
-        email_message = EmailMessage(
-            subject=subject,
-            body=text_body,
-            from_email=sender_formatted,
-            to=[to_email],
-            connection=connection,
-            headers=headers,
-        )
+    if not html_body:
+        html_body = convert_text_to_html(text_body, subject=subject)
+
+    email_message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_body,
+        from_email=sender_formatted,
+        to=[to_email],
+        connection=connection,
+        headers=headers,
+    )
+    email_message.attach_alternative(html_body, "text/html")
 
     email_message.send(fail_silently=False)
     logger.info(f"[Email] Successfully sent email to {to_email}")

@@ -22,13 +22,19 @@ interface GuardProps {
 }
 
 const ProtectedRoute: React.FC<GuardProps> = ({ children, allowedRoles }) => {
-  const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, user, loginPath } = useSelector((state: RootState) => state.auth);
 
   if (!isAuthenticated || !user) {
+    const savedLoginPath = loginPath || localStorage.getItem('loginPath');
+    const isLiveStudent = localStorage.getItem('studentLiveMode') === 'true' ||
+      Boolean(savedLoginPath?.includes('live'));
+
     if (allowedRoles.includes('SUPER_ADMIN')) {
       return <Navigate to="/admin/login" replace />;
     } else if (allowedRoles.includes('STAFF')) {
       return <Navigate to="/staff/login" replace />;
+    } else if (isLiveStudent || savedLoginPath === '/student/live-login') {
+      return <Navigate to="/student/live-login" replace />;
     } else {
       return <Navigate to="/student/login" replace />;
     }

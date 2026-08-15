@@ -230,3 +230,32 @@ class FileDownloadProxyView(views.APIView):
         except Exception as err:
             logger.exception(f"[DownloadProxy] Failed to fetch remote file: {err}")
             return HttpResponse(f"Download failed: {err}", status=500)
+
+
+class TestSMTPView(views.APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request):
+        to_email = request.data.get('email', '').strip() or request.user.email
+        if not to_email:
+            return response.Response({"error": "Target email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Invalidate SMTP cache to use latest settings
+        from apps.core.emails import _smtp_cache, send_lms_email
+        _smtp_cache['expires_at'] = 0
+
+        try:
+            subject = "Apex LMS - SMTP Test Verification"
+            body = f"Hello {request.user.first_name or 'Admin'},\n\nThis is a test email sent from Apex LMS to verify that your Outgoing SMTP configuration is operating successfully!\n\nTimestamp: {timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n\nBest regards,\nApex LMS"
+            send_lms_email(to_email=to_email, subject=subject, text_body=body)
+            return response.Response({
+                "status": "success",
+                "message": f"Test email sent successfully to {to_email}!"
+            }, status=status.HTTP_200_OK)
+        except Exception as exc:
+            logger.exception(f"[SMTP Test] Failed to send test email: {exc}")
+            return response.Response({
+                "status": "error",
+                "error": str(exc)
+            }, status=status.HTTP_400_BAD_REQUEST)
+

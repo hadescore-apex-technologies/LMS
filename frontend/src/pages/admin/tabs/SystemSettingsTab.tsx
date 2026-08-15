@@ -79,6 +79,39 @@ export const SystemSettingsTab: React.FC = () => {
     }
   });
 
+  // Test SMTP Mutation
+  const [testEmail, setTestEmail] = useState('');
+  const testSmtpMutation = useMutation({
+    mutationFn: async (targetEmail: string) => {
+      // First save current settings so backend tests against newest inputs
+      const currentRes = await api.get('core/settings/');
+      const current = currentRes.data || [];
+      const saveKey = async (key: string, val: string) => {
+        const existing = current.find((s: any) => s.key === key);
+        if (existing) {
+          await api.put(`core/settings/${existing.id}/`, { key, value: val });
+        } else {
+          await api.post('core/settings/', { key, value: val });
+        }
+      };
+      await Promise.all([
+        saveKey('smtp_host', smtpHost),
+        saveKey('smtp_port', smtpPort),
+        saveKey('smtp_user', smtpUser),
+        saveKey('smtp_password', smtpPassword),
+        saveKey('smtp_from_email', smtpFromEmail)
+      ]);
+      const res = await api.post('core/test-smtp/', { email: targetEmail });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'Test email sent successfully! SMTP connection verified.');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || 'SMTP Connection failed. Please check credentials.');
+    }
+  });
+
   return (
     <div className="space-y-6 text-xs max-w-2xl animate-fade-in">
       <div>
@@ -188,6 +221,29 @@ export const SystemSettingsTab: React.FC = () => {
               <span className="text-[10px] text-muted-foreground mt-1 block">
                 * Gmail uses App Passwords (2-Step Verification required). Custom SMTP supports Hostinger, Zoho, SendGrid, Outlook, etc.
               </span>
+            </div>
+
+            {/* Test Email Section */}
+            <div className="pt-3 border-t border-border/50 flex flex-col sm:flex-row gap-2 items-end">
+              <div className="flex-1 w-full">
+                <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Send Test Verification Email</label>
+                <input 
+                  type="email" 
+                  value={testEmail} 
+                  onChange={(e) => setTestEmail(e.target.value)} 
+                  placeholder="Enter recipient email (or leave empty to send to yourself)" 
+                  className="w-full h-9 px-3 bg-muted/40 border border-border rounded-xl outline-none font-mono text-xs" 
+                />
+              </div>
+              <button 
+                type="button" 
+                disabled={testSmtpMutation.isPending} 
+                onClick={() => testSmtpMutation.mutate(testEmail)}
+                className="w-full sm:w-auto px-4 h-9 bg-secondary text-secondary-foreground font-bold rounded-xl border border-border hover:bg-muted flex items-center justify-center gap-1.5 transition-all text-xs shrink-0"
+              >
+                <ShieldCheck size={13} className="text-emerald-500" />
+                <span>{testSmtpMutation.isPending ? 'Testing...' : 'Test SMTP & Send Email'}</span>
+              </button>
             </div>
           </div>
         </div>

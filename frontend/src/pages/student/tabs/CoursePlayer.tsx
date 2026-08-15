@@ -286,7 +286,9 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     modules.forEach((mod) => {
       lessons.filter(l => l.module === mod.id).forEach(l => courseItems.push({ type: 'lesson', id: l.id, item: l, title: l.title }));
       courseQuizzes.filter(q => q.module === mod.id).forEach(q => courseItems.push({ type: 'quiz', id: q.id, item: q, title: q.title }));
-      assignments.filter(a => a.module === mod.id).forEach(a => courseItems.push({ type: 'assignment', id: a.id, item: a, title: a.title }));
+      if (!isLiveStudent) {
+        assignments.filter(a => a.module === mod.id).forEach(a => courseItems.push({ type: 'assignment', id: a.id, item: a, title: a.title }));
+      }
     });
 
     let currentIdx = -1;
@@ -1116,10 +1118,10 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                             );
                           })}
 
-                          {/* Assignments list inside modules */}
-                          {modAssignments.map(assign => {
+                          {/* Assignments list inside modules (Course Students only, hidden for Live Students) */}
+                          {!isLiveStudent && modAssignments.map(assign => {
                             const hasSub = submissions.some(s => s.assignment === assign.id);
-                            const assignLocked = isLiveStudent ? false : isLocked;
+                            const assignLocked = isLocked;
                             return (
                               <button
                                 key={assign.id}

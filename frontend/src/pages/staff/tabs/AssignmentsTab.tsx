@@ -566,7 +566,18 @@ export const AssignmentsTab: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <div className="inline-flex gap-1.5">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setActiveSubTab('submissions');
+                              setSubSearch(assign.title);
+                            }}
+                            className="px-2.5 py-1 bg-primary text-primary-foreground hover:brightness-110 font-bold rounded-lg transition-all text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            title="View & Grade Student Submissions"
+                          >
+                            <FileText size={12} />
+                            <span>Grade Submissions</span>
+                          </button>
                           <button
                             onClick={() => handleOpenEditAssign(assign)}
                             className="p-1.5 hover:bg-blue-500/10 hover:text-blue-500 rounded-lg text-muted-foreground"

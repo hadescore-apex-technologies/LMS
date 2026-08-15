@@ -36,12 +36,19 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
     }
   };
 
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate('/student/login');
-  };
+  const isStudentLive = localStorage.getItem('studentLiveMode') === 'true' ||
+    Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+    (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS');
 
-  const isStudentLive = localStorage.getItem('studentLiveMode') === 'true';
+  const handleLogout = () => {
+    const isLive = isStudentLive;
+    dispatch(logout());
+    if (isLive) {
+      navigate('/student/live-login');
+    } else {
+      navigate('/student/login');
+    }
+  };
 
   const navItems = isStudentLive
     ? [

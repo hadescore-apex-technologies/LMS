@@ -74,6 +74,8 @@ class StaffViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
+        from django.core.cache import cache
+        cache.delete('mentors_list_data')
         user = serializer.save()
         # Send welcome email with login credentials
         from apps.core.emails import send_welcome_email
@@ -98,6 +100,8 @@ class StaffViewSet(viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
+        from django.core.cache import cache
+        cache.delete('mentors_list_data')
         user = serializer.save()
         AuditLog.objects.create(
             user=self.request.user,
@@ -127,6 +131,8 @@ class StaffViewSet(viewsets.ModelViewSet):
         if instance.email == self.ROOT_EMAIL:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("The root administrator account cannot be deleted.")
+        from django.core.cache import cache
+        cache.delete('mentors_list_data')
         email = instance.email
         instance.delete()
         AuditLog.objects.create(
