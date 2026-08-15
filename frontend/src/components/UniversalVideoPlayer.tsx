@@ -22,20 +22,16 @@ interface UniversalVideoPlayerProps {
 }
 
 function parseVideoSource(srcStr: string) {
-  if (!srcStr || typeof srcStr !== 'string') return { type: 'empty', url: '', fallbackEmbed: '' };
+  if (!srcStr || typeof srcStr !== 'string') return { type: 'empty', url: '' };
 
   const trimmed = srcStr.trim();
 
-  // 1. Google Drive -> Stream directly into HTML5 Cyber Player
+  // 1. Google Drive -> Stream securely via Preview embed with top crop & popout protection
   const driveMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (trimmed.includes('drive.google.com') || driveMatch) {
     const fileId = driveMatch ? driveMatch[1] : '';
-    // Direct stream URLs for custom HTML5 cyber video player
-    const streamUrl = fileId 
-      ? `https://drive.usercontent.google.com/download?id=${fileId}&export=view&authuser=0` 
-      : trimmed;
     const embedUrl = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : trimmed;
-    return { type: 'video', url: streamUrl, fallbackEmbed: embedUrl };
+    return { type: 'gdrive', url: embedUrl };
   }
 
   // 2. YouTube
@@ -43,7 +39,7 @@ function parseVideoSource(srcStr: string) {
   if (trimmed.includes('youtube.com') || trimmed.includes('youtu.be') || ytMatch) {
     const ytId = ytMatch ? ytMatch[1] : '';
     const embedUrl = ytId ? `https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1` : trimmed;
-    return { type: 'iframe', url: embedUrl, fallbackEmbed: '' };
+    return { type: 'iframe', url: embedUrl };
   }
 
   // 3. Vimeo
@@ -51,16 +47,16 @@ function parseVideoSource(srcStr: string) {
   if (trimmed.includes('vimeo.com') || vimeoMatch) {
     const vimeoId = vimeoMatch ? vimeoMatch[1] : '';
     const embedUrl = vimeoId ? `https://player.vimeo.com/video/${vimeoId}?autoplay=1&title=0&byline=0` : trimmed;
-    return { type: 'iframe', url: embedUrl, fallbackEmbed: '' };
+    return { type: 'iframe', url: embedUrl };
   }
 
   // 4. Cloudflare Stream ID (non-URL string like "d3a4b..." or "cf-stream-...")
   if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://') && !trimmed.startsWith('/')) {
-    return { type: 'iframe', url: `https://iframe.videodelivery.net/${trimmed}?preload=true&autoplay=true`, fallbackEmbed: '' };
+    return { type: 'iframe', url: `https://iframe.videodelivery.net/${trimmed}?preload=true&autoplay=true` };
   }
 
   // 5. Direct Video File URL (MP4, WebM, CDN link, etc.)
-  return { type: 'video', url: trimmed, fallbackEmbed: '' };
+  return { type: 'video', url: trimmed };
 }
 
 function formatTime(seconds: number): string {
@@ -101,7 +97,6 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
 
   // Player States
   const [isPlaying, setIsPlaying] = useState(false);
-  const [useFallbackEmbed, setUseFallbackEmbed] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [buffered, setBuffered] = useState(0);
@@ -394,22 +389,21 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
     );
   }
 
-  // Fallback Embed or external iframes (YouTube, Vimeo, Cloudflare stream embed)
-  if ((parsed.type === 'iframe' || useFallbackEmbed) && (useFallbackEmbed ? parsed.fallbackEmbed : parsed.url)) {
-    const embedSrc = useFallbackEmbed ? parsed.fallbackEmbed : parsed.url;
+  // Google Drive & External Iframes (YouTube, Vimeo, Cloudflare stream embed)
+  if (parsed.type === 'gdrive' || parsed.type === 'iframe') {
     return (
       <div 
         ref={containerRef}
         className="relative w-full h-full bg-black overflow-hidden rounded-2xl border border-cyan-500/30 shadow-2xl group select-none"
       >
-        {/* Iframe with top and bottom cropping to eliminate external/Drive chrome */}
-        <div className="absolute inset-0 overflow-hidden bg-black">
+        {/* Stream Iframe with top cropping to remove drive/external headers & popout buttons */}
+        <div className="absolute inset-0 overflow-hidden bg-black flex items-center justify-center">
           <iframe
-            src={embedSrc}
+            src={parsed.url}
             className="w-full border-0 absolute left-0"
             style={{
-              top: '-64px',
-              height: 'calc(100% + 128px)'
+              top: parsed.type === 'gdrive' ? '-56px' : '0px',
+              height: parsed.type === 'gdrive' ? 'calc(100% + 56px)' : '100%'
             }}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
             allowFullScreen
@@ -435,15 +429,11 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
           </div>
         )}
 
-        {/* Bottom Cyber Controls Bar */}
-        <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent z-30 flex items-center justify-between pointer-events-auto">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-[11px] font-mono font-bold text-cyan-300">Apex Player</span>
-          </div>
+        {/* Cyber Custom Fullscreen Button */}
+        <div className="absolute bottom-3 right-3 z-30 opacity-80 group-hover:opacity-100 transition-opacity">
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-xl bg-black/60 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 backdrop-blur-md transition-all shadow-lg hover:scale-105"
+            className="p-2 rounded-xl bg-black/70 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 backdrop-blur-md transition-all shadow-lg hover:scale-105 cursor-pointer"
             title="Toggle Fullscreen"
           >
             <Maximize size={16} />
@@ -479,11 +469,6 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
         onDoubleClick={toggleFullscreen}
         onTimeUpdate={handleTimeUpdateInternal}
         onLoadedMetadata={handleLoadedMetadataInternal}
-        onError={() => {
-          if (parsed.fallbackEmbed && !useFallbackEmbed) {
-            setUseFallbackEmbed(true);
-          }
-        }}
         onEnded={() => {
           setIsPlaying(false);
           maxWatchedRef.current = duration;
