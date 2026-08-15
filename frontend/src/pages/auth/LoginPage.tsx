@@ -206,38 +206,40 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
       portalLabel: "LIVE STUDENT",
       portalFull: "Live Class Access",
       icon: Zap,
-      bgGradient: "from-indigo-50 via-blue-100/70 to-indigo-50",
-      gradient: "from-indigo-600 via-blue-600 to-indigo-600",
-      btnGradient: "from-indigo-600 via-blue-600 to-indigo-600",
-      hoverShadow: "hover:shadow-[0_10px_35px_rgba(79,70,229,0.35)]",
-      accentColor: "text-indigo-600",
-      badgeBg: "bg-indigo-100 border-indigo-200 text-indigo-700 font-bold",
-      inputFocus: "focus:border-indigo-500 focus:ring-indigo-500/15",
-      aurora1: "rgba(79, 70, 229, 0.22)",
-      aurora2: "rgba(59, 130, 246, 0.18)",
-      aurora3: "rgba(99, 102, 241, 0.20)",
-      ringColor: "rgba(79,70,229,1)",
-      glowColor: "rgba(79,70,229,0.25)",
-      orb1: "bg-indigo-300/50",
-      orb2: "bg-blue-300/40"
+      isDark: true,
+      bgGradient: "from-[#050a0e] via-[#081318] to-[#04080b]",
+      gradient: "from-emerald-400 via-teal-300 to-emerald-400",
+      btnGradient: "from-emerald-500 via-teal-500 to-emerald-600",
+      hoverShadow: "hover:shadow-[0_10px_35px_rgba(16,185,129,0.45)]",
+      accentColor: "text-emerald-400",
+      badgeBg: "bg-emerald-500/15 border-emerald-500/35 text-emerald-300 font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.2)]",
+      inputFocus: "focus:border-emerald-400 focus:ring-emerald-500/20",
+      aurora1: "rgba(16, 185, 129, 0.40)",
+      aurora2: "rgba(45, 212, 191, 0.30)",
+      aurora3: "rgba(5, 150, 105, 0.25)",
+      ringColor: "rgba(16,185,129,1)",
+      glowColor: "rgba(16,185,129,0.45)",
+      orb1: "bg-emerald-500/30",
+      orb2: "bg-teal-500/20"
     } : {
       portalLabel: "COURSE STUDENT",
       portalFull: "Course Access",
       icon: GraduationCap,
-      bgGradient: "from-sky-50 via-blue-100/70 to-cyan-50",
-      gradient: "from-cyan-600 via-sky-600 to-blue-600",
-      btnGradient: "from-cyan-600 via-sky-600 to-blue-600",
-      hoverShadow: "hover:shadow-[0_10px_35px_rgba(6,182,212,0.35)]",
-      accentColor: "text-sky-600",
-      badgeBg: "bg-sky-100 border-sky-200 text-sky-700 font-bold",
-      inputFocus: "focus:border-sky-500 focus:ring-sky-500/15",
-      aurora1: "rgba(6, 182, 212, 0.22)",
-      aurora2: "rgba(56, 189, 248, 0.18)",
-      aurora3: "rgba(59, 130, 246, 0.20)",
-      ringColor: "rgba(6,182,212,1)",
-      glowColor: "rgba(6,182,212,0.25)",
-      orb1: "bg-sky-300/50",
-      orb2: "bg-cyan-300/40"
+      isDark: true,
+      bgGradient: "from-[#050a0e] via-[#081318] to-[#04080b]",
+      gradient: "from-emerald-400 via-teal-300 to-emerald-400",
+      btnGradient: "from-emerald-500 via-teal-500 to-emerald-600",
+      hoverShadow: "hover:shadow-[0_10px_35px_rgba(16,185,129,0.45)]",
+      accentColor: "text-emerald-400",
+      badgeBg: "bg-emerald-500/15 border-emerald-500/35 text-emerald-300 font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.2)]",
+      inputFocus: "focus:border-emerald-400 focus:ring-emerald-500/20",
+      aurora1: "rgba(16, 185, 129, 0.40)",
+      aurora2: "rgba(45, 212, 191, 0.30)",
+      aurora3: "rgba(5, 150, 105, 0.25)",
+      ringColor: "rgba(16,185,129,1)",
+      glowColor: "rgba(16,185,129,0.45)",
+      orb1: "bg-emerald-500/30",
+      orb2: "bg-teal-500/20"
     }
   }[currentRole];
 
@@ -323,8 +325,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
   }, [otp, newPassword, confirmPassword, resetEmail]);
 
   // ── Styles ──────────────────────────────────────────────────────────────
-  const inputCls = `w-full h-[50px] pl-12 pr-4 bg-slate-100/80 border border-slate-200/90 rounded-2xl outline-none text-[13px] text-slate-800 font-semibold placeholder:text-slate-400 transition-all duration-300 focus:ring-4 focus:bg-white backdrop-blur-sm ${roleConfig.inputFocus}`;
-  const inputClsR = `w-full h-[50px] pl-12 pr-12 bg-slate-100/80 border border-slate-200/90 rounded-2xl outline-none text-[13px] text-slate-800 font-semibold placeholder:text-slate-400 transition-all duration-300 focus:ring-4 focus:bg-white backdrop-blur-sm ${roleConfig.inputFocus}`;
+  const isDark = Boolean((roleConfig as any).isDark);
+  const inputCls = isDark
+    ? `w-full h-[50px] pl-12 pr-4 bg-slate-900/90 border border-emerald-500/30 rounded-2xl outline-none text-[13px] text-white font-semibold placeholder:text-slate-500 transition-all duration-300 focus:ring-4 focus:bg-slate-950/95 backdrop-blur-md ${roleConfig.inputFocus}`
+    : `w-full h-[50px] pl-12 pr-4 bg-slate-100/80 border border-slate-200/90 rounded-2xl outline-none text-[13px] text-slate-800 font-semibold placeholder:text-slate-400 transition-all duration-300 focus:ring-4 focus:bg-white backdrop-blur-sm ${roleConfig.inputFocus}`;
+
+  const inputClsR = isDark
+    ? `w-full h-[50px] pl-12 pr-12 bg-slate-900/90 border border-emerald-500/30 rounded-2xl outline-none text-[13px] text-white font-semibold placeholder:text-slate-500 transition-all duration-300 focus:ring-4 focus:bg-slate-950/95 backdrop-blur-md ${roleConfig.inputFocus}`
+    : `w-full h-[50px] pl-12 pr-12 bg-slate-100/80 border border-slate-200/90 rounded-2xl outline-none text-[13px] text-slate-800 font-semibold placeholder:text-slate-400 transition-all duration-300 focus:ring-4 focus:bg-white backdrop-blur-sm ${roleConfig.inputFocus}`;
 
   return (
     <div
@@ -353,11 +361,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
 
         {/* Radial vignette from center */}
         <div className="absolute inset-0" style={{
-          background: 'radial-gradient(ellipse at center, transparent 40%, rgba(255,255,255,0.4) 85%)'
+          background: isDark 
+            ? 'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.85) 90%)' 
+            : 'radial-gradient(ellipse at center, transparent 40%, rgba(255,255,255,0.4) 85%)'
         }} />
 
         {/* Subtle dot pattern grid */}
-        <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:24px_24px] opacity-20" />
+        <div className={`absolute inset-0 [background-size:24px_24px] ${
+          isDark 
+            ? 'bg-[radial-gradient(#10b981_1.2px,transparent_1.2px)] opacity-20' 
+            : 'bg-[radial-gradient(#94a3b8_1px,transparent_1px)] opacity-20'
+        }`} />
       </div>
 
 
@@ -377,7 +391,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
             animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.7, 0.4] }}
             transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
           />
-          <div className="relative p-3 bg-white/90 border border-white rounded-2xl backdrop-blur-2xl shadow-xl shadow-slate-200/50">
+          <div className={`relative p-3 rounded-2xl backdrop-blur-2xl transition-all duration-500 ${
+            isDark 
+              ? 'bg-slate-950/90 border border-emerald-500/40 shadow-2xl shadow-black/80' 
+              : 'bg-white/90 border border-white shadow-xl shadow-slate-200/50'
+          }`}>
             <img
               src="/logo.png?v=2"
               alt="Apex LMS"
@@ -386,10 +404,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
           </div>
         </div>
         <div className="text-center">
-          <h1 className="text-sm font-black tracking-[0.25em] uppercase text-slate-800 leading-none">
+          <h1 className={`text-sm font-black tracking-[0.25em] uppercase leading-none ${isDark ? 'text-white' : 'text-slate-800'}`}>
             HADESCORE APEX
           </h1>
-          <p className="text-[11px] font-bold tracking-[0.35em] uppercase text-slate-500 mt-1">
+          <p className={`text-[11px] font-bold tracking-[0.35em] uppercase mt-1 ${isDark ? 'text-emerald-400' : 'text-slate-500'}`}>
             & TECHNOLOGIES
           </p>
         </div>
@@ -415,7 +433,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
           style={{ background: `radial-gradient(ellipse, ${roleConfig.glowColor}, transparent 70%)` }}
         />
 
-        <div className="relative bg-white/90 border border-white/80 rounded-[1.75rem] overflow-hidden backdrop-blur-2xl shadow-[0_25px_70px_rgba(15,23,42,0.12)]">
+        <div className={`relative rounded-[1.75rem] overflow-hidden backdrop-blur-2xl transition-all duration-500 ${
+          isDark 
+            ? 'bg-slate-950/85 border border-emerald-500/40 shadow-[0_25px_80px_rgba(0,0,0,0.95),0_0_35px_rgba(16,185,129,0.2)]' 
+            : 'bg-white/90 border border-white/80 shadow-[0_25px_70px_rgba(15,23,42,0.12)]'
+        }`}>
 
           {/* Top gradient bar */}
           <div className={`h-1.5 bg-gradient-to-r ${roleConfig.gradient}`} />
@@ -439,7 +461,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
 
 
 
-                <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                <h2 className={`text-2xl font-extrabold tracking-tight leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   {view === 'LOGIN' ? (
                     <>Sign in to <br /><span className={`bg-gradient-to-r ${roleConfig.gradient} bg-clip-text text-transparent`}>{roleConfig.portalFull}</span></>
                   ) : view === 'FORGOT_PASSWORD' ? (
@@ -448,7 +470,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                     'Create New Password'
                   )}
                 </h2>
-                <p className="text-[12px] text-slate-500 mt-2 font-medium leading-relaxed">
+                <p className={`text-[12px] mt-2 font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   {view === 'LOGIN'
                     ? 'Enter your credentials to continue.'
                     : view === 'FORGOT_PASSWORD'
@@ -473,7 +495,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                 >
                   {/* Email */}
                   <div className="space-y-2">
-                    <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 pl-1">Email</label>
+                    <label className={`block text-[10px] font-bold uppercase tracking-[0.15em] pl-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Email</label>
                     <div className="relative">
                       <div className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-300 ${focusedField === 'email' ? roleConfig.accentColor : 'text-slate-400'}`}>
                         <Mail size={16} />
@@ -499,7 +521,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                   {/* Password */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center px-1">
-                      <label className="block text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Password</label>
+                      <label className={`block text-[10px] font-bold uppercase tracking-[0.15em] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Password</label>
                       {currentRole === 'SUPER_ADMIN' && (
                         <button type="button" onClick={() => { setView('FORGOT_PASSWORD'); setResetEmail(''); }}
                           className={`text-[10px] font-bold ${roleConfig.accentColor} hover:underline transition-opacity`}>
@@ -522,7 +544,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                         className={`${inputClsR} ${errors.password ? 'border-red-500/60' : ''}`}
                       />
                       <button type="button" onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors">
+                        className={`absolute right-4 top-1/2 -translate-y-1/2 transition-colors ${isDark ? 'text-slate-400 hover:text-emerald-400' : 'text-slate-400 hover:text-slate-700'}`}>
                         {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                       </button>
                     </div>

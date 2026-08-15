@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import type { RootState } from '../../store';
-import { Search, Wifi, Clock, Sun, Bell, Menu } from 'lucide-react';
+import { Search, Wifi, Clock, Sun, Bell, Menu, BookOpen } from 'lucide-react';
 import NotificationCenter from './NotificationCenter';
 import { getInitials } from '../../utils/stringUtils';
 
@@ -14,6 +14,11 @@ export const StudentCyberHeader: React.FC<StudentCyberHeaderProps> = ({ onToggle
   const { user } = useSelector((state: RootState) => state.auth);
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState<string>('');
+
+  const isStudentLive = (user as any)?.student_type === 'LIVE_CLASS' ||
+    localStorage.getItem('studentLiveMode') === 'true' ||
+    Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+    (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS');
 
   useEffect(() => {
     const updateTime = () => {
@@ -33,17 +38,17 @@ export const StudentCyberHeader: React.FC<StudentCyberHeaderProps> = ({ onToggle
       <div className="flex items-center gap-2 flex-1 max-w-xl">
         <button
           onClick={onToggleSidebar}
-          className="lg:hidden p-2 rounded-2xl cyber-glass-pill text-cyan-400 hover:text-white"
+          className="lg:hidden p-2 rounded-2xl cyber-glass-pill text-emerald-400 hover:text-white"
         >
           <Menu size={18} />
         </button>
 
         <div className="relative w-full">
-          <Search className="absolute left-3.5 top-2.5 text-cyan-400/70" size={15} />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400" size={16} />
           <input
             type="text"
             placeholder="Search courses, topics, or skills..."
-            className="w-full h-10 pl-10 pr-4 bg-slate-950/80 border border-cyan-500/35 rounded-2xl outline-none focus:border-cyan-400 focus:shadow-[0_0_18px_rgba(6,182,212,0.35)] text-xs text-white placeholder:text-slate-400/70 transition-all backdrop-blur-2xl shadow-[0_4px_20px_rgba(0,0,0,0.6)]"
+            className="w-full h-10 pl-10 pr-4 bg-slate-950/90 border border-emerald-500/40 rounded-2xl outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 text-xs text-white placeholder:text-slate-400 font-medium transition-all backdrop-blur-2xl shadow-inner"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 navigate('/student/courses');
@@ -53,22 +58,35 @@ export const StudentCyberHeader: React.FC<StudentCyberHeaderProps> = ({ onToggle
         </div>
       </div>
 
-      {/* Right side status indicators (Wi-Fi, Time, Weather, Bell, Avatar) */}
+      {/* Right side status indicators (Mode, Time, Weather, Bell, Avatar) */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Wi-Fi Status */}
-        <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-cyan-500/30 text-cyan-400 text-[11px] font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)]">
-          <Wifi size={13} className="text-cyan-400 animate-pulse" />
-          <span className="text-[10px] text-slate-300">Live</span>
+        {/* Mode Indicator: Course Mode vs Live Mode */}
+        <div className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold shadow-sm ${
+          isStudentLive 
+            ? 'bg-slate-950/80 border-emerald-500/30 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+            : 'bg-slate-950/80 border-teal-500/30 text-teal-400 shadow-[0_0_10px_rgba(20,184,166,0.2)]'
+        }`}>
+          {isStudentLive ? (
+            <>
+              <Wifi size={13} className="text-emerald-400 animate-pulse" />
+              <span className="text-[10px] text-emerald-300 font-extrabold tracking-wide">Live Mode</span>
+            </>
+          ) : (
+            <>
+              <BookOpen size={13} className="text-teal-400" />
+              <span className="text-[10px] text-teal-300 font-extrabold tracking-wide">Course Mode</span>
+            </>
+          )}
         </div>
 
         {/* Live Clock */}
-        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-cyan-500/30 text-slate-200 text-xs font-mono font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)]">
-          <Clock size={13} className="text-cyan-400" />
+        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 text-slate-200 text-xs font-mono font-bold shadow-[0_0_10px_rgba(16,185,129,0.15)]">
+          <Clock size={13} className="text-emerald-400" />
           <span>{currentTime || '9:41 AM'}</span>
         </div>
 
         {/* Weather Indicator */}
-        <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-cyan-500/30 text-slate-200 text-xs font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)]">
+        <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 text-slate-200 text-xs font-bold shadow-[0_0_10px_rgba(16,185,129,0.15)]">
           <Sun size={13} className="text-amber-400" />
           <span>22°C</span>
         </div>
@@ -82,8 +100,8 @@ export const StudentCyberHeader: React.FC<StudentCyberHeaderProps> = ({ onToggle
           className="relative cursor-pointer group"
           title="My Profile"
         >
-          <div className="h-9 w-9 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 shadow-[0_0_12px_rgba(6,182,212,0.4)] group-hover:scale-105 transition-transform">
-            <div className="h-full w-full rounded-[14px] bg-slate-950 flex items-center justify-center text-cyan-300 font-extrabold text-xs">
+          <div className="h-9 w-9 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 p-0.5 shadow-[0_0_12px_rgba(16,185,129,0.4)] group-hover:scale-105 transition-transform">
+            <div className="h-full w-full rounded-[14px] bg-slate-950 flex items-center justify-center text-emerald-300 font-extrabold text-xs">
               {getInitials(user?.name || user?.first_name, 'ST')}
             </div>
           </div>

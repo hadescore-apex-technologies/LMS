@@ -97,11 +97,11 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
 
             {/* Glowing Hologram Emblem */}
             <div className="relative flex items-center justify-center h-20 w-20 mb-2">
-              <div className="absolute inset-0 rounded-full bg-cyan-500/20 blur-xl animate-pulse" />
+              <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl animate-pulse" />
               <img 
                 src="/logo.png" 
                 alt="Hadescore Apex Logo" 
-                className="h-16 w-16 object-contain drop-shadow-[0_0_15px_rgba(6,182,212,0.85)] relative z-10 hover:scale-105 transition-transform"
+                className="h-16 w-16 object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.85)] relative z-10 hover:scale-105 transition-transform"
               />
             </div>
 
@@ -110,12 +110,12 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
               <h2 className="font-display font-black text-sm tracking-wider uppercase text-white leading-tight">
                 HADESCORE
               </h2>
-              <div className="flex items-center justify-center gap-1.5 text-cyan-400 font-black text-[11px] tracking-widest uppercase">
-                <span className="w-3 h-px bg-cyan-400/60" />
+              <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-black text-[11px] tracking-widest uppercase">
+                <span className="w-3 h-px bg-emerald-400/60" />
                 <span>APEX</span>
-                <span className="w-3 h-px bg-cyan-400/60" />
+                <span className="w-3 h-px bg-emerald-400/60" />
               </div>
-              <span className="text-[8px] text-cyan-400/90 font-extrabold uppercase tracking-[0.2em] block pt-0.5">
+              <span className="text-[8px] text-emerald-400/90 font-extrabold uppercase tracking-[0.2em] block pt-0.5">
                 &amp; TECHNOLOGIES
               </span>
             </div>
@@ -135,8 +135,8 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all duration-200 group ${
                       isActive
-                        ? 'cyber-active-nav font-extrabold text-cyan-300'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-900/60 hover:border hover:border-cyan-500/30'
+                        ? 'cyber-active-nav font-extrabold text-emerald-300'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-900/60 hover:border hover:border-emerald-500/30'
                     }`
                   }
                 >
@@ -145,12 +145,12 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
                       <Icon 
                         size={17} 
                         className={`transition-transform duration-200 group-hover:scale-110 ${
-                          isActive ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]' : 'text-slate-400'
+                          isActive ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'text-slate-400'
                         }`} 
                       />
                       <span className="flex-1 tracking-wide">{item.label}</span>
                       {isActive && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#38bdf8]" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
                       )}
                     </>
                   )}
@@ -161,7 +161,7 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
         </div>
 
         {/* Logout Button */}
-        <div className="mt-auto pt-4 border-t border-cyan-500/20">
+        <div className="mt-auto pt-4 border-t border-emerald-500/20">
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold w-full text-slate-300 hover:text-white hover:bg-red-500/20 hover:border hover:border-red-500/40 transition-all duration-200 group"
