@@ -33,7 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       } else if (path.includes('courses')) {
         queryClient.prefetchQuery({ queryKey: ['courses'], queryFn: async () => (await api.get('courses/')).data, staleTime: 1000 * 60 * 5 });
       } else if (path.includes('staff')) {
-        queryClient.prefetchQuery({ queryKey: ['staff'], queryFn: async () => (await api.get('staff/')).data, staleTime: 1000 * 60 * 5 });
+        queryClient.prefetchQuery({ queryKey: ['staff'], queryFn: async () => (await api.get('users/staff/')).data, staleTime: 1000 * 60 * 5 });
       } else if (path.includes('categories')) {
         queryClient.prefetchQuery({ queryKey: ['categories'], queryFn: async () => (await api.get('categories/')).data, staleTime: 1000 * 60 * 5 });
       } else if (path.includes('assignments')) {

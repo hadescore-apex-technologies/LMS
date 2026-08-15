@@ -13,6 +13,7 @@ urlpatterns = [
     # API endpoints
     path('api/auth/', include('apps.authentication.urls')),
     path('api/users/', include('apps.users.urls')),
+    path('api/staff/', include('apps.users.urls')),
     path('api/students/', include('apps.students.urls')),
     path('api/categories/', include('apps.categories.urls')),
     path('api/courses/', include('apps.courses.urls')),
