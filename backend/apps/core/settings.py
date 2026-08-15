@@ -201,24 +201,46 @@ SIMPLE_JWT = {
 # pyrefly: ignore [missing-import]
 from corsheaders.defaults import default_headers, default_methods
 
-# ── CORS Configuration ─────────────────────────────────────
-# Explicitly whitelist known origins — wildcard removed for security
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    # Production
+# ── CORS & CSRF Configuration ──────────────────────────────
+# Allow all origins if explicitly set via env var
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('true', '1', 'yes')
+
+# Whitelist of allowed origins
+_default_cors_origins = [
+    # Production Domains
+    "https://lms.hadescoretech.com",
+    "https://www.lms.hadescoretech.com",
+    "https://hadescoretech.com",
+    "https://www.hadescoretech.com",
     "https://apex-lms.hadescore.com",
     "https://www.apex-lms.hadescore.com",
+    "https://lms-nv6s.onrender.com",
     # Local development
     "http://localhost:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
+
+_env_cors = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+if _env_cors:
+    _default_cors_origins.extend([o.strip() for o in _env_cors.split(',') if o.strip()])
+
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_default_cors_origins))
+
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    # Allow any LAN device on the local network during development
+    # Allow any subdomain on hadescoretech.com and hadescore.com
+    r"^https://([a-zA-Z0-9-]+\.)*hadescoretech\.com$",
+    r"^https://([a-zA-Z0-9-]+\.)*hadescore\.com$",
+    r"^https://([a-zA-Z0-9-]+\.)*vercel\.app$",
+    r"^https://([a-zA-Z0-9-]+\.)*onrender\.com$",
+    # Allow LAN device on the local network during development
     r"^http://192\.168\.[0-9]+\.[0-9]+(:[0-9]+)?$",
     r"^http://10\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?$",
 ]
+
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'authorization',
@@ -235,6 +257,21 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     'if-modified-since',
 ]
 CORS_ALLOW_METHODS = list(default_methods)
+
+# CSRF Trusted Origins for Django 4+ / 5+
+CSRF_TRUSTED_ORIGINS = [
+    "https://lms.hadescoretech.com",
+    "https://www.lms.hadescoretech.com",
+    "https://hadescoretech.com",
+    "https://www.hadescoretech.com",
+    "https://apex-lms.hadescore.com",
+    "https://www.apex-lms.hadescore.com",
+    "https://lms-nv6s.onrender.com",
+]
+_env_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+if _env_csrf:
+    CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in _env_csrf.split(',') if o.strip()])
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
 # ── Rate Limiting Tuning ────────────────────────────────────
 RATE_LIMIT_MAX_REQUESTS = 300   # Max requests per IP per window
