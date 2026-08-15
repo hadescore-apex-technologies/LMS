@@ -269,12 +269,13 @@ class DashboardStatsView(views.APIView):
             # Gather Student dashboard progress details
             
             from apps.users.models import StudentAttendance
-            # Automatically record student presence for today's date if they hit the dashboard (handles cached sessions)
-            StudentAttendance.objects.update_or_create(
-                student=user,
-                date=today,
-                defaults={'status': 'PRESENT'}
-            )
+            # Fast check to avoid expensive daily DB writes on every API call
+            if not StudentAttendance.objects.filter(student=user, date=today).exists():
+                StudentAttendance.objects.create(
+                    student=user,
+                    date=today,
+                    status='PRESENT'
+                )
 
             live_mode = request.query_params.get('live_mode') == 'true'
             student_profile = getattr(user, 'student_profile', None)
@@ -330,9 +331,13 @@ class DashboardStatsView(views.APIView):
             
             # 1. Lesson watch duration & completion minutes
             from apps.lessons.models import LessonProgress
+            # Performance Optimization: Avoid loading large markdown content column for all lessons
             progress_records = LessonProgress.objects.filter(
                 student=user
-            ).select_related('lesson')
+            ).select_related('lesson').only(
+                'completed_at', 'completed', 'resume_time',
+                'lesson__id', 'lesson__estimated_duration'
+            )
 
             if live_mode:
                 progress_records = progress_records.filter(lesson__module__course__is_mentoring_track=True)
