@@ -1,6 +1,9 @@
+# pyrefly: ignore [missing-import]
 from django.contrib import admin
+# pyrefly: ignore [missing-import]
 from django.urls import path, include
 
+# pyrefly: ignore [missing-import]
 from django.http import HttpResponse
 
 def favicon_view(request):
@@ -32,9 +35,13 @@ urlpatterns = [
     path('api/videos/', include('apps.videos.urls')),
 ]
 
+# pyrefly: ignore [missing-import]
 from django.conf import settings
+# pyrefly: ignore [missing-import]
 from django.conf.urls.static import static
+# pyrefly: ignore [missing-import]
 from django.urls import re_path
+# pyrefly: ignore [missing-import]
 from django.views.static import serve
 
 urlpatterns += [
