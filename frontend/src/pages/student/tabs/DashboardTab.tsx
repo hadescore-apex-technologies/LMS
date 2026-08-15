@@ -69,7 +69,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
     }
   });
 
-  const studentName = user?.name || user?.email?.split('@')[0] || 'Ava';
+  const studentFullName = (user?.first_name || user?.last_name)
+    ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+    : (user?.name || '');
+  const studentName = studentFullName || user?.first_name || user?.name || user?.email?.split('@')[0] || 'Student';
   const streakDays = achievements?.streak || 14;
 
   const coursesCount = stats?.assigned_courses_count ?? (courses.length > 0 ? courses.length : 6);
@@ -89,20 +92,19 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
     ? Math.round(activeCourse.progress_percentage)
     : (activeCourse.progress !== undefined ? Math.round(activeCourse.progress) : 60);
 
-  // Weekly study data for smooth curved SVG chart
-  const weeklyData = [
-    { day: 'Mon', hours: 2.5, label: '2h 30m', x: 40, y: 130 },
-    { day: 'Tue', hours: 4.8, label: '4h 45m', x: 110, y: 90 },
-    { day: 'Wed', hours: 3.2, label: '3h 15m', x: 180, y: 115 },
-    { day: 'Thu', hours: 5.75, label: '5h 45m', x: 250, y: 65 },
-    { day: 'Fri', hours: 4.2, label: '4h 10m', x: 320, y: 100 },
-    { day: 'Sat', hours: 5.3, label: '5h 20m', x: 390, y: 75 },
-    { day: 'Sun', hours: 6.1, label: '6h 05m', x: 460, y: 55 },
+  // Daily study data (Hours of the day) for smooth curved SVG chart
+  const dailyData = [
+    { time: '08:00', hours: 0.75, label: '45m study', x: 40, y: 135 },
+    { time: '11:00', hours: 1.5, label: '1h 30m study', x: 125, y: 95 },
+    { time: '14:00', hours: 1.2, label: '1h 10m study', x: 210, y: 115 },
+    { time: '17:00', hours: 2.8, label: '2h 45m study', x: 295, y: 60 },
+    { time: '20:00', hours: 2.1, label: '2h 05m study', x: 380, y: 85 },
+    { time: '23:00', hours: 1.0, label: '1h 00m study', x: 460, y: 125 },
   ];
 
-  // SVG Spline Path connecting weekly points
-  const splinePath = "M 40 130 C 75 110, 85 90, 110 90 C 135 90, 155 115, 180 115 C 205 115, 225 65, 250 65 C 275 65, 295 100, 320 100 C 345 100, 365 75, 390 75 C 415 75, 435 55, 460 55";
-  const splineArea = "M 40 130 C 75 110, 85 90, 110 90 C 135 90, 155 115, 180 115 C 205 115, 225 65, 250 65 C 275 65, 295 100, 320 100 C 345 100, 365 75, 390 75 C 415 75, 435 55, 460 55 L 460 170 L 40 170 Z";
+  // SVG Spline Path connecting daily points
+  const splinePath = "M 40 135 C 80 115, 95 95, 125 95 C 155 95, 180 115, 210 115 C 240 115, 265 60, 295 60 C 325 60, 350 85, 380 85 C 410 85, 435 125, 460 125";
+  const splineArea = "M 40 135 C 80 115, 95 95, 125 95 C 155 95, 180 115, 210 115 C 240 115, 265 60, 295 60 C 325 60, 350 85, 380 85 C 410 85, 435 125, 460 125 L 460 170 L 40 170 Z";
 
   return (
     <div className="w-full space-y-3.5 animate-fade-in text-xs">
@@ -315,25 +317,24 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
       {/* ── ROW 3: WEEKLY STUDY ACTIVITY & CONTINUE LEARNING ───────────── */}
       <div className="grid gap-3.5 lg:grid-cols-12 items-stretch">
         
-        {/* Weekly Study Activity Spline Wave Graph (7-8 Cols) */}
+        {/* Daily Study Activity Spline Wave Graph (7-8 Cols) */}
         <div className="lg:col-span-7 rounded-3xl cyber-glass-card p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between pb-2">
-            <h3 className="font-extrabold text-sm text-white tracking-wide">Weekly Study Activity</h3>
-            <button className="flex items-center gap-1 text-[11px] text-slate-300 bg-slate-950/60 border border-cyan-500/20 px-2.5 py-1 rounded-xl hover:border-cyan-400 transition-colors">
-              <span>This Week</span>
-              <ChevronDown size={12} className="text-cyan-400" />
-            </button>
+            <h3 className="font-extrabold text-sm text-white tracking-wide">Daily Study Activity</h3>
+            <span className="flex items-center gap-1 text-[11px] text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-1 rounded-xl font-bold">
+              <span>Today</span>
+            </span>
           </div>
 
           {/* SVG Spline Wave Chart */}
           <div className="relative w-full h-44 my-2">
             {/* Active Tooltip Pill */}
-            {weeklyData[activeTooltipIndex] && (
+            {dailyData[activeTooltipIndex] && (
               <div 
                 className="absolute z-20 -top-1 pointer-events-none transform -translate-x-1/2 px-2.5 py-1 rounded-xl bg-slate-950/90 border border-cyan-400 text-cyan-300 text-[10px] font-mono font-black shadow-[0_0_12px_rgba(6,182,212,0.5)]"
-                style={{ left: `${(weeklyData[activeTooltipIndex].x / 500) * 100}%` }}
+                style={{ left: `${(dailyData[activeTooltipIndex].x / 500) * 100}%` }}
               >
-                {weeklyData[activeTooltipIndex].label}
+                {dailyData[activeTooltipIndex].label}
               </div>
             )}
 
@@ -363,9 +364,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
               <line x1="30" y1="165" x2="480" y2="165" stroke="rgba(30, 41, 59, 0.8)" />
 
               {/* Y Axis Labels */}
-              <text x="15" y="34" fill="#64748b" fontSize="9" fontWeight="bold">8h</text>
-              <text x="15" y="79" fill="#64748b" fontSize="9" fontWeight="bold">6h</text>
-              <text x="15" y="124" fill="#64748b" fontSize="9" fontWeight="bold">4h</text>
+              <text x="15" y="34" fill="#64748b" fontSize="9" fontWeight="bold">3h</text>
+              <text x="15" y="79" fill="#64748b" fontSize="9" fontWeight="bold">2h</text>
+              <text x="15" y="124" fill="#64748b" fontSize="9" fontWeight="bold">1h</text>
               <text x="15" y="168" fill="#64748b" fontSize="9" fontWeight="bold">0</text>
 
               {/* Glowing Wave Area */}
@@ -382,11 +383,11 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
               />
 
               {/* Active Dotted Vertical Marker */}
-              {weeklyData[activeTooltipIndex] && (
+              {dailyData[activeTooltipIndex] && (
                 <line
-                  x1={weeklyData[activeTooltipIndex].x}
-                  y1={weeklyData[activeTooltipIndex].y}
-                  x2={weeklyData[activeTooltipIndex].x}
+                  x1={dailyData[activeTooltipIndex].x}
+                  y1={dailyData[activeTooltipIndex].y}
+                  x2={dailyData[activeTooltipIndex].x}
                   y2="165"
                   stroke="#38bdf8"
                   strokeWidth="1.2"
@@ -396,8 +397,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
               )}
 
               {/* Interactive Data Point Dots */}
-              {weeklyData.map((pt, idx) => (
-                <g key={pt.day} className="cursor-pointer" onClick={() => setActiveTooltipIndex(idx)}>
+              {dailyData.map((pt, idx) => (
+                <g key={pt.time} className="cursor-pointer" onClick={() => setActiveTooltipIndex(idx)}>
                   <circle
                     cx={pt.x}
                     cy={pt.y}
@@ -408,7 +409,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
                     className="transition-all hover:scale-125"
                     style={{ filter: 'drop-shadow(0 0 6px #06b6d4)' }}
                   />
-                  {/* X Axis Day Label */}
+                  {/* X Axis Time Label */}
                   <text
                     x={pt.x}
                     y="180"
@@ -417,7 +418,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
                     fontWeight={activeTooltipIndex === idx ? 'bold' : 'normal'}
                     textAnchor="middle"
                   >
-                    {pt.day}
+                    {pt.time}
                   </text>
                 </g>
               ))}
@@ -426,7 +427,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
 
           <div className="flex justify-end pt-1 border-t border-slate-800/60">
             <span className="text-[11px] text-slate-400 font-semibold">
-              Total This Week <span className="text-cyan-400 font-bold font-mono">23h 15m</span>
+              Total Today <span className="text-cyan-400 font-bold font-mono">3h 45m</span>
             </span>
           </div>
         </div>
@@ -450,24 +451,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
             className="p-4 rounded-2xl bg-slate-950/70 border border-cyan-500/30 hover:border-cyan-400 transition-all cursor-pointer group shadow-inner space-y-3"
           >
             <div className="flex items-center gap-3.5">
-              {/* 3D Cyber Molecule Graphic matching photo */}
-              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-slate-950 to-[#061226] border border-cyan-400/50 flex items-center justify-center p-2 shadow-[0_0_18px_rgba(6,182,212,0.4)] group-hover:scale-105 transition-transform shrink-0 relative overflow-hidden">
-                <svg viewBox="0 0 60 60" className="w-12 h-12">
-                  <line x1="30" y1="30" x2="16" y2="16" stroke="#06b6d4" strokeWidth="1.5" opacity="0.8" />
-                  <line x1="30" y1="30" x2="44" y2="16" stroke="#06b6d4" strokeWidth="1.5" opacity="0.8" />
-                  <line x1="30" y1="30" x2="16" y2="44" stroke="#06b6d4" strokeWidth="1.5" opacity="0.8" />
-                  <line x1="30" y1="30" x2="44" y2="44" stroke="#06b6d4" strokeWidth="1.5" opacity="0.8" />
-                  <line x1="16" y1="16" x2="44" y2="16" stroke="#3b82f6" strokeWidth="1" opacity="0.5" />
-                  <line x1="16" y1="44" x2="44" y2="44" stroke="#3b82f6" strokeWidth="1" opacity="0.5" />
-
-                  <circle cx="30" cy="30" r="6" fill="#38bdf8" style={{ filter: 'drop-shadow(0 0 6px #06b6d4)' }} />
-                  <circle cx="16" cy="16" r="4.5" fill="#06b6d4" style={{ filter: 'drop-shadow(0 0 4px #06b6d4)' }} />
-                  <circle cx="44" cy="16" r="4.5" fill="#38bdf8" style={{ filter: 'drop-shadow(0 0 4px #38bdf8)' }} />
-                  <circle cx="16" cy="44" r="4" fill="#0284c7" />
-                  <circle cx="44" cy="44" r="4" fill="#0284c7" />
-                </svg>
-              </div>
-
               <div className="min-w-0 flex-1 space-y-0.5">
                 <h4 className="font-black text-xs sm:text-sm text-white group-hover:text-cyan-300 transition-colors truncate">
                   {activeCourse.title}

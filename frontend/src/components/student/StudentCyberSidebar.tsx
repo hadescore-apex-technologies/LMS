@@ -6,7 +6,7 @@ import api from '../../services/api';
 import { 
   LayoutDashboard, BookOpen, Radio, 
   FileText, MessageSquare, Award,
-  X, LogOut
+  Settings, X, LogOut
 } from 'lucide-react';
 import { logout } from '../../features/authSlice';
 
@@ -57,6 +57,7 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
         { label: 'Live Sessions', path: '/student/live', icon: Radio },
         { label: 'Assignments', path: '/student/assignments', icon: FileText },
         { label: 'Q&A Forum', path: '/student/forum', icon: MessageSquare },
+        { label: 'Settings', path: '/student/profile', icon: Settings },
       ]
     : [
         { label: 'Dashboard', path: '/student', icon: LayoutDashboard, exact: true },
@@ -64,6 +65,7 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
         { label: 'Doubt Sessions', path: '/student/live', icon: Radio },
         { label: 'Certificates', path: '/student/certificates', icon: Award },
         { label: 'Q&A Forum', path: '/student/forum', icon: MessageSquare },
+        { label: 'Settings', path: '/student/profile', icon: Settings },
       ];
 
   return (

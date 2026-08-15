@@ -3,9 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { motion, type Variants } from 'framer-motion';
 import api from '../../../services/api';
 import { 
-  Search, ChevronRight, Award, BookOpen, 
-  GraduationCap, PlayCircle, Sparkles, 
-  LayoutGrid, List, CheckCircle2, TrendingUp, X
+  Search, ChevronRight, BookOpen, 
+  PlayCircle, CheckCircle2, X
 } from 'lucide-react';
 
 interface Course {
@@ -45,7 +44,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
   const [sortBy, setSortBy] = useState<'title' | 'category' | 'progress'>('title');
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
-    queryKey: ['courses-list'],
+    queryKey: ['courses-list', liveMode],
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get(`courses/list/?live_mode=${liveMode}`);
@@ -56,8 +55,11 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
   const categories = Array.from(new Set(courses.map(c => c.category_name).filter(Boolean)));
 
   const totalCourses = courses.length;
-  const completedCourses = courses.filter(c => c.progress_percentage === 100).length;
-  const inProgressCourses = courses.filter(c => (c.progress_percentage || 0) > 0 && (c.progress_percentage || 0) < 100).length;
+  const completedCourses = courses.filter(c => Math.round(Number(c.progress_percentage ?? (c as any).progress ?? 0)) === 100).length;
+  const inProgressCourses = courses.filter(c => {
+    const p = Math.round(Number(c.progress_percentage ?? (c as any).progress ?? 0));
+    return p > 0 && p < 100;
+  }).length;
 
   const filteredCourses = courses
     .filter(c => {
@@ -72,7 +74,9 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
       } else if (sortBy === 'category') {
         return a.category_name.localeCompare(b.category_name);
       } else {
-        return (b.progress_percentage || 0) - (a.progress_percentage || 0);
+        const pA = Math.round(Number(a.progress_percentage ?? (a as any).progress ?? 0));
+        const pB = Math.round(Number(b.progress_percentage ?? (b as any).progress ?? 0));
+        return pB - pA;
       }
     });
 
@@ -129,7 +133,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
           >
             <option value="title">Sort: Title</option>
             <option value="category">Sort: Domain</option>
-            <option value="progress">Sort: Progress</option>
+            {!liveMode && <option value="progress">Sort: Progress</option>}
           </select>
 
           {/* Quick Stats Pills */}
@@ -176,25 +180,21 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
         </div>
       )}
 
-      {/* ── HIGH-DENSITY ATTRACTIVE CARDS GRID ────────────────────────────── */}
-      {isLoading && courses.length === 0 ? (
+      {/* ── COURSE CARDS GRID ────────────────────────────────────────── */}
+      {isLoading ? (
         <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-card/60 border border-border/50 rounded-2xl p-4 animate-pulse space-y-3 h-48">
-              <div className="h-3 bg-muted/60 rounded-lg w-1/3" />
-              <div className="h-5 bg-muted/80 rounded-xl w-3/4" />
-              <div className="h-10 bg-muted/40 rounded-xl w-full" />
-            </div>
+            <div key={i} className="h-64 rounded-2xl bg-slate-900/60 border border-slate-800 animate-pulse" />
           ))}
         </div>
       ) : filteredCourses.length === 0 ? (
-        <div className="py-12 text-center text-muted-foreground bg-card border border-dashed border-border rounded-2xl p-6 space-y-2.5 shadow-2xs">
-          <GraduationCap size={32} className="mx-auto text-muted-foreground/40" />
-          <h3 className="font-extrabold text-sm text-foreground">No matching courses found</h3>
+        <div className="rounded-3xl cyber-glass-card p-12 text-center space-y-3">
+          <BookOpen size={36} className="mx-auto text-cyan-400/50" />
+          <h3 className="text-base font-extrabold text-white">No courses match your filter</h3>
           <p className="text-[11px] max-w-xs mx-auto text-muted-foreground">Try clearing your search query or choosing another domain.</p>
-          <button 
+          <button
             onClick={() => { setSearch(''); setCategoryFilter(''); }}
-            className="px-4 py-1.5 bg-cyan-600/10 text-cyan-400 border border-cyan-500/20 font-bold rounded-xl text-xs hover:bg-cyan-600/20 transition-all cursor-pointer"
+            className="px-4 py-1.5 bg-slate-900 border border-cyan-500/40 text-cyan-300 font-bold rounded-xl hover:text-white text-xs transition-colors"
           >
             Reset Filters
           </button>
@@ -207,10 +207,10 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
           className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         >
           {filteredCourses.map(course => {
-            const pct = course.progress_percentage || 0;
+            const pct = Math.round(Number(course.progress_percentage ?? (course as any).progress ?? 0));
             const isCompleted = pct === 100;
             return (
-                <motion.div 
+              <motion.div 
                 variants={itemVariants}
                 key={course.id} 
                 whileHover={{ y: -3, scale: 1.01 }}
@@ -221,7 +221,6 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
                 <div className="absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-transparent rounded-full blur-xl group-hover:from-cyan-500/35 transition-all pointer-events-none" />
 
                 <div className="space-y-2 relative z-10">
-                  {/* Top Badge Row */}
                   <div className="flex justify-between items-center gap-2">
                     <span className="text-[9px] px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 font-extrabold uppercase tracking-wider truncate max-w-[130px]">
                       {course.category_name}
@@ -239,42 +238,54 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
                     )}
                   </div>
 
-                  {/* Course Title */}
                   <h3 className="font-extrabold text-sm text-white leading-tight group-hover:text-cyan-300 transition-colors line-clamp-2">
                     {course.title}
                   </h3>
 
-                  {/* Description */}
                   <p className="text-[11px] text-slate-300/80 leading-relaxed line-clamp-2 font-normal">
                     {course.description}
                   </p>
                 </div>
 
                 {/* Bottom Progress & Action Row */}
-                <div className="space-y-2.5 pt-2 border-t border-cyan-500/20 relative z-10">
+                <div className="space-y-2 pt-2 border-t border-cyan-500/20 relative z-10">
                   {!liveMode && (
-                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-700/60 p-0.5">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          isCompleted 
-                            ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' 
-                            : 'bg-gradient-to-r from-cyan-400 to-blue-500 shadow-[0_0_8px_#38bdf8]'
-                        }`}
-                        style={{ width: `${pct}%` }} 
-                      />
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-[10px]">
+                        <span className="text-slate-400 font-medium">Progress</span>
+                        <span className={`font-mono font-bold ${isCompleted ? 'text-emerald-400' : 'text-cyan-300'}`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-700/60 p-0.5">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-700 ${
+                            isCompleted 
+                              ? 'bg-emerald-400 shadow-[0_0_8px_#34d399]' 
+                              : 'bg-gradient-to-r from-cyan-400 to-blue-500 shadow-[0_0_8px_#38bdf8]'
+                          }`}
+                          style={{ width: `${Math.max(pct, isCompleted ? 100 : 0)}%` }} 
+                        />
+                      </div>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between pt-0.5">
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold">
                       <PlayCircle size={13} className="text-cyan-400 group-hover:scale-110 transition-transform" />
-                      <span>{liveMode ? 'Watch Replay' : 'Open Curriculum'}</span>
+                      <span>{liveMode ? 'Watch Replay' : isCompleted ? 'Review Content' : 'Open Curriculum'}</span>
                     </div>
 
                     <button 
-                      className="px-3 py-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-extrabold rounded-lg text-[10px] group-hover:brightness-110 transition-all flex items-center gap-1 shadow-[0_0_10px_rgba(6,182,212,0.3)]"
+                      className={`px-3 py-1 text-white font-extrabold rounded-lg text-[10px] group-hover:brightness-110 transition-all flex items-center gap-1 shadow-sm ${
+                        isCompleted
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                          : pct > 0
+                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                            : 'bg-gradient-to-r from-slate-700 to-slate-800 border border-slate-600/50'
+                      }`}
                     >
-                      <span>Start</span>
+                      <span>{isCompleted ? 'Review' : pct > 0 ? 'Continue' : 'Start'}</span>
                       <ChevronRight size={11} className="group-hover:translate-x-0.5 transition-transform" />
                     </button>
                   </div>

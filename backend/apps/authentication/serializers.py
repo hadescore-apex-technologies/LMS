@@ -89,8 +89,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             student_type = self.user.student_profile.student_type
 
         # Append user metadata directly in the API response json
+        full_name = f"{self.user.first_name} {self.user.last_name}".strip()
         data['user'] = {
             'email': self.user.email,
+            'name': full_name or self.user.first_name or self.user.email.split('@')[0],
             'role': self.user.role,
             'first_name': self.user.first_name,
             'last_name': self.user.last_name,

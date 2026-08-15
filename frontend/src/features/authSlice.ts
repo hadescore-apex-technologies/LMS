@@ -18,7 +18,15 @@ interface AuthState {
   loginPath: string;
 }
 
-const storedUser = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
+const rawStoredUser = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
+const formatUserName = (u: any) => {
+  if (!u) return null;
+  if (!u.name && (u.first_name || u.last_name)) {
+    u.name = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+  }
+  return u;
+};
+const storedUser = formatUserName(rawStoredUser);
 const roleLoginPathMap: Record<string, string> = {
   SUPER_ADMIN: '/admin/login',
   STAFF: '/staff/login',
@@ -41,13 +49,14 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     loginSuccess(state, action: PayloadAction<{ user: User; access: string; refresh: string; loginPath: string }>) {
-      state.user = action.payload.user;
+      const u = formatUserName({ ...action.payload.user });
+      state.user = u;
       state.accessToken = action.payload.access;
       state.refreshToken = action.payload.refresh;
       state.isAuthenticated = true;
       state.loginPath = action.payload.loginPath;
 
-      localStorage.setItem('user', JSON.stringify(action.payload.user));
+      localStorage.setItem('user', JSON.stringify(u));
       localStorage.setItem('accessToken', action.payload.access);
       localStorage.setItem('refreshToken', action.payload.refresh);
       localStorage.setItem('loginPath', action.payload.loginPath);

@@ -358,8 +358,8 @@ export const LiveAssignmentsTab: React.FC = () => {
                 <ArrowLeft size={13} />
                 <span>Back to All Mentees</span>
               </button>
-              <span className="text-xs font-bold px-3 py-1 bg-violet-100 dark:bg-violet-950 text-violet-950 dark:text-violet-100 border border-violet-300 dark:border-violet-800 rounded-full">
-                Domain: {selectedStudentData.category}
+              <span className="text-xs font-semibold px-3 py-1 bg-cyan-500/10 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 rounded-full">
+                Domain: <strong className="font-bold text-cyan-800 dark:text-cyan-200">{selectedStudentData.category}</strong>
               </span>
             </div>
             <div className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -455,8 +455,8 @@ export const LiveAssignmentsTab: React.FC = () => {
                       <div className="min-w-0">
                         <h4 className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">{stu.name}</h4>
                         <p className="text-[10px] text-muted-foreground truncate font-mono">{stu.email}</p>
-                        <span className="inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded-md bg-violet-100 dark:bg-violet-950 text-violet-950 dark:text-violet-100 border border-violet-300 dark:border-violet-800">
-                          Domain: {stu.category}
+                        <span className="inline-block mt-1 text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
+                          Domain: <strong className="font-bold text-cyan-800 dark:text-cyan-200">{stu.category}</strong>
                         </span>
                       </div>
                     </div>
