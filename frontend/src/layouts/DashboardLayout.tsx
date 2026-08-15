@@ -6,10 +6,14 @@ import Sidebar from '../components/shared/Sidebar';
 import TopHeader from '../components/shared/TopHeader';
 import { StudentCyberSidebar } from '../components/student/StudentCyberSidebar';
 import { StudentCyberHeader } from '../components/student/StudentCyberHeader';
+import { useStudentSecurity } from '../hooks/useStudentSecurity';
 
 const DashboardLayout: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const isStudent = user?.role === 'STUDENT';
+
+  // Security: Disable right-click & developer shortcut keys for Students ONLY
+  useStudentSecurity(isStudent);
 
   const [sidebarOpen, setSidebarOpen] = useState(() => !isStudent && window.innerWidth >= 1024);
   const [studentSidebarOpen, setStudentSidebarOpen] = useState(false);

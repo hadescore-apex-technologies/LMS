@@ -13,6 +13,7 @@ import {
   ArrowLeft, Sparkles, Play, Fingerprint
 } from 'lucide-react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from 'framer-motion';
+import useStudentSecurity from '../../hooks/useStudentSecurity';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 const loginSchema = z.object({
@@ -137,6 +138,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
     location.pathname.startsWith('/admin') ? 'SUPER_ADMIN' :
     location.pathname.startsWith('/staff') ? 'STAFF' : 'STUDENT'
   );
+
+  // Security: Disable right-click & developer inspection shortcut keys for Student login ONLY
+  useStudentSecurity(currentRole === 'STUDENT');
 
   // ── 3D Tilt ─────────────────────────────────────────────────────────────
   const mouseX = useMotionValue(0);
