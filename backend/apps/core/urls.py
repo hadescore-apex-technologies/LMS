@@ -6,7 +6,11 @@ from django.http import HttpResponse
 def favicon_view(request):
     return HttpResponse(status=204)
 
+def root_view(request):
+    return HttpResponse("OK", status=200, content_type="text/plain")
+
 urlpatterns = [
+    path('', root_view),
     path('favicon.ico', favicon_view),
     path('admin/', admin.site.urls),
     
