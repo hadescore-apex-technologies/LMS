@@ -24,6 +24,7 @@ interface CourseItem {
   title: string;
   category_name?: string;
   progress?: number;
+  progress_percentage?: number;
   thumbnail?: string;
   total_lessons?: number;
   completed_lessons?: number;
@@ -61,9 +62,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
   });
 
   const { data: courses = [] } = useQuery<CourseItem[]>({
-    queryKey: ['enrolled-courses-preview'],
+    queryKey: ['enrolled-courses-preview', liveMode],
     queryFn: async () => {
-      const res = await api.get('courses/list/');
+      const res = await api.get(`courses/list/?live_mode=${liveMode}`);
       return res.data;
     }
   });
@@ -81,8 +82,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
     id: 1,
     title: 'Data Structures & Algorithms',
     category_name: 'Intermediate',
-    progress: 60,
+    progress_percentage: 60,
   };
+
+  const activeCourseProgress = activeCourse.progress_percentage !== undefined 
+    ? Math.round(activeCourse.progress_percentage)
+    : (activeCourse.progress !== undefined ? Math.round(activeCourse.progress) : 60);
 
   // Weekly study data for smooth curved SVG chart
   const weeklyData = [
@@ -468,7 +473,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
                   {activeCourse.title}
                 </h4>
                 <p className="text-[10px] text-slate-400">
-                  {activeCourse.category_name || 'Intermediate'} • {activeCourse.progress || 60}% Complete
+                  {activeCourse.category_name || 'Intermediate'} • {activeCourseProgress}% Complete
                 </p>
               </div>
             </div>
@@ -478,18 +483,26 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
               <div className="flex-1 h-2 rounded-full bg-slate-800/80 overflow-hidden p-0.5 border border-slate-700/60">
                 <div 
                   className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 shadow-[0_0_10px_#38bdf8] transition-all duration-500"
-                  style={{ width: `${activeCourse.progress || 60}%` }}
+                  style={{ width: `${activeCourseProgress}%` }}
                 />
               </div>
               <span className="text-[11px] font-mono font-black text-cyan-400 shrink-0">
-                {activeCourse.progress || 60}%
+                {activeCourseProgress}%
               </span>
             </div>
           </div>
 
           <div className="pt-2 text-[10px] text-slate-400 flex items-center justify-between">
-            <span>Current Module: Advanced Graph Algorithms</span>
-            <span className="text-cyan-400 font-bold">Lesson 4/12</span>
+            <span>
+              {activeCourseProgress === 100 
+                ? "Status: Curriculum Completed" 
+                : "Current Module: Advanced Graph Algorithms"}
+            </span>
+            <span className="text-cyan-400 font-bold">
+              {activeCourseProgress === 100 
+                ? "100% Completed" 
+                : "Lesson 4/12"}
+            </span>
           </div>
         </div>
       </div>
