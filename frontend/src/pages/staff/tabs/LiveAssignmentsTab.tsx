@@ -78,6 +78,7 @@ export const LiveAssignmentsTab: React.FC = () => {
   const [gradeInput, setGradeInput] = useState('');
   const [feedbackInput, setFeedbackInput] = useState('');
   const [gradeAction, setGradeAction] = useState<'grade' | 'reject'>('grade');
+  const [viewTaskSubmissionsAssignment, setViewTaskSubmissionsAssignment] = useState<Assignment | null>(null);
 
   // 1. Fetch Submissions for staff
   const { data: submissions = [] } = useQuery<Submission[]>({
@@ -553,13 +554,19 @@ export const LiveAssignmentsTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveSubTab('submissions');
-                    setSubSearch(a.title);
+                    const taskSubs = submissions.filter(s => s.assignment_title === a.title || (s as any).assignment === a.id);
+                    if (taskSubs.length === 0) {
+                      toast.error(`No student submissions received for "${a.title}" yet.`);
+                    } else if (taskSubs.length === 1) {
+                      openGradeModal(taskSubs[0]);
+                    } else {
+                      setViewTaskSubmissionsAssignment(a);
+                    }
                   }}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-primary text-primary-foreground hover:brightness-110 rounded-xl text-[11px] font-bold transition-all relative z-10 cursor-pointer"
                 >
                   <FileEdit size={13} />
-                  <span>Grade Submissions</span>
+                  <span>Grade Submissions ({submissions.filter(s => s.assignment_title === a.title || (s as any).assignment === a.id).length})</span>
                 </button>
               </div>
             </div>
@@ -573,6 +580,65 @@ export const LiveAssignmentsTab: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Task Submissions Quick Grading Modal */}
+      <AnimatePresence>
+        {viewTaskSubmissionsAssignment && (
+          <div onClick={() => setViewTaskSubmissionsAssignment(null)} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div onClick={(e) => e.stopPropagation()} initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-card border border-border w-full max-w-xl rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex justify-between items-center border-b border-border pb-3">
+                <div>
+                  <h3 className="font-extrabold text-sm text-foreground">Task Deliverables: {viewTaskSubmissionsAssignment.title}</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Select a student submission to evaluate & grade directly.</p>
+                </div>
+                <button onClick={() => setViewTaskSubmissionsAssignment(null)} className="p-1 text-muted-foreground hover:text-foreground"><X size={16} /></button>
+              </div>
+
+              <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                {submissions.filter(s => s.assignment_title === viewTaskSubmissionsAssignment.title || (s as any).assignment === viewTaskSubmissionsAssignment.id).map(sub => (
+                  <div key={sub.id} className="p-3.5 rounded-xl border border-border bg-muted/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-primary/40 transition-colors">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-xs text-foreground truncate">{sub.student_name || sub.student_email}</h4>
+                        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border ${
+                          sub.status === 'GRADED' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' :
+                          sub.status === 'REJECTED' ? 'bg-destructive/10 border-destructive/20 text-destructive' :
+                          'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                        }`}>
+                          {sub.status} {sub.grade ? `(${sub.grade})` : ''}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{sub.student_email}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+                      {sub.file_submission && (
+                        <button
+                          type="button"
+                          onClick={() => downloadFileDirectly(sub.file_submission!, `Deliverable_${sub.student_name || 'Student'}.pdf`)}
+                          className="px-2.5 py-1 text-[10px] font-bold text-primary bg-primary/5 border border-primary/20 rounded-lg hover:bg-primary/10 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Download size={11} />
+                          <span>PDF</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={() => openGradeModal(sub)}
+                        className="px-3 py-1.5 bg-primary text-primary-foreground font-bold rounded-lg text-xs hover:brightness-110 flex items-center gap-1 cursor-pointer"
+                      >
+                        <FileText size={12} />
+                        <span>{sub.status === 'PENDING' ? 'Grade Now' : 'Edit Grade'}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Grading Evaluation Modal */}
       <AnimatePresence>
