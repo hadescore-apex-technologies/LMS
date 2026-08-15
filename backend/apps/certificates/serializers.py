@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from rest_framework import serializers
 from apps.certificates.models import Certificate
 from apps.courses.models import Course

@@ -243,6 +243,8 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
         queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
         queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
         queryClient.invalidateQueries({ queryKey: ['student-achievements-tab'] });
+        queryClient.invalidateQueries({ queryKey: ['enrolled-courses-preview'] });
+        queryClient.invalidateQueries({ queryKey: ['courses-list'] });
       }
     }
   });
@@ -482,6 +484,8 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
       queryClient.invalidateQueries({ queryKey: ['certificates'] });
+      queryClient.invalidateQueries({ queryKey: ['enrolled-courses-preview'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-list'] });
 
       if (res.data.passed && autoplayNext) {
         handleNextItem();
@@ -515,6 +519,8 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
       refetchLessons();
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
+      queryClient.invalidateQueries({ queryKey: ['enrolled-courses-preview'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-list'] });
       
       if (autoplayNext) {
         handleNextItem();

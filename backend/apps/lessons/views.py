@@ -1,5 +1,8 @@
+# pyrefly: ignore [missing-import]
 from rest_framework import viewsets, decorators, response, status
+# pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
+# pyrefly: ignore [missing-import]
 from django.db.models import Prefetch
 from apps.lessons.models import Lesson, LessonBookmark, LessonNote, LessonProgress
 from apps.lessons.serializers import LessonSerializer, LessonBookmarkSerializer, LessonNoteSerializer
@@ -15,6 +18,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from typing import cast
+        # pyrefly: ignore [missing-import]
         from rest_framework.request import Request
         
         request = cast(Request, self.request)
@@ -45,6 +49,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             
             qs = qs.filter(module__course__is_published=True)
             if student_courses or staff_cat or staff:
+                # pyrefly: ignore [missing-import]
                 from django.db.models import Q
                 filters = Q()
                 if student_courses:
@@ -77,6 +82,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         watch_time = request.data.get('watch_time', 0)
         
         from apps.lessons.models import LessonProgress as LP
+        # pyrefly: ignore [missing-import]
         from django.utils import timezone
         
         # If the lesson progress was already completed, keep it completed
@@ -125,6 +131,7 @@ class LessonBookmarkViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from typing import cast
+        # pyrefly: ignore [missing-import]
         from rest_framework.request import Request
         
         request = cast(Request, self.request)
@@ -143,6 +150,7 @@ class LessonNoteViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from typing import cast
+        # pyrefly: ignore [missing-import]
         from rest_framework.request import Request
         
         request = cast(Request, self.request)

@@ -84,6 +84,8 @@ export const AssignmentsTab: React.FC = () => {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['submissions-tracker'] });
+      queryClient.invalidateQueries({ queryKey: ['enrolled-courses-preview'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-list'] });
       setLocalUrls(prev => ({ ...prev, [variables.assignId]: '' }));
       setLocalNotes(prev => ({ ...prev, [variables.assignId]: '' }));
       toast.success('Homework uploaded successfully!');
@@ -100,6 +102,8 @@ export const AssignmentsTab: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['submissions-tracker'] });
+      queryClient.invalidateQueries({ queryKey: ['enrolled-courses-preview'] });
+      queryClient.invalidateQueries({ queryKey: ['courses-list'] });
       toast.success('Submission removed.');
     },
     onError: () => {
