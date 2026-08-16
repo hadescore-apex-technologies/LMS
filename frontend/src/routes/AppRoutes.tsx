@@ -129,16 +129,8 @@ const AppRoutes: React.FC = () => {
         <Route path="/staff/profile" element={<ProtectedRoute allowedRoles={['STAFF', 'SUPER_ADMIN']}><StaffDashboard /></ProtectedRoute>} />
         <Route path="/staff/settings" element={<ProtectedRoute allowedRoles={['STAFF', 'SUPER_ADMIN']}><StaffDashboard /></ProtectedRoute>} />
 
-        {/* Student Dashboard Routes */}
-        <Route 
-          path="/student" 
-          element={
-            <ProtectedRoute allowedRoles={['STUDENT']}>
-              <StudentDashboard />
-            </ProtectedRoute>
-          } 
-        />
-        {/* Student Navigation Routes */}
+        {/* Course Student Navigation Routes */}
+        <Route path="/student" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/courses" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/live" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/assignments" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
@@ -147,6 +139,27 @@ const AppRoutes: React.FC = () => {
         <Route path="/student/achievements" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/leaderboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
         <Route path="/student/forum" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+
+        {/* Live Student Dedicated Navigation Routes */}
+        <Route path="/live-student" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live-student/dashboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live-student/videos" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live-student/sessions" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live-student/live" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live-student/assignments" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live-student/forum" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live-student/profile" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live-student/achievements" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live-student/leaderboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+
+        {/* Short /live/* Aliases for Live Students */}
+        <Route path="/live" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live/dashboard" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live/videos" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live/sessions" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live/assignments" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live/forum" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
+        <Route path="/live/profile" element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentDashboard /></ProtectedRoute>} />
       </Route>
 
       {/* Root Fallback */}

@@ -7,6 +7,7 @@ import TopHeader from '../components/shared/TopHeader';
 import { StudentCyberSidebar } from '../components/student/StudentCyberSidebar';
 import { StudentCyberHeader } from '../components/student/StudentCyberHeader';
 import { useStudentSecurity } from '../hooks/useStudentSecurity';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 const DashboardLayout: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -14,6 +15,9 @@ const DashboardLayout: React.FC = () => {
 
   // Security: Disable right-click & developer shortcut keys for Students ONLY
   useStudentSecurity(isStudent);
+
+  // Network Status Monitor (silent reconnect toasts)
+  useNetworkStatus();
 
   const [sidebarOpen, setSidebarOpen] = useState(() => !isStudent && window.innerWidth >= 1024);
   const [studentSidebarOpen, setStudentSidebarOpen] = useState(false);

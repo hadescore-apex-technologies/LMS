@@ -4,6 +4,7 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
 import { MessageSquare, Send, Search, HelpCircle, X, Plus, Loader2, Sparkles, User, MessageCircle } from 'lucide-react';
+import { useFormDraft } from '../../../hooks/useFormDraft';
 
 interface UserShort {
   id: number;
@@ -52,10 +53,10 @@ export const DiscussionTab: React.FC = () => {
   const [search, setSearch] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   
-  // Post states
+  // Post states with auto-save drafts
   const [isCreatingPost, setIsCreatingPost] = useState(false);
-  const [newPostTitle, setNewPostTitle] = useState('');
-  const [newPostContent, setNewPostContent] = useState('');
+  const [newPostTitle, setNewPostTitle, clearPostTitleDraft] = useFormDraft('student_post_title', '');
+  const [newPostContent, setNewPostContent, clearPostContentDraft] = useFormDraft('student_post_content', '');
   const [newPostCourseId, setNewPostCourseId] = useState('');
 
   // Comment states
@@ -122,8 +123,8 @@ export const DiscussionTab: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discussion-posts'] });
       setIsCreatingPost(false);
-      setNewPostTitle('');
-      setNewPostContent('');
+      clearPostTitleDraft();
+      clearPostContentDraft();
       setNewPostCourseId('');
       toast.success('Query submitted to your mentor successfully!');
     },

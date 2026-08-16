@@ -39,7 +39,7 @@ class StaffViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return CustomUser.objects.filter(
-            role__in=['STAFF', 'SUPER_ADMIN']
+            role='STAFF'
         ).exclude(email=self.ROOT_EMAIL).select_related('staff_profile__category')
 
     def create(self, request, *args, **kwargs):

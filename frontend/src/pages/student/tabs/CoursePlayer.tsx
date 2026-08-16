@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
@@ -75,9 +77,18 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
   const videoRef = useRef<HTMLVideoElement>(null);
   const maxTimeWatchedRef = useRef(0);
 
-  const isLiveStudent = localStorage.getItem('studentLiveMode') === 'true' ||
-                        Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
-                        (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS');
+  const authUser = useSelector((state: RootState) => state.auth.user);
+  const storedUser = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}') : null;
+  const userObj = authUser || storedUser;
+
+  const isLiveStudent = 
+    localStorage.getItem('studentLiveMode') === 'true' ||
+    userObj?.student_type === 'LIVE_CLASS' ||
+    userObj?.student_type === 'BOTH' ||
+    userObj?.student_profile?.student_type === 'LIVE_CLASS' ||
+    userObj?.student_profile?.student_type === 'BOTH' ||
+    Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+    (course as any)?.is_mentoring_track === true;
 
   // States
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
@@ -86,9 +97,13 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
 
   useEffect(() => {
     if (activeLesson) {
-      maxTimeWatchedRef.current = activeLesson.resume_time || 0;
+      if (activeLesson.completed || isLiveStudent) {
+        maxTimeWatchedRef.current = 999999;
+      } else {
+        maxTimeWatchedRef.current = activeLesson.resume_time || 0;
+      }
     }
-  }, [activeLesson]);
+  }, [activeLesson, isLiveStudent]);
   
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizResult, setQuizResult] = useState<any>(null);
@@ -102,7 +117,6 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
   const [activeTab, setActiveTab] = useState<'content' | 'attachments' | 'study-notes' | 'bookmarks'>('content');
   const [rightPanelTab, setRightPanelTab] = useState<'playlist' | 'ai-tutor'>('playlist');
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [autoplayNext, setAutoplayNext] = useState(true);
 
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoDuration, setVideoDuration] = useState(100);
@@ -255,8 +269,8 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     const duration = videoRef.current.duration || 1;
     const pct = (currentTime / duration) * 100;
     
-    // Prevent forward seeking
-    if (currentTime > maxTimeWatchedRef.current + 2 && !activeLesson.completed) {
+    // Prevent forward seeking (Only enforced for Course Students)
+    if (!isLiveStudent && currentTime > maxTimeWatchedRef.current + 2 && !activeLesson.completed) {
       videoRef.current.currentTime = maxTimeWatchedRef.current;
       toast.error('Seeking forward is disabled for learning integrity. Please watch the lesson fully.', {
         id: 'no-seeking' // prevents duplicate toasts
@@ -272,8 +286,8 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
       setVideoDuration(duration);
     }
     
-    // Auto-mark complete when reaching near the end (>= 95% or remaining <= 2s)
-    if (duration > 4 && (pct >= 95 || duration - currentTime <= 2) && !activeLesson.completed) {
+    // Auto-mark complete when reaching near the end (>= 95% or remaining <= 2s) (Only for Course Mode Students)
+    if (!isLiveStudent && duration > 4 && (pct >= 95 || duration - currentTime <= 2) && !activeLesson.completed) {
       syncProgressMutation.mutate({ current: duration, pct: 100, completed: true });
       return;
     }
@@ -323,22 +337,25 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
 
   const handleVideoEnded = () => {
     if (!activeLesson) return;
-    toast.success('Lesson completed!');
-    syncProgressMutation.mutate({ current: videoDuration, pct: 100, completed: true });
-
-    if (autoplayNext) {
-      handleNextItem();
+    if (!isLiveStudent) {
+      toast.success('Lesson completed!');
+      syncProgressMutation.mutate({ current: videoDuration, pct: 100, completed: true });
     }
   };
 
   const handleSelectLesson = (lesson: Lesson) => {
-    if (lesson.locked) {
+    if (!isLiveStudent && lesson.locked) {
       toast.error('This lesson is currently locked.');
       return;
     }
     setActiveLesson(lesson);
     setActiveQuiz(null);
     setActiveAssignment(null);
+    if (lesson.completed || isLiveStudent) {
+      maxTimeWatchedRef.current = 999999;
+    } else {
+      maxTimeWatchedRef.current = lesson.resume_time || 0;
+    }
   };
 
   // Bookmark Mutation
@@ -486,10 +503,6 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
       queryClient.invalidateQueries({ queryKey: ['certificates'] });
       queryClient.invalidateQueries({ queryKey: ['enrolled-courses-preview'] });
       queryClient.invalidateQueries({ queryKey: ['courses-list'] });
-
-      if (res.data.passed && autoplayNext) {
-        handleNextItem();
-      }
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to submit quiz.');
     }
@@ -521,10 +534,6 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
       queryClient.invalidateQueries({ queryKey: ['user-achievements'] });
       queryClient.invalidateQueries({ queryKey: ['enrolled-courses-preview'] });
       queryClient.invalidateQueries({ queryKey: ['courses-list'] });
-      
-      if (autoplayNext) {
-        handleNextItem();
-      }
     } catch {
       toast.error('Failed to submit assignment.');
     } finally {
@@ -798,8 +807,17 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                     disableForwardSeeking={isLiveStudent ? false : !activeLesson.completed}
                     initialResumeTime={activeLesson.resume_time || 0}
                     onLoadedMetadata={() => {
-                      if (videoRef.current && activeLesson.resume_time) {
-                        videoRef.current.currentTime = activeLesson.resume_time;
+                      if (videoRef.current) {
+                        const dur = videoRef.current.duration || 1;
+                        if (activeLesson.completed) {
+                          if (activeLesson.resume_time && activeLesson.resume_time >= dur - 2) {
+                            videoRef.current.currentTime = 0;
+                          } else if (activeLesson.resume_time) {
+                            videoRef.current.currentTime = activeLesson.resume_time;
+                          }
+                        } else if (activeLesson.resume_time) {
+                          videoRef.current.currentTime = activeLesson.resume_time;
+                        }
                       }
                     }}
                     playbackSpeed={playbackSpeed}
@@ -811,12 +829,11 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                       <AlertCircle size={30} className="text-muted-foreground/60" />
                       <span>No video file matches this lesson segment.</span>
                     </div>
-                    {!activeLesson.completed && (
+                    {!isLiveStudent && !activeLesson.completed && (
                       <button 
                         onClick={() => {
                           toast.success('Lesson completed!');
                           syncProgressMutation.mutate({ current: 0, pct: 100, completed: true });
-                          if (autoplayNext) handleNextItem();
                         }}
                         className="px-6 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg hover:brightness-110"
                       >
@@ -827,10 +844,10 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                 )}
               </div>
 
-              {/* Video Player Meta & Completion Bar */}
-              <div className="cyber-glass-card p-3 px-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg border border-cyan-500/20">
+              {/* Video Player Meta & Action Bar */}
+              <div className="cyber-glass-card p-3 px-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-lg border border-emerald-500/20">
                 <div className="flex items-center gap-3">
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     Active Stream
                   </span>
                   <h3 className="text-xs font-bold text-white truncate max-w-xs sm:max-w-md">
@@ -839,38 +856,24 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  {/* Status / Mark Completed Action */}
-                  {activeLesson.completed ? (
-                    <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
-                      <CheckCircle2 size={13} /> Completed
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        toast.success('Lesson marked as completed!');
-                        syncProgressMutation.mutate({ current: videoDuration || 100, pct: 100, completed: true });
-                        if (autoplayNext) handleNextItem();
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-[11px] shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-                    >
-                      <CheckCircle2 size={13} /> Mark as Completed
-                    </button>
+                  {/* Status / Mark Completed Action (Hidden for Live Students) */}
+                  {!isLiveStudent && (
+                    activeLesson.completed ? (
+                      <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                        <CheckCircle2 size={13} /> Completed
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          toast.success('Lesson marked as completed!');
+                          syncProgressMutation.mutate({ current: videoDuration || 100, pct: 100, completed: true });
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-[11px] shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <CheckCircle2 size={13} /> Mark as Completed
+                      </button>
+                    )
                   )}
-
-                  {/* Autoplay Next Toggle */}
-                  <label className="flex items-center gap-2 cursor-pointer group pl-2 border-l border-slate-700/60">
-                    <div className="relative">
-                      <input 
-                        type="checkbox" 
-                        checked={autoplayNext} 
-                        onChange={(e) => setAutoplayNext(e.target.checked)} 
-                        className="sr-only peer" 
-                      />
-                      <div className="w-9 h-5 bg-slate-800 rounded-full peer-checked:bg-cyan-500 transition-all duration-300 border border-slate-700 peer-checked:border-cyan-400"></div>
-                      <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 peer-checked:translate-x-4 shadow-md"></div>
-                    </div>
-                    <span className="text-[11px] font-bold text-slate-300 group-hover:text-white transition-colors">Autoplay Next</span>
-                  </label>
                 </div>
               </div>
 
@@ -1083,7 +1086,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                               >
                                 <span className="font-mono text-[10px] text-muted-foreground w-4 shrink-0">{i + 1}.</span>
                                 <span className="truncate flex-1 font-semibold">{les.title}</span>
-                                {les.completed ? <CheckCircle2 size={12} className="text-emerald-500 shrink-0" /> : (buttonLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />)}
+                                {!isLiveStudent && les.completed ? <CheckCircle2 size={12} className="text-emerald-500 shrink-0" /> : (buttonLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />)}
                               </button>
                             );
                           })}

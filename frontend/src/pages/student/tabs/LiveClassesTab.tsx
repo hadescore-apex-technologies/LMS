@@ -63,6 +63,7 @@ export const LiveClassesTab: React.FC = () => {
           <UniversalVideoPlayer 
             src={activeRecording.url} 
             title={activeRecording.title}
+            disableForwardSeeking={false}
             className="w-full h-full object-cover" 
           />
         </div>

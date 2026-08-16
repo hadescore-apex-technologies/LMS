@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { 
   Play, Pause, Volume2, Volume1, VolumeX, 
-  Maximize, Minimize, PictureInPicture2, Loader2, Check, AlertCircle, Lock 
+  Maximize, Minimize, PictureInPicture2, Loader2, Check, AlertCircle, Lock, ShieldCheck 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store';
 import { getBaseURL } from '../services/api';
 
 interface UniversalVideoPlayerProps {
@@ -103,6 +105,18 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
 
   const parsed = parseVideoSource(src);
 
+  const { user: authUser } = useSelector((state: RootState) => state.auth);
+  const localUser = (() => {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const user = authUser || localUser;
+  const userEmail = user?.email || (user as any)?.username || 'apex.student@apex.com';
+
   // Player States
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -134,11 +148,14 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
   };
 
   useEffect(() => {
-    if (initialResumeTime > maxWatchedRef.current) {
+    if (!disableForwardSeeking) {
+      maxWatchedRef.current = 999999;
+      setMaxWatchedTime(999999);
+    } else if (initialResumeTime > maxWatchedRef.current) {
       maxWatchedRef.current = initialResumeTime;
       setMaxWatchedTime(initialResumeTime);
     }
-  }, [initialResumeTime]);
+  }, [disableForwardSeeking, initialResumeTime]);
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrubBarRef = useRef<HTMLDivElement>(null);
@@ -185,12 +202,15 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
     }
   };
 
-  // Play / Pause Toggle
+  // Play / Pause Toggle with replay-from-end support
   const togglePlay = () => {
     const el = videoElement.current;
     if (!el) return;
 
     if (el.paused || el.ended) {
+      if (el.ended || el.currentTime >= (el.duration || 1) - 0.5) {
+        el.currentTime = 0;
+      }
       el.play().then(() => setIsPlaying(true)).catch(() => {});
     } else {
       el.pause();
@@ -336,9 +356,16 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
         setMaxWatchedTime(current);
       }
 
+      // Auto-bookmark video playback timestamp
+      if (parsed.url && current > 5 && Math.floor(current) % 3 === 0) {
+        try {
+          localStorage.setItem(`v_bookmark_${parsed.url}`, String(current));
+        } catch {}
+      }
+
       setCurrentTime(current);
       if (el.buffered.length > 0) {
-        setBuffered((el.buffered.end(el.buffered.length - 1) / (el.duration || 1)) * 100);
+        setBuffered(el.buffered.end(el.buffered.length - 1));
       }
     }
     if (onTimeUpdate) onTimeUpdate(e);
@@ -347,8 +374,35 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
   const handleLoadedMetadataInternal = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
     const el = videoElement.current;
     if (el) {
-      setDuration(el.duration || 0);
-      setCurrentTime(el.currentTime || 0);
+      const vidDuration = el.duration || 0;
+      setDuration(vidDuration);
+      
+      // Auto-resume from saved bookmark if available
+      if (parsed.url) {
+        const savedBookmark = localStorage.getItem(`v_bookmark_${parsed.url}`);
+        if (savedBookmark && (!initialResumeTime || initialResumeTime < 2)) {
+          const time = parseFloat(savedBookmark);
+          if (time > 5 && time < vidDuration - 10) {
+            el.currentTime = time;
+            if (disableForwardSeeking) {
+              maxWatchedRef.current = Math.max(maxWatchedRef.current, time);
+              setMaxWatchedTime(Math.max(maxWatchedRef.current, time));
+            }
+          }
+        }
+      }
+
+      if (initialResumeTime > 0) {
+        if (initialResumeTime >= vidDuration - 2) {
+          el.currentTime = 0;
+          setCurrentTime(0);
+        } else {
+          el.currentTime = initialResumeTime;
+          setCurrentTime(initialResumeTime);
+        }
+      } else {
+        setCurrentTime(el.currentTime || 0);
+      }
       el.playbackRate = currentSpeed;
     }
     if (onLoadedMetadata) onLoadedMetadata(e);
@@ -393,6 +447,24 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
           onTouchStart={(e) => { e.stopPropagation(); }}
         />
 
+        {/* Dynamic Anti-Screen Recording Floating Watermark (Iframe) */}
+        <motion.div
+          animate={{
+            left: ['5%', '70%', '25%', '65%', '10%', '50%', '5%'],
+            top: ['8%', '15%', '72%', '45%', '38%', '80%', '8%'],
+            opacity: [0.45, 0.65, 0.50, 0.62, 0.48, 0.60, 0.45]
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute z-30 pointer-events-none select-none text-[11px] font-mono font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] tracking-wider flex items-center gap-1.5 px-3 py-1 rounded-lg bg-black/55 border border-white/20 backdrop-blur-xs shadow-lg"
+        >
+          <ShieldCheck size={13} className="text-cyan-400" />
+          <span className="font-semibold">{userEmail}</span>
+        </motion.div>
+
         {/* Sleek Title Bar overlay */}
         {title && (
           <div className="absolute top-0 inset-x-0 p-3.5 bg-gradient-to-b from-black/90 via-black/50 to-transparent pointer-events-none z-20 flex items-center gap-2">
@@ -430,6 +502,24 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
       onMouseLeave={handleMouseLeave}
       className={`relative w-full h-full bg-black overflow-hidden group select-none focus:outline-none ${className}`}
     >
+      {/* Dynamic Anti-Screen Recording Floating Watermark (HTML5) */}
+      <motion.div
+        animate={{
+          left: ['5%', '70%', '25%', '65%', '10%', '50%', '5%'],
+          top: ['8%', '15%', '72%', '45%', '38%', '80%', '8%'],
+          opacity: [0.45, 0.65, 0.50, 0.62, 0.48, 0.60, 0.45]
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+        className="absolute z-30 pointer-events-none select-none text-[11px] font-mono font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] tracking-wider flex items-center gap-1.5 px-3 py-1 rounded-lg bg-black/55 border border-white/20 backdrop-blur-xs shadow-lg"
+      >
+        <ShieldCheck size={13} className="text-cyan-400" />
+        <span className="font-semibold">{userEmail}</span>
+      </motion.div>
+
       {/* Video element */}
       <video
         ref={videoElement}

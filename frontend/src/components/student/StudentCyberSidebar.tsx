@@ -52,12 +52,12 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
 
   const navItems = isStudentLive
     ? [
-        { label: 'Dashboard', path: '/student', icon: LayoutDashboard, exact: true },
-        { label: 'Live Videos', path: '/student/courses', icon: BookOpen },
-        { label: 'Live Sessions', path: '/student/live', icon: Radio },
-        { label: 'Assignments', path: '/student/assignments', icon: FileText },
-        { label: 'Q&A Forum', path: '/student/forum', icon: MessageSquare },
-        { label: 'Settings', path: '/student/profile', icon: Settings },
+        { label: 'Dashboard', path: '/live-student', icon: LayoutDashboard, exact: true },
+        { label: 'Live Videos', path: '/live-student/videos', icon: BookOpen },
+        { label: 'Live Sessions', path: '/live-student/sessions', icon: Radio },
+        { label: 'Assignments', path: '/live-student/assignments', icon: FileText },
+        { label: 'Q&A Forum', path: '/live-student/forum', icon: MessageSquare },
+        { label: 'Settings', path: '/live-student/profile', icon: Settings },
       ]
     : [
         { label: 'Dashboard', path: '/student', icon: LayoutDashboard, exact: true },

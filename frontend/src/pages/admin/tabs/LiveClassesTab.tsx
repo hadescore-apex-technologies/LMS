@@ -73,6 +73,9 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
   // 1. Fetch Live Classes
   const { data: liveClasses = [], isLoading } = useQuery<LiveClass[]>({
     queryKey: ['live-classes-list', isLiveMode],
+    placeholderData: (prev) => prev,
+    staleTime: 0,
+    refetchOnMount: true,
     queryFn: async () => {
       const res = await api.get(`courses/live/?live_mode=${isLiveMode}`);
       return res.data;
@@ -314,12 +317,12 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
                   ? 'Schedule live mentoring classes specifically for assigned live mentees with zero course dependency.' 
                   : 'Schedule and manage course-specific live doubt clearing webinars for enrolled course students.')}
           </p>
-          <span className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
+          <span className={`inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border shadow-xs ${
             isLiveMode 
-              ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700/50' 
+              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/60' 
               : 'bg-primary/10 text-primary border-primary/25'
           }`}>
-            <Video size={11} />
+            <Video size={11} className={isLiveMode ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary'} />
             {isLiveMode ? 'Live Class Mode — Dedicated Mentoring' : 'Course Mode — Doubt Clearing Webinars'}
           </span>
         </div>

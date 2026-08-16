@@ -48,8 +48,17 @@ const StudentDashboard: React.FC = () => {
   const [aiTutorLessonId, setAiTutorLessonId] = useState<number | null>(null);
   const [aiTutorCourseId, setAiTutorCourseId] = useState<number | null>(null);
 
+  const isLive = localStorage.getItem('studentLiveMode') === 'true' ||
+                 Boolean(localStorage.getItem('loginPath')?.includes('live'));
+
   const handleNavigate = (path: string) => {
-    navigate(`/student/${path}`);
+    if (isLive) {
+      if (path === 'courses') navigate('/live-student/videos');
+      else if (path === 'live') navigate('/live-student/sessions');
+      else navigate(`/live-student/${path}`);
+    } else {
+      navigate(`/student/${path}`);
+    }
   };
 
   const handleOpenAITutor = (lessonId: number | null, courseId: number) => {
@@ -62,7 +71,12 @@ const StudentDashboard: React.FC = () => {
     const path = location.pathname.replace(/\/$/, '');
     
     switch (path) {
+      // Course Player & Video Replays
       case '/student/courses':
+      case '/live-student/videos':
+      case '/live-student/courses':
+      case '/live/videos':
+      case '/live/courses':
         if (activeCourse) {
           return (
             <CoursePlayer 
@@ -73,21 +87,56 @@ const StudentDashboard: React.FC = () => {
           );
         }
         return <CoursesTab onOpenCourse={(c) => setActiveCourse(c)} />;
+      
+      // Live Sessions / Mentoring Calendar
       case '/student/live':
+      case '/live-student/sessions':
+      case '/live-student/live':
+      case '/live/sessions':
+      case '/live/live':
         return <LiveClassesTab />;
+      
+      // Assignments
       case '/student/assignments':
+      case '/live-student/assignments':
+      case '/live/assignments':
         return <AssignmentsTab />;
+      
+      // Certificates (Course students)
       case '/student/certificates':
+      case '/live-student/certificates':
         return <CertificatesTab />;
+      
+      // Profile & Settings
       case '/student/profile':
+      case '/live-student/profile':
+      case '/live/profile':
         return <StudentProfile />;
+      
+      // Achievements
       case '/student/achievements':
+      case '/live-student/achievements':
+      case '/live/achievements':
         return <AchievementsBadges />;
+      
+      // Leaderboard
       case '/student/leaderboard':
+      case '/live-student/leaderboard':
+      case '/live/leaderboard':
         return <Leaderboard />;
+      
+      // Q&A Discussion Forum
       case '/student/forum':
+      case '/live-student/forum':
+      case '/live/forum':
         return <DiscussionTab />;
+      
+      // Dashboard Home
       case '/student':
+      case '/live-student':
+      case '/live-student/dashboard':
+      case '/live':
+      case '/live/dashboard':
       default:
         return (
           <DashboardTab 
@@ -95,7 +144,7 @@ const StudentDashboard: React.FC = () => {
             onOpenCourse={(cId) => {
               api.get(`courses/list/${cId}/`).then(res => {
                 setActiveCourse(res.data);
-                navigate('/student/courses');
+                navigate(isLive ? '/live-student/videos' : '/student/courses');
               });
             }}
           />

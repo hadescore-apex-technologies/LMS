@@ -1,4 +1,6 @@
+# pyrefly: ignore [missing-import]
 from rest_framework import viewsets, status
+# pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
 from apps.courses.models import Course, LiveClass
 from apps.categories.models import Category
@@ -75,6 +77,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(is_mentoring_track=(is_mentoring_track.lower() == 'true'))
             
             if profile:
+                # pyrefly: ignore [missing-import]
                 from django.db.models import Q
                 filters = Q(enrolled_students=profile)
                 if staff_cat:
@@ -106,6 +109,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             from apps.lessons.models import Lesson, LessonProgress
             from apps.quizzes.models import Quiz, QuizAttempt
             from apps.assignments.models import Assignment, AssignmentSubmission
+            # pyrefly: ignore [missing-import]
             from django.db.models import Count
             
             courses = self.filter_queryset(self.get_queryset())
@@ -178,6 +182,7 @@ class LiveClassViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         from apps.users.models import CustomUser
+        # pyrefly: ignore [missing-import]
         from django.db.models import Q
         if not isinstance(user, CustomUser):
             return LiveClass.objects.none()
@@ -189,22 +194,26 @@ class LiveClassViewSet(viewsets.ModelViewSet):
             student_courses = profile.courses.all() if profile else []
             
             if live_mode_param == 'true':
-                # Live Mentoring Mode: Only sessions created by assigned live mentor or specifically targeted to this student
+                # Live Mentoring Mode: Sessions created by assigned live mentor or specifically targeted to this student
                 live_staff = profile.assigned_live_staff if profile else None
-                qs = LiveClass.objects.filter(course__isnull=True)
+                qs = LiveClass.objects.filter(
+                    Q(course__isnull=True) | Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
+                )
                 if live_staff:
                     qs = qs.filter(Q(students=user) | Q(created_by=live_staff))
                 else:
                     qs = qs.filter(students=user)
-                return qs.select_related('category', 'created_by').prefetch_related('students').distinct()
+                return qs.select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
 
             elif live_mode_param == 'false':
                 # Course Doubt Clearing Mode: MUST be enrolled in that specific course!
+                # pyrefly: ignore [missing-attribute]
                 if not student_courses.exists():
                     return LiveClass.objects.none()
                 qs = LiveClass.objects.filter(
                     course__is_published=True,
-                    course__in=student_courses
+                    course__in=student_courses,
+                    course__is_mentoring_track=False
                 )
                 # If specific students were allotted in the doubt session, user must match or it's open to all enrolled in that course
                 return qs.filter(
@@ -215,30 +224,28 @@ class LiveClassViewSet(viewsets.ModelViewSet):
                 # Default fallback: strictly enrolled courses or targeted live sessions
                 qs = LiveClass.objects.filter(
                     Q(course__in=student_courses, course__is_published=True) |
-                    Q(course__isnull=True, students=user)
+                    Q(course__isnull=True, students=user) |
+                    Q(created_by__role='STAFF', students=user)
                 )
                 return qs.select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
 
         if user.role == 'STAFF':
-            # Staff members view only live classes created by themselves or targeted to their assigned mentees
+            # Staff members view ALL live classes created by themselves OR targeted to their assigned mentees
             qs = LiveClass.objects.filter(
                 Q(created_by=user) | 
                 Q(students__student_profile__assigned_live_staff=user) |
                 Q(students__student_profile__assigned_staff=user)
             )
-            if live_mode_param == 'true':
-                qs = qs.filter(course__isnull=True)
-            elif live_mode_param == 'false':
-                qs = qs.filter(course__isnull=False)
-
             return qs.select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
             
         qs = LiveClass.objects.select_related('course', 'category', 'created_by').prefetch_related('students').all()
         if live_mode_param == 'true':
-            qs = qs.filter(course__isnull=True)
+            qs = qs.filter(
+                Q(course__isnull=True) | Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
+            )
         elif live_mode_param == 'false':
-            qs = qs.filter(course__isnull=False)
-        return qs
+            qs = qs.filter(course__isnull=False, course__is_mentoring_track=False).exclude(created_by__role='STAFF')
+        return qs.distinct()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -310,6 +317,7 @@ class CourseDiscussionPostViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from apps.users.models import CustomUser
+        # pyrefly: ignore [missing-import]
         from django.db.models import Q
         user = self.request.user
         # pyrefly: ignore [missing-attribute]
@@ -394,6 +402,7 @@ class CourseDiscussionPostViewSet(viewsets.ModelViewSet):
                     )
 
     def destroy(self, request, *args, **kwargs):
+        # pyrefly: ignore [missing-import]
         from rest_framework.response import Response
         instance = self.get_object()
         if request.user.role not in ['SUPER_ADMIN', 'STAFF'] and instance.user != request.user:
@@ -445,6 +454,7 @@ class CourseDiscussionCommentViewSet(viewsets.ModelViewSet):
         pass
 
     def destroy(self, request, *args, **kwargs):
+        # pyrefly: ignore [missing-import]
         from rest_framework.response import Response
         instance = self.get_object()
         if request.user.role not in ['SUPER_ADMIN', 'STAFF'] and instance.user != request.user:
@@ -455,7 +465,9 @@ class CourseDiscussionCommentViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
 
+# pyrefly: ignore [missing-import]
 from rest_framework.views import APIView
+# pyrefly: ignore [missing-import]
 from rest_framework.response import Response
 from apps.lessons.models import Lesson
 import os
@@ -580,8 +592,10 @@ def generate_fallback_ai_response(action, lesson, course, prompt):
             ]
         for q in quiz:
             quiz_text += f"**Q{q['id']}: {q['question']}**\n"
+            # pyrefly: ignore [not-iterable]
             for opt_idx, opt in enumerate(q['options']):
                 quiz_text += f"- {'ABCD'[opt_idx]}) {opt}\n"
+            # pyrefly: ignore [bad-index]
             quiz_text += f"*Correct Answer: {'ABCD'[q['answerIndex']]}) {q['options'][q['answerIndex']]}*\n\n"
 
         return {"answer": quiz_text, "quiz": quiz}
@@ -689,6 +703,7 @@ def generate_fallback_ai_response(action, lesson, course, prompt):
             )
         }
 
+# pyrefly: ignore [missing-import]
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 class AITutorView(APIView):

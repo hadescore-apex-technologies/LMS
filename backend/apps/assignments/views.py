@@ -75,6 +75,20 @@ class AssignmentViewSet(viewsets.ModelViewSet):
             qs = qs.filter(Q(module__course_id=course_id) | Q(course_id=course_id)).distinct()
         if module_id:
             qs = qs.filter(module_id=module_id)
+
+        live_mode = request.query_params.get('live_mode')
+        if live_mode is not None:
+            is_live = str(live_mode).lower() in ['true', '1', 'yes']
+            if is_live:
+                qs = qs.filter(
+                    Q(course__is_mentoring_track=True) |
+                    Q(students__student_profile__student_type__in=['LIVE_CLASS', 'BOTH'])
+                ).distinct()
+            else:
+                qs = qs.filter(
+                    Q(course__isnull=True) | Q(course__is_mentoring_track=False)
+                ).distinct()
+
         return qs.select_related('created_by', 'module', 'course').prefetch_related('students')
 
 class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
@@ -114,6 +128,14 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
             'assignment__module',
             'graded_by'
         ).prefetch_related('student__student_profile__courses__category')
+
+        live_mode = self.request.query_params.get('live_mode')
+        if live_mode is not None:
+            is_live = str(live_mode).lower() in ['true', '1', 'yes']
+            if is_live:
+                qs = qs.filter(student__student_profile__student_type__in=['LIVE_CLASS', 'BOTH'])
+            else:
+                qs = qs.filter(student__student_profile__student_type__in=['COURSE', 'BOTH'])
 
         if user.role == 'STUDENT':
             return qs.filter(student=user)

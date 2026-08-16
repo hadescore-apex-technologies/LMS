@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import api from '../../../services/api';
 import { 
   BookOpen, Radio, FileText, Award, 
-  ArrowRight, Sparkles, ChevronDown, Layers
+  ArrowRight, Sparkles, ChevronDown, Layers, MessageSquare
 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store';
@@ -15,6 +15,7 @@ interface DashboardStats {
   assignments_submitted: number;
   assignments_graded: number;
   certificates_count: number;
+  mentee_queries_count?: number;
   study_hours?: { day: string; hours: number }[];
   avg_hours?: number;
 }
@@ -44,7 +45,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats', liveMode],
     placeholderData: (prev) => prev,
-    staleTime: 60000,
+    staleTime: 0,
+    refetchInterval: 15000,
     queryFn: async () => {
       const res = await api.get(`analytics/dashboard/?live_mode=${liveMode}`);
       return res.data;
@@ -69,28 +71,41 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
     }
   });
 
+  const { data: liveClasses = [] } = useQuery<any[]>({
+    queryKey: ['live-classes-dashboard', liveMode],
+    queryFn: async () => {
+      const res = await api.get(`courses/live/?live_mode=${liveMode}`);
+      return res.data;
+    }
+  });
+
   const studentFullName = (user?.first_name || user?.last_name)
     ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
     : (user?.name || '');
   const studentName = studentFullName || user?.first_name || user?.name || user?.email?.split('@')[0] || 'Student';
   const streakDays = achievements?.streak || 14;
 
-  const coursesCount = stats?.assigned_courses_count ?? (courses.length > 0 ? courses.length : 6);
-  const liveCount = stats?.upcoming_live_classes ?? 2;
-  const assignmentsPending = stats?.assignments_submitted ?? 4;
-  const certificatesEarned = stats?.certificates_count ?? 3;
+  const coursesCount = stats?.assigned_courses_count ?? (courses.length > 0 ? courses.length : 0);
+  const liveCount = liveClasses.filter((l: any) => l.status === 'UPCOMING' || l.status === 'LIVE').length || (stats?.upcoming_live_classes ?? 0);
+  const assignmentsPending = stats?.assignments_submitted ?? 0;
+  const certificatesEarned = stats?.certificates_count ?? 0;
+
+  // Next live class or first course track
+  const nextLiveSession = liveClasses.find((lc: any) => lc.status === 'LIVE') || 
+                          liveClasses.find((lc: any) => lc.status === 'UPCOMING') || 
+                          liveClasses[0];
 
   // Active continue learning course
   const activeCourse = courses[0] || {
     id: 1,
-    title: 'Data Structures & Algorithms',
-    category_name: 'Intermediate',
-    progress_percentage: 60,
+    title: 'Live Mentoring Curriculum',
+    category_name: 'Mentoring Track',
+    progress_percentage: 0,
   };
 
   const activeCourseProgress = activeCourse.progress_percentage !== undefined 
     ? Math.round(activeCourse.progress_percentage)
-    : (activeCourse.progress !== undefined ? Math.round(activeCourse.progress) : 60);
+    : (activeCourse.progress !== undefined ? Math.round(activeCourse.progress) : 0);
 
   // Daily study data (Hours of the day) for smooth curved SVG chart
   const dailyData = [
@@ -126,16 +141,19 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
               <span className="text-2xl animate-bounce">👋</span>
             </h1>
             <p className="text-xs text-slate-300/90 leading-relaxed max-w-sm">
-              Continue your learning journey and achieve your goals with Hadescore Apex & Technology.
+              {liveMode 
+                ? 'Join interactive live class mentoring, review assignments, and access practical session replays.' 
+                : 'Continue your learning journey and achieve your goals with Hadescore Apex & Technology.'}
             </p>
           </div>
 
           <div className="relative z-10 pt-4">
             <button
-              onClick={() => onNavigate('courses')}
+              onClick={() => onNavigate(liveMode ? 'live' : 'courses')}
               className="px-4 py-2 bg-slate-950/70 border border-emerald-500/40 hover:border-emerald-400 text-emerald-300 hover:text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 cursor-pointer group"
             >
-              <span>Continue Learning</span>
+              {liveMode ? <Radio size={14} className="text-emerald-400 animate-pulse" /> : null}
+              <span>{liveMode ? 'Join Live Mentoring' : 'Continue Learning'}</span>
               <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
@@ -238,8 +256,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
       </div>
 
       {/* ── ROW 2: GLOWING STAT METRICS CARDS ───────────────────────── */}
-      <div className={`grid gap-3.5 grid-cols-2 ${isStudentLive ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-        {/* Card 1: Courses */}
+      <div className={`grid gap-3.5 grid-cols-2 lg:grid-cols-4`}>
+        {/* Card 1: Courses / Live Videos */}
         <motion.div 
           whileHover={{ y: -2 }}
           onClick={() => onNavigate('courses')}
@@ -249,10 +267,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
             <BookOpen size={20} />
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 font-bold block">Courses</span>
+            <span className="text-[10px] text-slate-400 font-bold block">{liveMode ? 'Live Videos' : 'Courses'}</span>
             <div className="flex items-baseline gap-1.5 mt-0.5">
               <span className="text-2xl font-black text-white leading-none">{coursesCount}</span>
-              <span className="text-[10px] text-slate-400 font-semibold">In Progress</span>
+              <span className="text-[10px] text-slate-400 font-semibold">{liveMode ? 'Tracks' : 'In Progress'}</span>
             </div>
           </div>
         </motion.div>
@@ -264,10 +282,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
           className="rounded-3xl cyber-glass-card p-4 flex items-center gap-3.5 cursor-pointer group"
         >
           <div className="h-12 w-12 rounded-full border border-emerald-400/40 bg-emerald-950/40 text-emerald-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)] group-hover:scale-105 transition-transform shrink-0">
-            <Radio size={20} />
+            <Radio size={20} className={liveClasses.some((l: any) => l.status === 'LIVE') ? 'animate-pulse text-rose-400' : ''} />
           </div>
           <div>
-            <span className="text-[10px] text-slate-400 font-bold block">{isStudentLive ? 'Live Sessions' : 'Doubt Sessions'}</span>
+            <span className="text-[10px] text-slate-400 font-bold block">{liveMode ? 'Live Sessions' : 'Doubt Sessions'}</span>
             <div className="flex items-baseline gap-1.5 mt-0.5">
               <span className="text-2xl font-black text-white leading-none">{liveCount}</span>
               <span className="text-[10px] text-slate-400 font-semibold">Scheduled</span>
@@ -275,43 +293,60 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
           </div>
         </motion.div>
 
-        {/* Card 3: Assignments (Only in Live Mode) */}
-        {isStudentLive && (
+        {/* Card 3: Assignments */}
+        <motion.div 
+          whileHover={{ y: -2 }}
+          onClick={() => onNavigate('assignments')}
+          className="rounded-3xl cyber-glass-card p-4 flex items-center gap-3.5 cursor-pointer group"
+        >
+          <div className="h-12 w-12 rounded-full border border-emerald-400/40 bg-emerald-950/40 text-emerald-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)] group-hover:scale-105 transition-transform shrink-0">
+            <FileText size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-400 font-bold block">Assignments</span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="text-2xl font-black text-white leading-none">{assignmentsPending}</span>
+              <span className="text-[10px] text-slate-400 font-semibold">{liveMode ? 'Tasks' : 'Pending'}</span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Card 4: Q&A Doubts (Live Mode) or Certificates (Course Mode) */}
+        {liveMode ? (
           <motion.div 
             whileHover={{ y: -2 }}
-            onClick={() => onNavigate('assignments')}
+            onClick={() => onNavigate('forum')}
             className="rounded-3xl cyber-glass-card p-4 flex items-center gap-3.5 cursor-pointer group"
           >
             <div className="h-12 w-12 rounded-full border border-emerald-400/40 bg-emerald-950/40 text-emerald-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)] group-hover:scale-105 transition-transform shrink-0">
-              <FileText size={20} />
+              <MessageSquare size={20} />
             </div>
             <div>
-              <span className="text-[10px] text-slate-400 font-bold block">Assignments</span>
+              <span className="text-[10px] text-slate-400 font-bold block">Mentee Doubts</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="text-2xl font-black text-white leading-none">{assignmentsPending}</span>
-                <span className="text-[10px] text-slate-400 font-semibold">Pending</span>
+                <span className="text-2xl font-black text-white leading-none">{stats?.mentee_queries_count ?? 0}</span>
+                <span className="text-[10px] text-slate-400 font-semibold">Q&A Forum</span>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            whileHover={{ y: -2 }}
+            onClick={() => onNavigate('certificates')}
+            className="rounded-3xl cyber-glass-card p-4 flex items-center gap-3.5 cursor-pointer group"
+          >
+            <div className="h-12 w-12 rounded-full border border-emerald-400/40 bg-emerald-950/40 text-emerald-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)] group-hover:scale-105 transition-transform shrink-0">
+              <Award size={20} />
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 font-bold block">Certificates</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-2xl font-black text-white leading-none">{certificatesEarned}</span>
+                <span className="text-[10px] text-slate-400 font-semibold">Earned</span>
               </div>
             </div>
           </motion.div>
         )}
-
-        {/* Card 4: Certificates */}
-        <motion.div 
-          whileHover={{ y: -2 }}
-          onClick={() => onNavigate('certificates')}
-          className="rounded-3xl cyber-glass-card p-4 flex items-center gap-3.5 cursor-pointer group"
-        >
-          <div className="h-12 w-12 rounded-full border border-emerald-400/40 bg-emerald-950/40 text-emerald-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)] group-hover:scale-105 transition-transform shrink-0">
-            <Award size={20} />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold block">Certificates</span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="text-2xl font-black text-white leading-none">{certificatesEarned}</span>
-              <span className="text-[10px] text-slate-400 font-semibold">Earned</span>
-            </div>
-          </div>
-        </motion.div>
       </div>
 
       {/* ── ROW 3: DAILY STUDY ACTIVITY & CONTINUE LEARNING ───────────── */}
@@ -432,70 +467,182 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
           </div>
         </div>
 
-        {/* Continue Learning Card (4-5 Cols) */}
-        <div className="lg:col-span-5 rounded-3xl cyber-glass-card p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2">
-            <h3 className="font-extrabold text-sm text-white tracking-wide">Continue Learning</h3>
-            <button 
-              onClick={() => onNavigate('courses')}
-              className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 group"
-            >
-              <span>View All</span>
-              <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-
-          {/* Active Course Card Preview */}
-          <div 
-            onClick={() => onOpenCourse(activeCourse.id)}
-            className="p-4 rounded-2xl bg-slate-950/70 border border-emerald-500/30 hover:border-emerald-400 transition-all cursor-pointer group shadow-inner space-y-3"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
-                <BookOpen size={17} />
-              </div>
-              <div className="min-w-0 flex-1 space-y-0.5">
-                <h4 className="font-extrabold text-sm text-white group-hover:text-emerald-300 transition-colors truncate">
-                  {activeCourse.title}
-                </h4>
-                <p className="text-[11px] text-slate-400 font-medium">
-                  {activeCourse.category_name && activeCourse.category_name.toLowerCase() !== activeCourse.title.toLowerCase()
-                    ? `${activeCourse.category_name} • `
-                    : 'Training Track • '}
-                  <span className={activeCourseProgress === 100 ? "text-emerald-400 font-semibold" : "text-slate-300"}>
-                    {activeCourseProgress}% Completed
+        {/* Continue Learning / Live Mentoring Card (4-5 Cols) */}
+        {liveMode ? (
+          <div className="lg:col-span-5 rounded-3xl cyber-glass-card p-5 flex flex-col justify-between space-y-3">
+            <div className="flex items-center justify-between pb-1">
+              <h3 className="font-extrabold text-sm text-white tracking-wide flex items-center gap-2">
+                <span>Live Mentoring & Schedule</span>
+                {liveClasses.some((l: any) => l.status === 'LIVE') && (
+                  <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-rose-400 bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 rounded-full animate-pulse">
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                    Live
                   </span>
-                </p>
+                )}
+              </h3>
+              <button 
+                onClick={() => onNavigate('live')}
+                className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 group cursor-pointer"
+              >
+                <span>Full Schedule</span>
+                <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+
+            {/* Next / Active Live Class Card */}
+            {nextLiveSession ? (
+              <div 
+                onClick={() => onNavigate('live')}
+                className="p-3.5 rounded-2xl bg-slate-950/80 border border-emerald-500/30 hover:border-emerald-400 transition-all cursor-pointer group shadow-inner space-y-2.5"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-rose-500/20 to-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                    <Radio size={17} className={nextLiveSession.status === 'LIVE' ? 'animate-pulse text-rose-400' : 'text-emerald-400'} />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <h4 className="font-extrabold text-sm text-white group-hover:text-emerald-300 transition-colors truncate">
+                      {nextLiveSession.title}
+                    </h4>
+                    <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5 truncate">
+                      <span className="text-emerald-400 font-semibold">{nextLiveSession.course_title || 'Dedicated Live Track'}</span>
+                      <span>•</span>
+                      <span>{new Date(nextLiveSession.scheduled_time).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 text-[11px] text-slate-400 flex items-center justify-between border-t border-emerald-500/10">
+                  <span className="font-medium flex items-center gap-1.5">
+                    <span className={`h-2 w-2 rounded-full ${nextLiveSession.status === 'LIVE' ? 'bg-rose-500 animate-ping' : 'bg-emerald-400'}`} />
+                    <span className="text-[10px]">{nextLiveSession.status === 'LIVE' ? 'Class In Progress (Live Now)' : 'Upcoming Scheduled Session'}</span>
+                  </span>
+                  <button className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-lg font-bold text-[10px] group-hover:bg-emerald-500 group-hover:text-black transition-all">
+                    {nextLiveSession.status === 'LIVE' ? 'Join Live Stream' : 'View Session'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div 
+                onClick={() => onNavigate('courses')}
+                className="p-3.5 rounded-2xl bg-slate-950/80 border border-emerald-500/30 hover:border-emerald-400 transition-all cursor-pointer group shadow-inner space-y-2.5"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                    <BookOpen size={17} />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <h4 className="font-extrabold text-sm text-white group-hover:text-emerald-300 transition-colors truncate">
+                      {activeCourse.title}
+                    </h4>
+                    <p className="text-[11px] text-slate-400 font-medium">
+                      Live Video Library & Practical Replays
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 text-[11px] text-slate-400 flex items-center justify-between border-t border-emerald-500/10">
+                  <span className="font-medium text-emerald-400 text-[10px]">Live Mentoring Track</span>
+                  <button className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-lg font-bold text-[10px] group-hover:bg-emerald-500 group-hover:text-black transition-all">
+                    Watch Replays
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Mentee Replays & Doubts Action Bar to fill height perfectly */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <div 
+                onClick={() => onNavigate('courses')}
+                className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-emerald-500/40 transition-all cursor-pointer group flex items-center gap-2.5"
+              >
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <BookOpen size={14} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] text-white font-bold block truncate group-hover:text-emerald-300">Video Library</span>
+                  <span className="text-[9px] text-slate-400 block truncate">{courses.length} Replay Tracks</span>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => onNavigate('forum')}
+                className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-emerald-500/40 transition-all cursor-pointer group flex items-center gap-2.5"
+              >
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <MessageSquare size={14} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] text-white font-bold block truncate group-hover:text-emerald-300">Ask Mentor</span>
+                  <span className="text-[9px] text-slate-400 block truncate">1-on-1 Q&A Forum</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="lg:col-span-5 rounded-3xl cyber-glass-card p-5 flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2">
+              <h3 className="font-extrabold text-sm text-white tracking-wide">Continue Learning</h3>
+              <button 
+                onClick={() => onNavigate('courses')}
+                className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 group"
+              >
+                <span>View All</span>
+                <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+
+            {/* Active Course Card Preview */}
+            <div 
+              onClick={() => onOpenCourse(activeCourse.id)}
+              className="p-4 rounded-2xl bg-slate-950/70 border border-emerald-500/30 hover:border-emerald-400 transition-all cursor-pointer group shadow-inner space-y-3"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                  <BookOpen size={17} />
+                </div>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <h4 className="font-extrabold text-sm text-white group-hover:text-emerald-300 transition-colors truncate">
+                    {activeCourse.title}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    {activeCourse.category_name && activeCourse.category_name.toLowerCase() !== activeCourse.title.toLowerCase()
+                      ? `${activeCourse.category_name} • `
+                      : 'Training Track • '}
+                    <span className={activeCourseProgress === 100 ? "text-emerald-400 font-semibold" : "text-slate-300"}>
+                      {activeCourseProgress}% Completed
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Glowing Emerald Capsule Progress Bar */}
+              <div className="flex items-center gap-3 pt-1">
+                <div className="flex-1 h-2 rounded-full bg-slate-800/80 overflow-hidden p-0.5 border border-slate-700/60">
+                  <div 
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_10px_#34d399] transition-all duration-500"
+                    style={{ width: `${activeCourseProgress}%` }}
+                  />
+                </div>
+                <span className="text-[11px] font-mono font-black text-emerald-400 shrink-0">
+                  {activeCourseProgress}%
+                </span>
               </div>
             </div>
 
-            {/* Glowing Emerald Capsule Progress Bar */}
-            <div className="flex items-center gap-3 pt-1">
-              <div className="flex-1 h-2 rounded-full bg-slate-800/80 overflow-hidden p-0.5 border border-slate-700/60">
-                <div 
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_10px_#34d399] transition-all duration-500"
-                  style={{ width: `${activeCourseProgress}%` }}
-                />
-              </div>
-              <span className="text-[11px] font-mono font-black text-emerald-400 shrink-0">
-                {activeCourseProgress}%
+            <div className="pt-2 text-[11px] text-slate-400 flex items-center justify-between border-t border-emerald-500/10">
+              <span className="font-medium">
+                {activeCourseProgress === 100 
+                  ? "Status: Curriculum Completed" 
+                  : "Active Track: Ongoing Module"}
+              </span>
+              <span className="text-emerald-400 font-bold">
+                {activeCourseProgress === 100 
+                  ? "100% Finished" 
+                  : "In Progress"}
               </span>
             </div>
           </div>
-
-          <div className="pt-2 text-[11px] text-slate-400 flex items-center justify-between border-t border-emerald-500/10">
-            <span className="font-medium">
-              {activeCourseProgress === 100 
-                ? "Status: Curriculum Completed" 
-                : "Active Track: Ongoing Module"}
-            </span>
-            <span className="text-emerald-400 font-bold">
-              {activeCourseProgress === 100 
-                ? "100% Finished" 
-                : "In Progress"}
-            </span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

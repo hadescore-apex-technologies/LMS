@@ -114,7 +114,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
     placeholderData: (prev) => prev,
     staleTime: 0,
     refetchOnMount: true,
-    refetchInterval: 30000,
+    refetchInterval: 15000,
   });
 
 
@@ -146,15 +146,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
           iconBg: "bg-amber-100 dark:bg-amber-900/30",
           iconColor: "text-amber-600 dark:text-amber-400",
           tab: "live",
-        },
-        {
-          label: "Pending Reviews",
-          count: stats?.pending_assignments ?? 0,
-          sub: `Awaiting evaluation`,
-          icon: FileCheck,
-          iconBg: "bg-rose-100 dark:bg-rose-900/30",
-          iconColor: "text-rose-600 dark:text-rose-400",
-          tab: "assignments",
         },
       ]
     : [
@@ -250,7 +241,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
         className="space-y-4"
       >
         {/* Top Stats Row */}
-        <div className="grid flex-none gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={`grid flex-none gap-2.5 sm:grid-cols-2 ${liveMode ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
           {cards.map((c, i) => (
             <motion.div
               variants={itemVariants}

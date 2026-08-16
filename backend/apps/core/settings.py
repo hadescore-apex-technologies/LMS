@@ -188,7 +188,7 @@ SERVER_EMAIL = EMAIL_HOST_USER
 # Custom User Model
 AUTH_USER_MODEL = 'users.CustomUser'
 
-# Django REST Framework Configuration
+# Django REST Framework Configuration with Anti-Brute Force Throttling
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'apps.authentication.auth_backend.CustomJWTAuthentication',
@@ -196,7 +196,20 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '120/minute',
+        'user': '1000/minute',
+    }
 }
+
+# Security Headers & Anti-Hacking Protections
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 # SimpleJWT Settings - Permanent Non-Expiring Tokens for Staff & Admin (100 Years)
 SIMPLE_JWT = {

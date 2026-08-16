@@ -58,20 +58,20 @@ export const LiveAssignmentsTab: React.FC = () => {
   const [gradeAction, setGradeAction] = useState<'grade' | 'reject'>('grade');
   const [viewTaskSubmissionsAssignment, setViewTaskSubmissionsAssignment] = useState<Assignment | null>(null);
 
-  // 1. Fetch Submissions
+  // 1. Fetch Submissions (Live Mode Only)
   const { data: submissions = [] } = useQuery<Submission[]>({
     queryKey: ['admin-live-submissions-list'],
     queryFn: async () => {
-      const res = await api.get('assignments/submissions/');
+      const res = await api.get('assignments/submissions/?live_mode=true');
       return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
 
-  // 2. Fetch Assignments list
+  // 2. Fetch Assignments list (Live Mode Only)
   const { data: assignments = [], isLoading: isAssignmentsLoading } = useQuery<Assignment[]>({
     queryKey: ['admin-live-assignments'],
     queryFn: async () => {
-      const res = await api.get('assignments/list/');
+      const res = await api.get('assignments/list/?live_mode=true');
       return Array.isArray(res.data) ? res.data : (res.data?.results || []);
     }
   });
@@ -200,8 +200,8 @@ export const LiveAssignmentsTab: React.FC = () => {
           <h1 className="text-3xl font-extrabold tracking-tight">Live Assignments Hub</h1>
           <p className="text-muted-foreground text-sm mt-1">Review live student submissions, grade homework deliverables, and monitor tasks assigned by Mentors.</p>
           {activeSubTab === 'submissions' && (
-            <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full bg-violet-100 dark:bg-violet-950 text-violet-950 dark:text-violet-100 border border-violet-300 dark:border-violet-800 text-[10px] font-extrabold uppercase tracking-wider">
-              <Users size={11} />
+            <span className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 text-[10px] font-extrabold uppercase tracking-wider shadow-xs">
+              <Users size={11} className="text-emerald-600 dark:text-emerald-400" />
               Live Submissions Inbox — All Students
             </span>
           )}

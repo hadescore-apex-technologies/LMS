@@ -112,8 +112,8 @@ export const ForumTab: React.FC = () => {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">Mentee Queries & Doubt Resolution</h1>
           <p className="text-muted-foreground text-sm mt-1">Review and resolve doubt clearing questions asked specifically by your assigned live mentees.</p>
-          <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700/50 text-[10px] font-extrabold uppercase tracking-wider">
-            <Users size={11} />
+          <span className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 text-[10px] font-extrabold uppercase tracking-wider shadow-xs">
+            <Users size={11} className="text-emerald-600 dark:text-emerald-400" />
             Dedicated Assigned Mentees Only
           </span>
         </div>
@@ -138,10 +138,13 @@ export const ForumTab: React.FC = () => {
 
       {/* Main content pane */}
       <div className="space-y-6">
-        {filteredPosts.length === 0 ? (
-          <div className="py-20 text-center text-muted-foreground font-medium bg-card border border-dashed border-border rounded-2xl space-y-2">
-            <HelpCircle size={32} className="mx-auto opacity-20 text-primary" />
-            <h3 className="font-bold text-sm text-foreground">No Active Mentee Queries</h3>
+        {isLoading ? (
+          <div className="p-12 text-center text-muted-foreground">
+            <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="font-bold">Loading mentee questions...</p>
+          </div>
+        ) : filteredPosts.length === 0 ? (
+          <div className="p-12 text-center text-muted-foreground bg-card border border-dashed border-border rounded-2xl">
             <p>Your assigned mentees have not posted any open questions yet.</p>
           </div>
         ) : (
@@ -149,7 +152,7 @@ export const ForumTab: React.FC = () => {
             <div key={post.id} className="p-6 bg-card border border-border rounded-2xl shadow-sm space-y-4 hover:border-primary/25 transition-all">
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-2 items-center text-[10px] text-muted-foreground">
-                  <span className="px-2 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 font-bold border border-violet-200 dark:border-violet-800/40">
+                  <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-extrabold border border-emerald-200 dark:border-emerald-800/50">
                     Mentee Query
                   </span>
                   <span>Student: <span className="text-foreground font-bold">{post.user_details?.name || post.user_details?.email}</span></span>

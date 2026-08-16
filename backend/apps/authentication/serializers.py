@@ -10,11 +10,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Append role and user details to JWT payload
+        # Append role, session_id and user details to JWT payload
         token['email'] = user.email
         token['role'] = user.role
         token['first_name'] = user.first_name
         token['last_name'] = user.last_name
+        token['session_id'] = getattr(user, 'session_id', '') or ''
         if user.role == 'STUDENT' and hasattr(user, 'student_profile'):
             token['courses'] = [c.title for c in user.student_profile.courses.all()]
         else:
@@ -82,6 +83,42 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             ua = request.META.get('HTTP_USER_AGENT')
         LoginHistory.objects.create(user=self.user, ip_address=ip, user_agent=ua)
         
+        # Single Active Device Session Protection & Root Email Security Alerts
+        import uuid
+        new_session_id = uuid.uuid4().hex
+        prev_session = getattr(user, 'session_id', None)
+        full_name = f"{self.user.first_name} {self.user.last_name}".strip()
+
+        if prev_session and user.role == 'STUDENT':
+            import threading
+            from apps.core.emails import send_lms_email
+            ip_addr = ip or 'Unknown IP'
+            user_email = user.email
+            user_name = full_name or user.email
+            
+            def _send_concurrent_alert():
+                try:
+                    send_lms_email(
+                        to_email='hadescore.apex.technologies@gmail.com',
+                        subject=f"⚠️ Security Alert: Concurrent Login Detected for {user_email}",
+                        text_body=(
+                            f"Apex LMS Security Notification\n\n"
+                            f"A concurrent login override was detected for student account:\n"
+                            f"• User: {user_name} ({user_email})\n"
+                            f"• Time: {timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+                            f"• New Login IP: {ip_addr}\n"
+                            f"• Device Info: {ua or 'Web Browser'}\n\n"
+                            f"Security Action Taken: Previous session token has been automatically invalidated to prevent multi-device account sharing."
+                        )
+                    )
+                except Exception as e:
+                    print(f"Failed to dispatch security alert email: {e}")
+            
+            threading.Thread(target=_send_concurrent_alert, daemon=True).start()
+
+        user.session_id = new_session_id
+        user.save(update_fields=['session_id'])
+
         courses_list = []
         student_type = None
         if self.user.role == 'STUDENT' and hasattr(self.user, 'student_profile'):
@@ -89,7 +126,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             student_type = self.user.student_profile.student_type
 
         # Append user metadata directly in the API response json
-        full_name = f"{self.user.first_name} {self.user.last_name}".strip()
         data['user'] = {
             'email': self.user.email,
             'name': full_name or self.user.first_name or self.user.email.split('@')[0],

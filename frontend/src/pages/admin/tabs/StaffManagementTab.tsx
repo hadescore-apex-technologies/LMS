@@ -317,13 +317,11 @@ export const StaffManagementTab: React.FC = () => {
   };
 
   const filteredStaff = staffList.filter(s => {
+    if (s.role !== 'STAFF') return false;
     const matchesSearch = s.email.toLowerCase().includes(search.toLowerCase()) ||
       s.first_name.toLowerCase().includes(search.toLowerCase()) ||
       s.last_name.toLowerCase().includes(search.toLowerCase());
     
-    if (filterRole === 'ALL') return matchesSearch;
-    if (filterRole === 'SUPER_ADMIN') return matchesSearch && s.role === 'SUPER_ADMIN';
-    if (filterRole === 'STAFF') return matchesSearch && s.role === 'STAFF';
     return matchesSearch;
   });
 
@@ -348,15 +346,15 @@ export const StaffManagementTab: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Operator Administration</h1>
-          <p className="text-muted-foreground text-sm mt-1">Super Admin CRUD panel to configure STAFF and SUPER_ADMIN operator accounts with category assignments.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Staff & Mentor Administration</h1>
+          <p className="text-muted-foreground text-sm mt-1">Super Admin management panel to configure Staff and Mentor accounts with domain category assignments.</p>
         </div>
         <button
           onClick={() => { resetForm(); setShowAddModal(true); }}
           className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl shadow-md transition-all hover:brightness-110"
         >
           <UserPlus size={15} />
-          <span>Add Operator</span>
+          <span>Add Staff Mentor</span>
         </button>
       </div>
 
@@ -369,18 +367,10 @@ export const StaffManagementTab: React.FC = () => {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search operators by name or email..."
+              placeholder="Search staff mentors by name or email..."
               className="w-full h-10 pl-10 pr-4 bg-background border border-border rounded-xl outline-none focus:border-primary/45"
             />
           </div>
-          <select 
-            value={filterRole} 
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="h-10 px-3 bg-background border border-border rounded-xl outline-none font-bold text-muted-foreground shrink-0"
-          >
-            <option value="ALL">All Accounts</option>
-            <option value="STAFF">Staff Operators</option>
-          </select>
         </div>
       </div>
 

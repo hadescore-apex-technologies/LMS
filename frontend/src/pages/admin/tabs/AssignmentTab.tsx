@@ -84,21 +84,21 @@ export const AssignmentTab: React.FC = () => {
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   const [uploadingField, setUploadingField] = useState<string | null>(null);
 
-  // 1. Fetch Submissions
+  // 1. Fetch Submissions (Course Mode Only)
   const { data: submissions = [] } = useQuery<Submission[]>({
-    queryKey: ['staff-submissions-list'],
+    queryKey: ['staff-submissions-list', liveMode],
     queryFn: async () => {
-      const res = await api.get('assignments/submissions/');
+      const res = await api.get('assignments/submissions/?live_mode=false');
       return res.data;
     }
   });
 
-  // 2. Fetch Assignments list
+  // 2. Fetch Assignments list (Course Mode Only)
   const { data: assignments = [], refetch: refetchAssignments } = useQuery<Assignment[]>({
-    queryKey: ['admin-assignments-list'],
+    queryKey: ['admin-assignments-list', liveMode],
     enabled: activeSubTab === 'manage',
     queryFn: async () => {
-      const res = await api.get('assignments/list/');
+      const res = await api.get('assignments/list/?live_mode=false');
       return res.data;
     }
   });

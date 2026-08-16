@@ -290,6 +290,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
       toast.success(`Welcome back, ${user.first_name || 'User'}!`);
       if (user.role === 'SUPER_ADMIN') navigate('/admin');
       else if (user.role === 'STAFF') navigate('/staff');
+      else if (isStudentLiveMode) navigate('/live-student');
       else navigate('/student');
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Invalid credentials.", { duration: 6000 });

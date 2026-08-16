@@ -53,8 +53,10 @@ class DashboardStatsView(views.APIView):
                 total_assignments = Assignment.objects.filter(module__course__is_mentoring_track=True).count()
                 total_lessons = Lesson.objects.filter(module__course__is_mentoring_track=True).count()
                 total_videos = Video.objects.filter(lesson__module__course__is_mentoring_track=True).count()
-                # Strictly Live Mentoring sessions created in Live Class Mentoring page (course__isnull=True)
-                live_classes_base_qs = LiveClass.objects.filter(course__isnull=True)
+                # All Live Mentoring sessions (independent, staff-created, or mentoring tracks)
+                live_classes_base_qs = LiveClass.objects.filter(
+                    Q(course__isnull=True) | Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
+                ).distinct()
             else:
                 total_courses = Course.objects.filter(is_mentoring_track=False).count()
                 total_categories = Category.objects.filter(category_type='COURSE').count()
@@ -62,8 +64,10 @@ class DashboardStatsView(views.APIView):
                 total_assignments = Assignment.objects.filter(module__course__is_mentoring_track=False).count()
                 total_lessons = Lesson.objects.filter(module__course__is_mentoring_track=False).count()
                 total_videos = Video.objects.filter(lesson__module__course__is_mentoring_track=False).count()
-                # Strictly Course Doubt Clearing sessions (course__isnull=False)
-                live_classes_base_qs = LiveClass.objects.filter(course__isnull=False)
+                # Course Doubt Clearing sessions ONLY
+                live_classes_base_qs = LiveClass.objects.filter(
+                    course__isnull=False, course__is_mentoring_track=False
+                ).exclude(created_by__role='STAFF').distinct()
 
             from apps.certificates.models import Certificate
             certificates_issued = Certificate.objects.filter(is_issued=True).count()
