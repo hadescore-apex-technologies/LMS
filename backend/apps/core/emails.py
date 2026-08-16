@@ -17,6 +17,7 @@ import logging
 import threading
 import time
 from email.utils import formataddr
+from typing import Any
 
 # pyrefly: ignore [missing-import]
 from django.conf import settings
@@ -25,8 +26,6 @@ from django.core.mail import get_connection
 
 logger = logging.getLogger(__name__)
 
-
-# ── Default Templates ──────────────────────────────────────────────────────────
 
 # ── Default Templates ──────────────────────────────────────────────────────────
 
@@ -59,7 +58,7 @@ GETTING STARTED STEPS
 
 NEED ASSISTANCE?
 --------------------------------------------------
-If you have any questions or require support, please contact our team at support@apex.com.
+If you have any questions or require support, please contact our team at info@apex.hadescoretech.com.
 
 Best regards,
 
@@ -128,9 +127,7 @@ Hadescore Apex Technologies Team
 """
 
 
-def convert_text_to_html(body_text, subject="Notification", brand_name="Apex LMS", login_url=None):
-    import re
-    import datetime
+def convert_text_to_html(body_text: str, subject: str = "Notification", brand_name: str = "Apex LMS", login_url: str | None = None) -> str:
 
     # Split text into paragraphs
     paragraphs = []
@@ -174,13 +171,20 @@ def convert_text_to_html(body_text, subject="Notification", brand_name="Apex LMS
 
 # ── SMTP Settings Cache ───────────────────────────────────────────────────────
 # Cache SMTP settings in memory to avoid 5 DB queries per email.
-# Refreshes every 5 minutes automatically.
+# Refreshes every 5 minutes automatically, or instantly when settings are saved.
 
-_smtp_cache = {
+_smtp_cache: dict[str, Any] = {
     'data': None,
-    'expires_at': 0,
+    'expires_at': 0.0,
 }
 _CACHE_TTL = 300  # 5 minutes
+
+
+def clear_smtp_cache():
+    """Invalidate memory cache for SMTP settings so changes take effect immediately."""
+    _smtp_cache['data'] = None
+    _smtp_cache['expires_at'] = 0
+    logger.info("[Email] SMTP cache cleared.")
 
 
 def _get_cached_smtp_settings():
@@ -196,19 +200,23 @@ def _get_cached_smtp_settings():
     from apps.core.models import PlatformSettings
 
     try:
-        # Single query instead of 5 separate queries
         smtp_keys = ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'smtp_from_email']
         rows = PlatformSettings.objects.filter(key__in=smtp_keys)
-        settings_map = {row.key: row.value for row in rows}
+        settings_map = {row.key: str(row.value or '').strip() for row in rows}
 
         host = settings_map.get('smtp_host', '').strip()
         user = settings_map.get('smtp_user', '').strip()
-        password = settings_map.get('smtp_password', '')
+        password = settings_map.get('smtp_password', '').strip()
+
+        if host and 'gmail' in host.lower():
+            password = password.replace(' ', '')
 
         if host and user and password:
+            port_str = settings_map.get('smtp_port', '587').strip()
+            port = int(port_str) if port_str.isdigit() else 587
             result = {
                 'host': host,
-                'port': int(settings_map.get('smtp_port', '587') or '587'),
+                'port': port,
                 'user': user,
                 'password': password,
                 'from_email': settings_map.get('smtp_from_email', '').strip(),
@@ -216,15 +224,55 @@ def _get_cached_smtp_settings():
         else:
             result = None
 
-        # pyrefly: ignore [unsupported-operation]
         _smtp_cache['data'] = result
-        # pyrefly: ignore [unsupported-operation]
         _smtp_cache['expires_at'] = now + _CACHE_TTL
         return result
 
     except Exception as e:
         logger.error(f"[Email] Error fetching SMTP settings: {e}")
         return None
+
+
+def _get_env_fallback_connection():
+    from email.utils import parseaddr
+    from_email = str(getattr(settings, 'DEFAULT_FROM_EMAIL', ''))
+    display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
+    if not email_addr or '@' not in email_addr:
+        email_addr = str(getattr(settings, 'EMAIL_HOST_USER', ''))
+    if not display_name:
+        display_name = 'LMS'
+    if not email_addr:
+        email_addr = 'noreply@apex-lms.com'
+
+    # Build a real connection from Django settings so email actually sends
+    host = str(getattr(settings, 'EMAIL_HOST', '') or '').strip()
+    port_val = str(getattr(settings, 'EMAIL_PORT', 587)).strip()
+    port = int(port_val) if port_val.isdigit() else 587
+    user = str(getattr(settings, 'EMAIL_HOST_USER', '') or '').strip()
+    password = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').strip()
+
+    if host and ('gmail' in host.lower() or 'google' in host.lower()):
+        password = password.replace(' ', '')
+
+    use_ssl = (port == 465) or (getattr(settings, 'EMAIL_USE_SSL', False) is True)
+    use_tls = (not use_ssl) and (getattr(settings, 'EMAIL_USE_TLS', True) is True)
+
+    if host and user and password:
+        connection = get_connection(
+            backend='django.core.mail.backends.smtp.EmailBackend',
+            host=host,
+            port=port,
+            username=user,
+            password=password,
+            use_tls=use_tls,
+            use_ssl=use_ssl,
+            timeout=15,
+        )
+    else:
+        connection = None
+
+    sender = formataddr((display_name, email_addr))
+    return connection, sender, email_addr
 
 
 def get_smtp_connection_and_sender():
@@ -249,65 +297,30 @@ def get_smtp_connection_and_sender():
             password=smtp['password'],
             use_tls=use_tls,
             use_ssl=use_ssl,
+            timeout=15,
         )
 
-        from_email = smtp['from_email']
-        # pyrefly: ignore [bad-argument-type]
+        from_email = str(smtp['from_email'])
         display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
         
         # Anti-Spam Check: Ensure From domain aligns with authenticated SMTP user
         if not email_addr or '@' not in email_addr:
-            email_addr = smtp['user']
+            email_addr = str(smtp['user'])
         if not display_name:
             display_name = 'Apex LMS'
 
-        # pyrefly: ignore [bad-argument-type]
         sender = formataddr((display_name, email_addr))
         return connection, sender, email_addr
 
-    # Fallback to Django settings (which come from .env)
-    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
-    display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
-    if not email_addr or '@' not in email_addr:
-        email_addr = getattr(settings, 'EMAIL_HOST_USER', '')
-    if not display_name:
-        display_name = 'Apex LMS'
-    if not email_addr:
-        email_addr = 'noreply@apex-lms.com'
-
-    # Build a real connection from Django settings so email actually sends
-    host = getattr(settings, 'EMAIL_HOST', '')
-    port = int(getattr(settings, 'EMAIL_PORT', 587))
-    user = getattr(settings, 'EMAIL_HOST_USER', '')
-    password = getattr(settings, 'EMAIL_HOST_PASSWORD', '')
-    use_tls = getattr(settings, 'EMAIL_USE_TLS', True)
-    use_ssl = getattr(settings, 'EMAIL_USE_SSL', False)
-
-    if host and user and password:
-        connection = get_connection(
-            backend='django.core.mail.backends.smtp.EmailBackend',
-            host=host,
-            port=port,
-            username=user,
-            password=password,
-            use_tls=use_tls,
-            use_ssl=use_ssl,
-        )
-    else:
-        connection = None
-
-    sender = formataddr((display_name, email_addr))
-    return connection, sender, email_addr
+    return _get_env_fallback_connection()
 
 
 def send_lms_email(
     to_email: str,
     subject: str,
     text_body: str,
-    # pyrefly: ignore [bad-function-definition]
-    html_body: str = None,
-    # pyrefly: ignore [bad-function-definition]
-    reply_to: str = None,
+    html_body: str | None = None,
+    reply_to: str | None = None,
 ):
     """
     Unified anti-spam transactional email sender.
@@ -319,12 +332,17 @@ def send_lms_email(
 
     connection, sender_formatted, sender_addr = get_smtp_connection_and_sender()
 
-    reply_to_addr = reply_to or sender_formatted
+    if not connection:
+        err_msg = (
+            f"[Email] Outgoing SMTP host or credentials not configured. Cannot send email to '{to_email}'. "
+            "Please configure your SMTP Server Host, User, and Password in System Settings > Outgoing SMTP Configuration."
+        )
+        logger.error(err_msg)
+        raise ValueError(
+            "Outgoing SMTP is not configured. Please enter your SMTP Server Host, User Email, and Password in Admin > System Settings."
+        )
 
-    # Clean, legitimate transactional headers only
-    headers = {
-        'Reply-To': reply_to_addr,
-    }
+    reply_to_list = [reply_to] if reply_to else ([sender_addr] if sender_addr else None)
 
     if not html_body:
         html_body = convert_text_to_html(text_body, subject=subject)
@@ -334,18 +352,37 @@ def send_lms_email(
         body=text_body,
         from_email=sender_formatted,
         to=[to_email],
+        reply_to=reply_to_list,
         connection=connection,
-        headers=headers,
     )
     email_message.attach_alternative(html_body, "text/html")
 
-    email_message.send(fail_silently=False)
-    logger.info(f"[Email] Successfully sent email to {to_email}")
+    try:
+        email_message.send(fail_silently=False)
+        logger.info(f"[Email] Successfully sent email to {to_email}")
+    except Exception as primary_exc:
+        logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Attempting fallback...")
+        fallback_conn, fallback_sender, fallback_addr = _get_env_fallback_connection()
+        if fallback_conn and fallback_conn != connection:
+            fb_reply_to = [reply_to] if reply_to else ([fallback_addr] if fallback_addr else None)
+            fallback_msg = EmailMultiAlternatives(
+                subject=subject,
+                body=text_body,
+                from_email=fallback_sender,
+                to=[to_email],
+                reply_to=fb_reply_to,
+                connection=fallback_conn,
+            )
+            fallback_msg.attach_alternative(html_body, "text/html")
+            fallback_msg.send(fail_silently=False)
+            logger.info(f"[Email] Fallback email sent successfully to {to_email}")
+        else:
+            raise primary_exc
 
 
 # ── Template Cache ─────────────────────────────────────────────────────────────
 
-_template_cache = {}
+_template_cache: dict[str, Any] = {}
 _TEMPLATE_CACHE_TTL = 300  # 5 minutes
 
 
@@ -463,8 +500,7 @@ def send_welcome_email(
     email: str,
     password: str,
     role: str = 'STUDENT',
-    # pyrefly: ignore [bad-function-definition]
-    login_url: str = None,
+    login_url: str | None = None,
 ):
     """
     Send the welcome email to a newly created user (student or staff).

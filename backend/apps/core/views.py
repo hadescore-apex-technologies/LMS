@@ -16,6 +16,21 @@ class PlatformSettingsViewSet(viewsets.ModelViewSet):
     serializer_class = PlatformSettingsSerializer
     permission_classes = [IsSuperAdmin]
 
+    def perform_create(self, serializer):
+        serializer.save()
+        from apps.core.emails import clear_smtp_cache
+        clear_smtp_cache()
+
+    def perform_update(self, serializer):
+        serializer.save()
+        from apps.core.emails import clear_smtp_cache
+        clear_smtp_cache()
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        from apps.core.emails import clear_smtp_cache
+        clear_smtp_cache()
+
 class TriggerBackupView(views.APIView):
     permission_classes = [IsSuperAdmin]
 
@@ -240,22 +255,37 @@ class TestSMTPView(views.APIView):
         if not to_email:
             return response.Response({"error": "Target email is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Invalidate SMTP cache to use latest settings
-        from apps.core.emails import _smtp_cache, send_lms_email
-        _smtp_cache['expires_at'] = 0
+        # Invalidate SMTP cache to force reload of newest settings
+        from apps.core.emails import clear_smtp_cache, send_lms_email
+        clear_smtp_cache()
 
         try:
             subject = "Apex LMS - SMTP Test Verification"
-            body = f"Hello {request.user.first_name or 'Admin'},\n\nThis is a test email sent from Apex LMS to verify that your Outgoing SMTP configuration is operating successfully!\n\nTimestamp: {timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n\nBest regards,\nApex LMS"
+            body = (
+                f"Hello {request.user.first_name or 'Admin'},\n\n"
+                f"This is a test email sent from Apex LMS to verify that your Outgoing SMTP server is functioning properly.\n\n"
+                f"Recipient: {to_email}\n"
+                f"Timestamp: {timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
+                f"If you received this message, your SMTP credentials and deliverability configuration are correctly set up!\n\n"
+                f"Best regards,\n"
+                f"Apex LMS Technical Team"
+            )
             send_lms_email(to_email=to_email, subject=subject, text_body=body)
             return response.Response({
                 "status": "success",
-                "message": f"Test email sent successfully to {to_email}!"
+                "message": f"Test email sent successfully to {to_email}! SMTP connection verified."
             }, status=status.HTTP_200_OK)
         except Exception as exc:
             logger.exception(f"[SMTP Test] Failed to send test email: {exc}")
+            err_str = str(exc)
+            if "Authentication" in err_str or "auth" in err_str.lower() or "535" in err_str:
+                msg = f"SMTP Authentication Failed ({err_str}). For Gmail, ensure you are using a 16-character App Password with 2-Step Verification enabled."
+            elif "Connection refused" in err_str or "timeout" in err_str.lower() or "111" in err_str:
+                msg = f"SMTP Connection Failed ({err_str}). Check your SMTP Host name and Port number (587 for TLS, 465 for SSL)."
+            else:
+                msg = f"SMTP Error: {err_str}"
             return response.Response({
                 "status": "error",
-                "error": str(exc)
+                "error": msg
             }, status=status.HTTP_400_BAD_REQUEST)
 

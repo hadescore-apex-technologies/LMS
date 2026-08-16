@@ -187,17 +187,18 @@ class LiveClassViewSet(viewsets.ModelViewSet):
         if not isinstance(user, CustomUser):
             return LiveClass.objects.none()
         
-        live_mode_param = self.request.query_params.get('live_mode')
+        query_params = getattr(self.request, 'query_params', getattr(self.request, 'GET', {}))
+        live_mode_param = query_params.get('live_mode')
         
         if user.role == 'STUDENT':
             profile = getattr(user, 'student_profile', None)
             student_courses = profile.courses.all() if profile else []
             
             if live_mode_param == 'true':
-                # Live Mentoring Mode: Sessions created by assigned live mentor or specifically targeted to this student
+                # Live Mentoring Mode: ONLY sessions created by assigned live mentor or specifically targeted to this student
                 live_staff = profile.assigned_live_staff if profile else None
                 qs = LiveClass.objects.filter(
-                    Q(course__isnull=True) | Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
+                    Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
                 )
                 if live_staff:
                     qs = qs.filter(Q(students=user) | Q(created_by=live_staff))
@@ -206,7 +207,7 @@ class LiveClassViewSet(viewsets.ModelViewSet):
                 return qs.select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
 
             elif live_mode_param == 'false':
-                # Course Doubt Clearing Mode: MUST be enrolled in that specific course!
+                # Course Doubt Clearing Mode: MUST be enrolled in that specific course or targeted by Admin
                 # pyrefly: ignore [missing-attribute]
                 if not student_courses.exists():
                     return LiveClass.objects.none()
@@ -214,8 +215,7 @@ class LiveClassViewSet(viewsets.ModelViewSet):
                     course__is_published=True,
                     course__in=student_courses,
                     course__is_mentoring_track=False
-                )
-                # If specific students were allotted in the doubt session, user must match or it's open to all enrolled in that course
+                ).exclude(created_by__role='STAFF')
                 return qs.filter(
                     Q(students__isnull=True) | Q(students=user)
                 ).select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
@@ -224,27 +224,35 @@ class LiveClassViewSet(viewsets.ModelViewSet):
                 # Default fallback: strictly enrolled courses or targeted live sessions
                 qs = LiveClass.objects.filter(
                     Q(course__in=student_courses, course__is_published=True) |
-                    Q(course__isnull=True, students=user) |
                     Q(created_by__role='STAFF', students=user)
                 )
                 return qs.select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
 
         if user.role == 'STAFF':
-            # Staff members view ALL live classes created by themselves OR targeted to their assigned mentees
+            # Staff members view live classes created by themselves OR targeted to their assigned mentees
             qs = LiveClass.objects.filter(
                 Q(created_by=user) | 
                 Q(students__student_profile__assigned_live_staff=user) |
                 Q(students__student_profile__assigned_staff=user)
             )
+            if live_mode_param == 'true':
+                qs = qs.filter(Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True))
+            elif live_mode_param == 'false':
+                qs = qs.filter(course__is_mentoring_track=False).exclude(created_by__role='STAFF')
             return qs.select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
             
+        # SUPER_ADMIN:
         qs = LiveClass.objects.select_related('course', 'category', 'created_by').prefetch_related('students').all()
         if live_mode_param == 'true':
+            # Live Mentoring Mode: ONLY sessions created by STAFF (mentors) or dedicated mentoring tracks
             qs = qs.filter(
-                Q(course__isnull=True) | Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
+                Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
             )
         elif live_mode_param == 'false':
-            qs = qs.filter(course__isnull=False, course__is_mentoring_track=False).exclude(created_by__role='STAFF')
+            # Course Doubt Clearing Mode: Sessions created by SUPER_ADMIN or for non-mentoring course tracks
+            qs = qs.filter(
+                Q(created_by__role='SUPER_ADMIN') | Q(course__is_mentoring_track=False)
+            ).exclude(created_by__role='STAFF')
         return qs.distinct()
 
     def create(self, request, *args, **kwargs):

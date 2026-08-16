@@ -1,5 +1,8 @@
+# pyrefly: ignore [missing-import]
 from django.db.models import Q
+# pyrefly: ignore [missing-import]
 from django.utils import timezone
+# pyrefly: ignore [missing-import]
 from rest_framework import viewsets, status, decorators, response
 from apps.users.models import CustomUser, StudentProfile
 from apps.students.serializers import StudentSerializer
@@ -12,6 +15,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # pyrefly: ignore [missing-import]
         from django.db.models import Exists, OuterRef
         from apps.certificates.models import Certificate
         
@@ -29,6 +33,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         live_mode = self.request.query_params.get('live_mode') == 'true'
         
         if user.role == 'STAFF':
+            # pyrefly: ignore [missing-import]
             from django.db.models import Q
             # Staff members strictly manage ONLY students directly assigned to them (not all domain students)
             return qs.filter(
@@ -37,6 +42,7 @@ class StudentViewSet(viewsets.ModelViewSet):
             ).distinct()
         
         elif user.role == 'SUPER_ADMIN' and self.request.query_params.get('live_mode') is not None:
+            # pyrefly: ignore [missing-import]
             from django.db.models import Q
             if live_mode:
                 return qs.filter(Q(student_profile__student_type='LIVE_CLASS') | Q(student_profile__student_type='BOTH'))
@@ -133,7 +139,9 @@ class StudentViewSet(viewsets.ModelViewSet):
             return response.Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
         # Re-fetch with full select_related + annotation so response matches GET list exactly
+        # pyrefly: ignore [missing-import]
         from django.db.models import Exists, OuterRef
+        # pyrefly: ignore [missing-import]
         from apps.certificates.models import Certificate
         refreshed = CustomUser.objects.filter(pk=instance.pk).select_related(
             'student_profile',
@@ -151,7 +159,9 @@ class StudentViewSet(viewsets.ModelViewSet):
 
         user = serializer.save()
         # Send welcome email with login credentials
+        # pyrefly: ignore [missing-import]
         from apps.core.emails import send_welcome_email
+        # pyrefly: ignore [missing-import]
         from django.conf import settings
         raw_pwd = self.request.data.get('password')
         password_to_send = raw_pwd.strip() if (raw_pwd and isinstance(raw_pwd, str) and raw_pwd.strip()) else 'apex123'
@@ -410,6 +420,7 @@ class StudentViewSet(viewsets.ModelViewSet):
     @decorators.action(detail=False, methods=['get'], url_path='bulk-export')
     def bulk_export(self, request):
         import csv
+        # pyrefly: ignore [missing-import]
         from django.http import HttpResponse
         
         response_http = HttpResponse(content_type='text/csv')

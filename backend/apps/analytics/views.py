@@ -53,9 +53,9 @@ class DashboardStatsView(views.APIView):
                 total_assignments = Assignment.objects.filter(module__course__is_mentoring_track=True).count()
                 total_lessons = Lesson.objects.filter(module__course__is_mentoring_track=True).count()
                 total_videos = Video.objects.filter(lesson__module__course__is_mentoring_track=True).count()
-                # All Live Mentoring sessions (independent, staff-created, or mentoring tracks)
+                # All Live Mentoring sessions (created by STAFF or attached to mentoring tracks)
                 live_classes_base_qs = LiveClass.objects.filter(
-                    Q(course__isnull=True) | Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
+                    Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
                 ).distinct()
             else:
                 total_courses = Course.objects.filter(is_mentoring_track=False).count()
@@ -64,9 +64,9 @@ class DashboardStatsView(views.APIView):
                 total_assignments = Assignment.objects.filter(module__course__is_mentoring_track=False).count()
                 total_lessons = Lesson.objects.filter(module__course__is_mentoring_track=False).count()
                 total_videos = Video.objects.filter(lesson__module__course__is_mentoring_track=False).count()
-                # Course Doubt Clearing sessions ONLY
+                # Course Doubt Clearing sessions ONLY (created by SUPER_ADMIN or course tracks)
                 live_classes_base_qs = LiveClass.objects.filter(
-                    course__isnull=False, course__is_mentoring_track=False
+                    Q(created_by__role='SUPER_ADMIN') | Q(course__is_mentoring_track=False)
                 ).exclude(created_by__role='STAFF').distinct()
 
             from apps.certificates.models import Certificate
@@ -525,7 +525,7 @@ class MentorAssignmentsView(views.APIView):
 
 
 class AdminReportsView(views.APIView):
-    """Real report stats: quiz pass rate, submission stats, per-student breakdown."""
+    """Real report stats: quiz pass rate, submission stats, per-student breakdown, and per-course performance metrics."""
     permission_classes = [IsSuperAdmin]
 
     def get(self, request):
@@ -535,21 +535,124 @@ class AdminReportsView(views.APIView):
         from apps.lessons.models import Lesson, LessonProgress
         from apps.quizzes.models import Quiz, QuizAttempt
         from apps.assignments.models import Assignment, AssignmentSubmission
+        from apps.users.models import StudentProfile
 
-        # Platform-wide Course Stats for metadata (optional, just for legacy frontend fields if needed)
-        total_lessons_in_platform = Lesson.objects.count()
-        completed_records_count = LessonProgress.objects.filter(completed=True).count()
+        # 1. Base querysets filtered by live_mode
+        courses_qs = Course.objects.filter(is_mentoring_track=live_mode).select_related('category')
+        total_courses_count = courses_qs.count()
 
-        # Cache course totals to avoid N+1
-        course_totals = {}
-        for c in Course.objects.all():
-            course_totals[c.id] = (
-                Lesson.objects.filter(module__course=c).count() +
-                Quiz.objects.filter(module__course=c).count() +
-                Assignment.objects.filter(module__course=c).count()
-            )
+        total_lessons_in_platform = Lesson.objects.filter(module__course__is_mentoring_track=live_mode).count()
+        completed_records_count = LessonProgress.objects.filter(
+            lesson__module__course__is_mentoring_track=live_mode, completed=True
+        ).count()
 
-        # Per-student breakdown
+        # Pre-aggregate item counts per course
+        lesson_counts = dict(
+            Lesson.objects.filter(module__course__is_mentoring_track=live_mode)
+            .values('module__course_id')
+            .annotate(cnt=Count('id'))
+            .values_list('module__course_id', 'cnt')
+        )
+        quiz_counts = dict(
+            Quiz.objects.filter(module__course__is_mentoring_track=live_mode)
+            .values('module__course_id')
+            .annotate(cnt=Count('id'))
+            .values_list('module__course_id', 'cnt')
+        )
+        assignment_counts = dict(
+            Assignment.objects.filter(module__course__is_mentoring_track=live_mode)
+            .values('module__course_id')
+            .annotate(cnt=Count('id'))
+            .values_list('module__course_id', 'cnt')
+        )
+
+        # Pre-aggregate quiz attempt stats per course
+        quiz_attempts_total = dict(
+            QuizAttempt.objects.filter(quiz__module__course__is_mentoring_track=live_mode)
+            .values('quiz__module__course_id')
+            .annotate(cnt=Count('id'))
+            .values_list('quiz__module__course_id', 'cnt')
+        )
+        quiz_attempts_passed = dict(
+            QuizAttempt.objects.filter(quiz__module__course__is_mentoring_track=live_mode, passed=True)
+            .values('quiz__module__course_id')
+            .annotate(cnt=Count('id'))
+            .values_list('quiz__module__course_id', 'cnt')
+        )
+
+        # Pre-aggregate assignment submission stats per course
+        assignment_submissions = dict(
+            AssignmentSubmission.objects.filter(assignment__module__course__is_mentoring_track=live_mode)
+            .values('assignment__module__course_id')
+            .annotate(cnt=Count('id'))
+            .values_list('assignment__module__course_id', 'cnt')
+        )
+
+        # Pre-aggregate enrolled students count per course
+        student_courses_m2m = StudentProfile.courses.through.objects.filter(
+            course__is_mentoring_track=live_mode
+        ).values('course_id').annotate(cnt=Count('studentprofile_id')).values_list('course_id', 'cnt')
+        enrolled_counts_map = dict(student_courses_m2m)
+
+        # Pre-aggregate completion per student per course
+        student_completed_lessons = dict(
+            LessonProgress.objects.filter(completed=True, lesson__module__course__is_mentoring_track=live_mode)
+            .values('student_id', 'lesson__module__course_id')
+            .annotate(cnt=Count('id'))
+            .values_list('student_id', 'lesson__module__course_id', 'cnt')
+        )
+        # Convert (student_id, course_id) -> cnt into nested dict: course_id -> { student_id: cnt }
+        course_student_lessons = {}
+        for (sid, cid), cnt in student_completed_lessons.items():
+            if cid not in course_student_lessons:
+                course_student_lessons[cid] = {}
+            course_student_lessons[cid][sid] = cnt
+
+        # Build Per-Course Analytics
+        courses_analytics = []
+        for course in courses_qs:
+            c_id = course.id
+            t_lessons = lesson_counts.get(c_id, 0)
+            t_quizzes = quiz_counts.get(c_id, 0)
+            t_assignments = assignment_counts.get(c_id, 0)
+            total_items = t_lessons + t_quizzes + t_assignments
+            enrolled = enrolled_counts_map.get(c_id, 0)
+
+            # Quiz pass rate %
+            q_total = quiz_attempts_total.get(c_id, 0)
+            q_passed = quiz_attempts_passed.get(c_id, 0)
+            quiz_pass_rate = round((q_passed / q_total) * 100, 1) if q_total > 0 else 0.0
+
+            # Assignment submission rate %
+            a_subs = assignment_submissions.get(c_id, 0)
+            assign_sub_rate = round((a_subs / (enrolled * t_assignments)) * 100, 1) if (enrolled > 0 and t_assignments > 0) else 0.0
+
+            # Course avg completion calculation
+            student_progress_list = []
+            if enrolled > 0 and total_items > 0:
+                s_map = course_student_lessons.get(c_id, {})
+                for sid, done_cnt in s_map.items():
+                    pct = min(round((done_cnt / total_items) * 100, 1), 100.0)
+                    student_progress_list.append(pct)
+            
+            avg_course_comp = round(sum(student_progress_list) / enrolled, 1) if (enrolled > 0 and len(student_progress_list) > 0) else 0.0
+
+            courses_analytics.append({
+                'id': c_id,
+                'title': course.title,
+                'category_name': course.category.name if course.category else 'General',
+                'is_mentoring_track': course.is_mentoring_track,
+                'total_lessons': t_lessons,
+                'total_quizzes': t_quizzes,
+                'total_assignments': t_assignments,
+                'total_items': total_items,
+                'enrolled_students_count': enrolled,
+                'avg_completion_pct': avg_course_comp,
+                'quiz_pass_rate': quiz_pass_rate,
+                'assignment_submission_rate': assign_sub_rate,
+            })
+
+        # 2. Per-Student Roster Breakdown & Completion Distribution
         students_qs = CustomUser.objects.filter(role='STUDENT').select_related('student_profile').prefetch_related('student_profile__courses')
         if live_mode:
             students_qs = students_qs.filter(
@@ -566,32 +669,48 @@ class AdminReportsView(views.APIView):
         student_data = []
         sum_of_percentages = 0.0
 
+        distribution_buckets = {
+            '0_25': 0,
+            '26_50': 0,
+            '51_75': 0,
+            '76_100': 0,
+        }
+
+        # Cache course totals map for student calculation
+        course_totals = {c['id']: c['total_items'] for c in courses_analytics}
+
         for s in students:
             student_courses = s.student_profile.courses.all() if hasattr(s, 'student_profile') and s.student_profile else []
             total_progress = 0.0
             course_count = 0
             
             for course in student_courses:
-                total_items = course_totals.get(course.id, 0)
-                if total_items > 0:
+                tot = course_totals.get(course.id, 0)
+                if tot > 0:
                     completed_lessons = LessonProgress.objects.filter(student=s, lesson__module__course=course, completed=True).count()
-                    
                     passed_quizzes = QuizAttempt.objects.filter(
                         student=s, quiz__module__course=course, passed=True
                     ).values('quiz').distinct().count()
-                    
                     submitted_assignments = AssignmentSubmission.objects.filter(
                         student=s, assignment__module__course=course
                     ).values('assignment').distinct().count()
                     
-                    course_progress = ((completed_lessons + passed_quizzes + submitted_assignments) / total_items) * 100
+                    course_progress = ((completed_lessons + passed_quizzes + submitted_assignments) / tot) * 100
                     total_progress += course_progress
                     course_count += 1
             
             completion_percentage = round(total_progress / course_count, 1) if course_count > 0 else 0.0
             sum_of_percentages += completion_percentage
             
-            # Count total completed items for this student overall just for the list view
+            if completion_percentage <= 25:
+                distribution_buckets['0_25'] += 1
+            elif completion_percentage <= 50:
+                distribution_buckets['26_50'] += 1
+            elif completion_percentage <= 75:
+                distribution_buckets['51_75'] += 1
+            else:
+                distribution_buckets['76_100'] += 1
+
             total_completed_all = LessonProgress.objects.filter(student=s, completed=True).count()
 
             student_data.append({
@@ -601,17 +720,24 @@ class AdminReportsView(views.APIView):
                 'last_name': s.last_name,
                 'is_active': s.is_active,
                 'course_duration': getattr(s.student_profile, 'course_duration', None) if hasattr(s, 'student_profile') else None,
-                'lessons_completed': total_completed_all, # fallback stat
+                'lessons_completed': total_completed_all,
                 'completion_percentage': completion_percentage,
+                'enrolled_courses_count': len(student_courses),
             })
 
         avg_course_completion = round(sum_of_percentages / total_students_count, 1) if total_students_count > 0 else 0.0
+
+        top_performing_courses = sorted(courses_analytics, key=lambda x: x['avg_completion_pct'], reverse=True)[:5]
 
         return response.Response({
             'avg_course_completion': avg_course_completion,
             'total_lessons_completed': completed_records_count,
             'total_lessons_in_platform': total_lessons_in_platform,
             'total_students_count': total_students_count,
+            'total_courses_count': total_courses_count,
+            'courses_analytics': courses_analytics,
+            'top_performing_courses': top_performing_courses,
+            'completion_distribution': distribution_buckets,
             'students': student_data,
         })
 
