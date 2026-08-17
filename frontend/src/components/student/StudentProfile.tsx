@@ -22,7 +22,6 @@ const StudentProfile: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -33,7 +32,6 @@ const StudentProfile: React.FC = () => {
       const res = await api.get('users/profile/');
       setFirstName(res.data.first_name || '');
       setLastName(res.data.last_name || '');
-      setPhone(res.data.phone || '');
       return res.data;
     }
   });
@@ -45,7 +43,6 @@ const StudentProfile: React.FC = () => {
       const payload: any = {
         first_name: firstName,
         last_name: lastName,
-        phone: phone,
       };
       if (password.trim().length >= 6) {
         payload.password = password.trim();
@@ -60,7 +57,6 @@ const StudentProfile: React.FC = () => {
       dispatch(updateUser({
         first_name: firstName,
         last_name: lastName,
-        phone: phone,
       }));
       
       setPassword('');
@@ -133,20 +129,6 @@ const StudentProfile: React.FC = () => {
                 value={profile?.email}
                 disabled
                 className="w-full h-11 pl-11 pr-4 bg-muted/50 border border-border/60 rounded-2xl outline-none text-muted-foreground font-bold cursor-not-allowed"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
-            <div className="relative">
-              <Phone className="absolute left-4 top-3.5 text-muted-foreground/60" size={15} />
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 XXXXX XXXXX"
-                className="w-full h-11 pl-11 pr-4 bg-muted/30 border border-border/80 rounded-2xl outline-none focus:border-cyan-500 font-semibold text-foreground transition-all"
               />
             </div>
           </div>

@@ -50,7 +50,6 @@ const StudentManager: React.FC = () => {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
   const [profilePhoto, setProfilePhoto] = useState('');
   const [courseDuration, setCourseDuration] = useState('90');
   const [startDate, setStartDate] = useState('');
@@ -109,7 +108,6 @@ const StudentManager: React.FC = () => {
     setEmail('');
     setFirstName('');
     setLastName('');
-    setPhone('');
     setProfilePhoto('');
     setCourseDuration('90');
     setStartDate(new Date().toISOString().split('T')[0]);
@@ -152,7 +150,6 @@ const StudentManager: React.FC = () => {
         first_name: submittedFirstName,
         last_name: submittedLastName,
         password: submittedPassword ? submittedPassword : undefined,
-        phone,
         profile_photo: profilePhoto,
         course_duration: courseDuration,
         start_date: startDate || undefined,
@@ -211,7 +208,6 @@ const StudentManager: React.FC = () => {
         first_name: firstName,
         last_name: lastName,
         is_active: selectedStudent.is_active,
-        phone,
         profile_photo: profilePhoto,
         course_duration: courseDuration,
         start_date: startDate,

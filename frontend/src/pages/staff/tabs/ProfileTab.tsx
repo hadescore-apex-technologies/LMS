@@ -29,7 +29,6 @@ export const ProfileTab: React.FC = () => {
   // Profile fields state
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
   const [profilePhoto, setProfilePhoto] = useState('');
 
   // 1. Fetch Profile
@@ -40,7 +39,6 @@ export const ProfileTab: React.FC = () => {
       const d = res.data;
       setFirstName(d.first_name || '');
       setLastName(d.last_name || '');
-      setPhone(d.phone || '');
       setProfilePhoto(d.profile_photo || '');
       return d;
     }
@@ -52,7 +50,6 @@ export const ProfileTab: React.FC = () => {
       await api.put('users/profile/', {
         first_name: firstName,
         last_name: lastName,
-        phone: phone,
         profile_photo: profilePhoto
       });
     },
@@ -60,7 +57,6 @@ export const ProfileTab: React.FC = () => {
       dispatch(updateUser({
         first_name: firstName,
         last_name: lastName,
-        phone: phone,
         profile_photo: profilePhoto
       }));
       queryClient.invalidateQueries({ queryKey: ['staff-profile-data'] });
@@ -132,11 +128,6 @@ export const ProfileTab: React.FC = () => {
             <div>
               <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Email (read-only)</label>
               <input type="email" value={profile?.email || ''} readOnly className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none text-muted-foreground cursor-not-allowed font-medium" />
-            </div>
-
-            <div>
-              <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Phone Connection</label>
-              <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 ..." className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
             </div>
           </div>
 
