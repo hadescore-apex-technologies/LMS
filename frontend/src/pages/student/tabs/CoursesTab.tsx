@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store';
 import { motion, type Variants } from 'framer-motion';
 import api from '../../../services/api';
 import { 
@@ -38,6 +40,7 @@ const itemVariants: Variants = {
 };
 
 export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
+  const { user, accessToken } = useSelector((state: RootState) => state.auth);
   const liveMode = localStorage.getItem('studentLiveMode') === 'true';
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -45,6 +48,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
     queryKey: ['courses-list', liveMode],
+    enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get(`courses/list/?live_mode=${liveMode}`);

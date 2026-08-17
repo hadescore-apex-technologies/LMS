@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store';
 import { motion, type Variants } from 'framer-motion';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
@@ -47,6 +49,7 @@ const itemVariants: Variants = {
 };
 
 export const AssignmentsTab: React.FC = () => {
+  const { user, accessToken } = useSelector((state: RootState) => state.auth);
   const queryClient = useQueryClient();
   const [localUrls, setLocalUrls] = useState<Record<number, string>>({});
   const [localNotes, setLocalNotes] = useState<Record<number, string>>({});
@@ -56,6 +59,7 @@ export const AssignmentsTab: React.FC = () => {
   // 1. Fetch Assignments
   const { data: assignments = [] } = useQuery<Assignment[]>({
     queryKey: ['assignments-tracker'],
+    enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get('assignments/list/');
@@ -66,6 +70,7 @@ export const AssignmentsTab: React.FC = () => {
   // 2. Fetch Submissions
   const { data: submissions = [] } = useQuery<Submission[]>({
     queryKey: ['submissions-tracker'],
+    enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get('assignments/submissions/');

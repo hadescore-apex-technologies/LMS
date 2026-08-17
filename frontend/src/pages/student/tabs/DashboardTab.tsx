@@ -37,15 +37,16 @@ interface DashboardTabProps {
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCourse }) => {
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { user, accessToken } = useSelector((state: RootState) => state.auth);
   const isStudentLive = localStorage.getItem('studentLiveMode') === 'true';
   const liveMode = isStudentLive;
   const [activeTooltipIndex, setActiveTooltipIndex] = useState<number>(3); // Default to 17:00
 
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats', liveMode],
+    enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
-    refetchInterval: 30000,
+    refetchInterval: accessToken ? 30000 : false,
     queryFn: async () => {
       const res = await api.get(`analytics/dashboard/?live_mode=${liveMode}`);
       return res.data;
@@ -54,6 +55,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
 
   const { data: achievements } = useQuery<{ streak: number }>({
     queryKey: ['user-achievements', liveMode],
+    enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
     staleTime: 60000,
     queryFn: async () => {
@@ -64,6 +66,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
 
   const { data: courses = [] } = useQuery<CourseItem[]>({
     queryKey: ['enrolled-courses-preview', liveMode],
+    enabled: Boolean(accessToken && user),
     queryFn: async () => {
       const res = await api.get(`courses/list/?live_mode=${liveMode}`);
       return res.data;
@@ -72,6 +75,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
 
   const { data: liveClasses = [] } = useQuery<any[]>({
     queryKey: ['live-classes-dashboard', liveMode],
+    enabled: Boolean(accessToken && user),
     queryFn: async () => {
       const res = await api.get(`courses/live/?live_mode=${liveMode}`);
       return res.data;

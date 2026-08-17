@@ -1,5 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store';
 import { motion } from 'framer-motion';
 import api from '../../../services/api';
 import { Video, Clock, ExternalLink, CalendarDays, PlayCircle, ArrowLeft, Radio, Sparkles } from 'lucide-react';
@@ -19,6 +21,7 @@ interface LiveClass {
 }
 
 export const LiveClassesTab: React.FC = () => {
+  const { user, accessToken } = useSelector((state: RootState) => state.auth);
   const [activeRecording, setActiveRecording] = React.useState<{ url: string; title: string, course: string } | null>(null);
   const [liveMode, setLiveMode] = React.useState(localStorage.getItem('studentLiveMode') === 'true');
 
@@ -32,6 +35,7 @@ export const LiveClassesTab: React.FC = () => {
 
   const { data: liveClasses = [] } = useQuery<LiveClass[]>({
     queryKey: ['live-classes-timeline', liveMode],
+    enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get(`courses/live/?live_mode=${liveMode}`);

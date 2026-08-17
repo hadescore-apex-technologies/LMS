@@ -1,5 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../../../store';
 import { motion, type Variants } from 'framer-motion';
 import api from '../../../services/api';
 import { Award, Download, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
@@ -27,8 +29,11 @@ const itemVariants: Variants = {
 };
 
 export const CertificatesTab: React.FC = () => {
+  const { user, accessToken } = useSelector((state: RootState) => state.auth);
+
   const { data: certificates = [] } = useQuery<Certificate[]>({
     queryKey: ['certificates'],
+    enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get('certificates/');

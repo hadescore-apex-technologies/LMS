@@ -56,11 +56,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { user, accessToken } = useSelector((state: RootState) => state.auth);
   const liveMode = true; // Forced to true for Staff
 
   const { data: stats, isLoading, refetch } = useQuery<StaffStats>({
     queryKey: ['staff-dashboard-stats', liveMode],
+    enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get(`analytics/dashboard/?live_mode=${liveMode}`);

@@ -1,5 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSelector } from "react-redux";
+import type { RootState } from "../../../store";
 import api from "../../../services/api";
 import {
   Users,
@@ -93,6 +95,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
+  const { user, accessToken } = useSelector((state: RootState) => state.auth);
   const [liveMode, setLiveMode] = React.useState(
     localStorage.getItem("super_adminLiveMode") === "true",
   );
@@ -107,12 +110,13 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
 
   const { data: stats, refetch } = useQuery<AdminStats>({
     queryKey: ["admin-dashboard-stats", liveMode],
+    enabled: Boolean(accessToken && user),
     queryFn: async () => {
       const res = await api.get(`analytics/dashboard/?live_mode=${liveMode}`);
       return res.data;
     },
     placeholderData: (prev) => prev,
-    refetchInterval: 30000,
+    refetchInterval: accessToken ? 30000 : false,
   });
 
 

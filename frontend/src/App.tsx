@@ -10,7 +10,10 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       refetchOnMount: false,
-      retry: 1,
+      retry: (failureCount, error: any) => {
+        if (error?.response?.status === 401 || error?.response?.status === 403) return false;
+        return failureCount < 1;
+      },
       staleTime: 1000 * 60 * 10, // 10 Minutes - Instant memory cache delivery on click
       gcTime: 1000 * 60 * 60,    // 1 Hour retention
       placeholderData: (previousData: any) => previousData,
