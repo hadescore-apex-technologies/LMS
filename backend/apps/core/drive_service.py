@@ -87,11 +87,12 @@ def upload_file_to_drive(file_path, file_name):
         'parents': [folder_id]
     }
 
-    # Use non-resumable upload for faster small files
+    # Use non-resumable upload for faster small files, and 10MB chunks for large videos
     file_size = os.path.getsize(file_path)
     resumable = file_size > 5 * 1024 * 1024  # Only use resumable for files > 5MB
+    chunksize = 10 * 1024 * 1024 if file_size > 10 * 1024 * 1024 else 2 * 1024 * 1024
     
-    media = MediaFileUpload(file_path, resumable=resumable)
+    media = MediaFileUpload(file_path, resumable=resumable, chunksize=chunksize)
 
     try:
         file = service.files().create(

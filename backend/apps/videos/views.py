@@ -74,7 +74,7 @@ class VideoStreamProxyView(views.APIView):
                     confirmed_url = f"https://drive.google.com/uc?id={file_id}&export=download&confirm={confirm_token}"
                     resp = session.get(confirmed_url, headers=req_headers, stream=True, allow_redirects=True, timeout=20)
 
-            def file_iterator(response_obj, chunk_size=131072):  # 128KB chunks
+            def file_iterator(response_obj, chunk_size=524288):  # 512KB chunks for fast buffer & instant playback
                 try:
                     for chunk in response_obj.iter_content(chunk_size=chunk_size):
                         if chunk:

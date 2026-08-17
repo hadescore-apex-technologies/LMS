@@ -18,7 +18,7 @@ export const getBaseURL = () => {
 
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 45000, // 45 second timeout for large file uploads & queries
+  timeout: 300000, // 5 minutes default timeout
   headers: {
     'Content-Type': 'application/json',
   },
@@ -31,6 +31,10 @@ api.interceptors.request.use(
     const token = state.auth.accessToken;
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Allow up to 10 minutes for multipart file/video uploads
+    if (config.headers && (config.headers['Content-Type'] === 'multipart/form-data' || config.data instanceof FormData)) {
+      config.timeout = 600000;
     }
     return config;
   },

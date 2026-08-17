@@ -241,9 +241,16 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
     formData.append('file', file);
 
     setUploadingField(targetField);
+    setUploadProgress(0);
     try {
       const res = await api.post('core/upload/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percent);
+          }
+        }
       });
       const fileUrl = res.data.url;
       if (targetField === 'thumbnail') setCourseThumb(fileUrl);
@@ -258,6 +265,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
       toast.error(msg);
     } finally {
       setUploadingField(null);
+      setUploadProgress(0);
     }
   };
 
@@ -1143,7 +1151,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                     ) : (
                       <label className="flex items-center justify-center gap-1.5 h-10 px-3 bg-muted/40 border border-dashed border-border rounded-xl cursor-pointer">
                         {uploadingField === 'video' ? <Loader2 size={13} className="animate-spin text-primary" /> : <Upload size={13} />}
-                        <span>Select Video/Media File</span>
+                        <span>{uploadingField === 'video' ? `Uploading... ${setUploadProgress}%` : 'Select Video/Media File'}</span>
                         <input type="file" onChange={(e) => handleFileUpload(e, 'video')} className="hidden" />
                       </label>
                     )}
@@ -1370,3 +1378,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
   );
 };
 export default CoursesTab;
+function setUploadProgress(arg0: number) {
+  throw new Error('Function not implemented.');
+}
+

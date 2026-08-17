@@ -525,6 +525,7 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
         ref={videoElement}
         src={parsed.url}
         poster={poster}
+        preload="metadata"
         className="w-full h-full object-contain cursor-pointer"
         autoPlay={autoPlay}
         playsInline
