@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from rest_framework import serializers
 from apps.courses.models import Course, LiveClass
 from apps.categories.models import Category
@@ -82,13 +83,16 @@ class CourseSerializer(serializers.ModelSerializer):
             completed_items = comp_lessons + pass_quizzes + sub_assigns
             return round((completed_items / total_items) * 100, 1)
 
+        # pyrefly: ignore [missing-import]
+        from django.db.models import Q
         from apps.lessons.models import Lesson, LessonProgress
         from apps.quizzes.models import Quiz, QuizAttempt
         from apps.assignments.models import Assignment, AssignmentSubmission
 
         total_lessons = Lesson.objects.filter(module__course=obj).count()
-        total_quizzes = Quiz.objects.filter(module__course=obj).count()
-        total_assignments = Assignment.objects.filter(module__course=obj).count()
+        total_quizzes = Quiz.objects.filter(Q(module__course=obj)).count()
+        user_assignment_qs = Assignment.objects.filter(Q(course=obj) | Q(module__course=obj)).filter(Q(students__isnull=True) | Q(students=request.user))
+        total_assignments = user_assignment_qs.count()
 
         total_items = total_lessons + total_quizzes + total_assignments
         if total_items == 0:
@@ -102,13 +106,12 @@ class CourseSerializer(serializers.ModelSerializer):
 
         passed_quizzes = QuizAttempt.objects.filter(
             student=request.user,
-            quiz__module__course=obj,
-            passed=True
+            quiz__in=Quiz.objects.filter(Q(module__course=obj))
         ).values('quiz').distinct().count()
 
         submitted_assignments = AssignmentSubmission.objects.filter(
             student=request.user,
-            assignment__module__course=obj
+            assignment__in=user_assignment_qs
         ).values('assignment').distinct().count()
 
         completed_items = completed_lessons + passed_quizzes + submitted_assignments

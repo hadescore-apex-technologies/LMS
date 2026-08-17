@@ -127,26 +127,25 @@ Best regards,
 Academic Mentoring Team
 Hadescore Apex Technologies Team`;
 
-const INITIAL_COURSE_COMPLETED_SUBJECT = 'Course Completion Verification & Certificate: {{course_title}}';
+const INITIAL_COURSE_COMPLETED_SUBJECT = 'Course Completed: {{course_title}} – Download Your Certificate';
 const INITIAL_COURSE_COMPLETED_BODY = `Dear {{student_name}},
 
-This email confirms that you have completed 100% of the coursework requirements for '{{course_title}}'.
+Congratulations! You have successfully completed 100% of your course '{{course_title}}'.
 
-Your official Course Completion Certificate has been verified and issued by Hadescore Apex Technologies.
+Your official Course Completion Certificate has been verified and issued by Hadescore Apex Technologies. Please log in to your student portal to download your official certificate.
 
-CERTIFICATE VERIFICATION DETAILS
+HOW TO DOWNLOAD YOUR CERTIFICATE
+--------------------------------------------------
+1. Visit the Student Login Portal: {{login_url}}
+2. Log in using your registered credentials.
+3. Go to the "Certificates" tab in your dashboard to view and download your official certificate.
+
+CERTIFICATE DETAILS
 --------------------------------------------------
 Student Name: {{student_name}}
 Course Completed: {{course_title}}
-Certificate ID: {{certificate_code}}
+Certificate Code: {{certificate_code}}
 Date of Issue: {{completion_date}}
-
-CERTIFICATE ACCESS & DOWNLOAD
---------------------------------------------------
-You can view and download your verified certificate PDF directly at:
-{{certificate_url}}
-
-You can also access your certificate anytime under the Certificates tab in your Apex LMS student dashboard.
 
 Thank you for your hard work and dedication throughout this course track.
 

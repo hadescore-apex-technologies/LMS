@@ -1,5 +1,8 @@
+# pyrefly: ignore [missing-import]
 from rest_framework import viewsets, status, response, decorators
+# pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
+# pyrefly: ignore [missing-import]
 from rest_framework.views import APIView
 from apps.users.models import CustomUser
 from apps.users.serializers import StaffUserSerializer
@@ -11,6 +14,7 @@ class MentorListView(APIView):
     permission_classes = [IsSuperAdminOrStaff]
 
     def get(self, request):
+        # pyrefly: ignore [missing-import]
         from django.core.cache import cache
         cache_key = 'mentors_list_data'
         cached_data = cache.get(cache_key)
@@ -44,41 +48,58 @@ class StaffViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         email = (request.data.get('email') or '').strip().lower()
+        if not email:
+            return response.Response({"email": ["Email address is required."]}, status=status.HTTP_400_BAD_REQUEST)
+
         existing = CustomUser.objects.filter(email=email).first()
         if existing:
-            if existing.role in ('STAFF', 'SUPER_ADMIN'):
-                # Reactivate existing staff account and update fields
-                existing.first_name = request.data.get('first_name', existing.first_name)
-                existing.last_name = request.data.get('last_name', existing.last_name)
-                existing.role = request.data.get('role', existing.role)
-                existing.is_active = True
-                raw_pwd = request.data.get('password')
-                if raw_pwd and str(raw_pwd).strip():
-                    existing.set_password(raw_pwd.strip())
-                existing.save()
-                category_id = request.data.get('category')
-                if category_id:
-                    from apps.categories.models import Category
-                    from apps.users.models import StaffProfile as SPModel
-                    cat = Category.objects.filter(id=category_id).first()
-                    staff_prof, _ = SPModel.objects.get_or_create(user=existing)
-                    staff_prof.category = cat
-                    staff_prof.save()
-                from apps.users.serializers import StaffUserSerializer as S
-                return response.Response(S(existing).data, status=status.HTTP_200_OK)
-            else:
-                return response.Response(
-                    {"email": [f"A user with this email already exists as '{existing.role}'. Please use a different email."]},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            existing.first_name = request.data.get('first_name', existing.first_name)
+            existing.last_name = request.data.get('last_name', existing.last_name)
+            existing.role = request.data.get('role', 'STAFF') or 'STAFF'
+            existing.is_active = True
+            raw_pwd = request.data.get('password')
+            if raw_pwd and str(raw_pwd).strip():
+                existing.set_password(str(raw_pwd).strip())
+            existing.save()
+            category_id = request.data.get('category')
+            if category_id not in (None, '', 'null', 0, '0'):
+                from apps.categories.models import Category
+                from apps.users.models import StaffProfile as SPModel
+                cat = Category.objects.filter(id=category_id).first()
+                staff_prof, _ = SPModel.objects.get_or_create(user=existing)
+                staff_prof.category = cat
+                staff_prof.save()
+
+            # Trigger Welcome Email
+            from apps.core.emails import send_welcome_email
+            # pyrefly: ignore [missing-import]
+            from django.conf import settings
+            raw_pwd = request.data.get('password')
+            # pyrefly: ignore [unnecessary-type-conversion]
+            password_to_send = str(raw_pwd).strip() if (raw_pwd and isinstance(raw_pwd, str) and str(raw_pwd).strip()) else 'apex123'
+            frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+            login_url = f"{frontend_base}/staff/login"
+            send_welcome_email(
+                first_name=existing.first_name,
+                last_name=existing.last_name,
+                email=existing.email,
+                password=password_to_send,
+                role=existing.role,
+                login_url=login_url,
+            )
+
+            from apps.users.serializers import StaffUserSerializer as S
+            return response.Response(S(existing).data, status=status.HTTP_200_OK)
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
+        # pyrefly: ignore [missing-import]
         from django.core.cache import cache
         cache.delete('mentors_list_data')
         user = serializer.save()
         # Send welcome email with login credentials
         from apps.core.emails import send_welcome_email
+        # pyrefly: ignore [missing-import]
         from django.conf import settings
         raw_pwd = self.request.data.get('password')
         password_to_send = raw_pwd.strip() if (raw_pwd and isinstance(raw_pwd, str) and raw_pwd.strip()) else 'apex123'
@@ -100,6 +121,7 @@ class StaffViewSet(viewsets.ModelViewSet):
         )
 
     def perform_update(self, serializer):
+        # pyrefly: ignore [missing-import]
         from django.core.cache import cache
         cache.delete('mentors_list_data')
         user = serializer.save()
@@ -129,8 +151,10 @@ class StaffViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         if instance.email == self.ROOT_EMAIL:
+            # pyrefly: ignore [missing-import]
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("The root administrator account cannot be deleted.")
+        # pyrefly: ignore [missing-import]
         from django.core.cache import cache
         cache.delete('mentors_list_data')
         email = instance.email
@@ -175,6 +199,7 @@ class UserProfileViewSet(viewsets.ViewSet):
         attendance_marked = False
         if user.role == 'STUDENT':
             from apps.users.models import StudentAttendance
+            # pyrefly: ignore [missing-import]
             from django.utils import timezone
             
             today = timezone.now().date()
@@ -299,6 +324,7 @@ class UserProfileViewSet(viewsets.ViewSet):
 
     @decorators.action(detail=False, methods=['get'], url_path='leaderboard')
     def leaderboard(self, request):
+        # pyrefly: ignore [missing-import]
         from django.db.models import Count, Q
         
         users = CustomUser.objects.filter(role='STUDENT').annotate(
@@ -334,6 +360,7 @@ class UserProfileViewSet(viewsets.ViewSet):
         from apps.lessons.models import LessonProgress
         from apps.quizzes.models import QuizAttempt
         from apps.assignments.models import AssignmentSubmission
+        # pyrefly: ignore [missing-import]
         from django.utils import timezone
         import datetime
         

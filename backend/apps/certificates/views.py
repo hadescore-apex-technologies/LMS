@@ -124,6 +124,11 @@ class CertificateViewSet(viewsets.ModelViewSet):
             qs = qs.filter(student_id=student_id)
 
         if user.role == 'STUDENT':
+            profile = getattr(user, 'student_profile', None)
+            if profile:
+                from apps.certificates.utils import check_and_generate_certificate
+                for crs in profile.courses.all():
+                    check_and_generate_certificate(user, crs)
             return qs.filter(student=user, is_issued=True)
 
         if user.role == 'STAFF':

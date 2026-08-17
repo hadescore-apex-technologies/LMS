@@ -41,13 +41,21 @@ class StudentViewSet(viewsets.ModelViewSet):
                 Q(student_profile__assigned_staff=user)
             ).distinct()
         
-        elif user.role == 'SUPER_ADMIN' and self.request.query_params.get('live_mode') is not None:
-            # pyrefly: ignore [missing-import]
+        if self.request.query_params.get('live_mode') is not None:
             from django.db.models import Q
             if live_mode:
-                return qs.filter(Q(student_profile__student_type='LIVE_CLASS') | Q(student_profile__student_type='BOTH'))
+                qs = qs.filter(
+                    Q(student_profile__student_type__in=['LIVE_CLASS', 'BOTH']) |
+                    Q(student_profile__assigned_live_staff__isnull=False) |
+                    Q(student_profile__courses__is_mentoring_track=True)
+                ).distinct()
             else:
-                return qs.filter(Q(student_profile__student_type='COURSE') | Q(student_profile__student_type='BOTH'))
+                qs = qs.filter(
+                    Q(student_profile__student_type__in=['COURSE', 'BOTH']) |
+                    Q(student_profile__assigned_staff__isnull=False) |
+                    Q(student_profile__courses__is_mentoring_track=False) |
+                    Q(student_profile__student_type__isnull=True)
+                ).distinct()
 
         return qs
 
@@ -168,6 +176,13 @@ class StudentViewSet(viewsets.ModelViewSet):
         
         prof = getattr(user, 'student_profile', None)
         stype = getattr(prof, 'student_type', 'COURSE') if prof else 'COURSE'
+        req = getattr(self, 'request', None)
+        if req and (req.query_params.get('live_mode') == 'true' or (hasattr(req, 'data') and isinstance(req.data, dict) and (req.data.get('live_mode') in (True, 'true') or req.data.get('student_type') == 'LIVE_CLASS'))):
+            stype = 'LIVE_CLASS'
+            if prof and prof.student_type != 'LIVE_CLASS':
+                prof.student_type = 'LIVE_CLASS'
+                prof.save()
+
         role_label = 'LIVE_STUDENT' if stype == 'LIVE_CLASS' else 'STUDENT'
         frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         login_url = f"{frontend_base}/student/live-login" if stype == 'LIVE_CLASS' else f"{frontend_base}/student/login"

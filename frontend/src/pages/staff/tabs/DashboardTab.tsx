@@ -66,8 +66,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
       const res = await api.get(`analytics/dashboard/?live_mode=${liveMode}`);
       return res.data;
     },
-    staleTime: 0,
-    refetchOnMount: true,
   });
 
   const handleSync = () => {

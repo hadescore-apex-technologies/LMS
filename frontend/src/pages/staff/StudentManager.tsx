@@ -319,8 +319,14 @@ const StudentManager: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Student Directory</h1>
-          <p className="text-muted-foreground text-sm mt-1">Operational view to create student accounts, modify durations, and configure training mappings.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            {liveMode ? 'Live Mentoring Student Roster' : 'Course Mode Student Directory'}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {liveMode 
+              ? 'Manage your assigned Live Class mentees and mentoring track progress.'
+              : 'Operational view to create student accounts, modify durations, and configure training mappings.'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button

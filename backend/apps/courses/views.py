@@ -6,6 +6,8 @@ from apps.courses.models import Course, LiveClass
 from apps.categories.models import Category
 from apps.courses.serializers import CourseSerializer, LiveClassSerializer
 from apps.categories.serializers import CategorySerializer
+# pyrefly: ignore [missing-import]
+from django.db.models import Q, Count
 from apps.core.permissions import IsSuperAdminOrStaff, IsSuperAdmin
 from apps.core.models import AuditLog
 
@@ -75,6 +77,8 @@ class CourseViewSet(viewsets.ModelViewSet):
             is_mentoring_track = self.request.query_params.get('is_mentoring_track')
             if is_mentoring_track is not None:
                 qs = qs.filter(is_mentoring_track=(is_mentoring_track.lower() == 'true'))
+            elif 'live_mode' in self.request.query_params:
+                qs = qs.filter(is_mentoring_track=live_mode)
             
             if profile:
                 # pyrefly: ignore [missing-import]
@@ -118,14 +122,14 @@ class CourseViewSet(viewsets.ModelViewSet):
             # 1. Total counts per course
             lesson_counts = dict(Lesson.objects.filter(module__course_id__in=course_ids).values('module__course_id').annotate(cnt=Count('id')).values_list('module__course_id', 'cnt'))
             quiz_counts = dict(Quiz.objects.filter(module__course_id__in=course_ids).values('module__course_id').annotate(cnt=Count('id')).values_list('module__course_id', 'cnt'))
-            assignment_counts = dict(Assignment.objects.filter(module__course_id__in=course_ids).values('module__course_id').annotate(cnt=Count('id')).values_list('module__course_id', 'cnt'))
+            assignment_counts = dict(Assignment.objects.filter(Q(course_id__in=course_ids) | Q(module__course_id__in=course_ids)).filter(Q(students__isnull=True) | Q(students=user)).values('module__course_id').annotate(cnt=Count('id')).values_list('module__course_id', 'cnt'))
             
             # 2. Completed items per course for current student
             completed_lessons = dict(LessonProgress.objects.filter(student=user, lesson__module__course_id__in=course_ids, completed=True).values('lesson__module__course_id').annotate(cnt=Count('id')).values_list('lesson__module__course_id', 'cnt'))
             
-            passed_quizzes = dict(QuizAttempt.objects.filter(student=user, quiz__module__course_id__in=course_ids, passed=True).values('quiz__module__course_id').annotate(cnt=Count('quiz', distinct=True)).values_list('quiz__module__course_id', 'cnt'))
+            passed_quizzes = dict(QuizAttempt.objects.filter(student=user, quiz__module__course_id__in=course_ids).values('quiz__module__course_id').annotate(cnt=Count('quiz', distinct=True)).values_list('quiz__module__course_id', 'cnt'))
             
-            submitted_assignments = dict(AssignmentSubmission.objects.filter(student=user, assignment__module__course_id__in=course_ids).values('assignment__module__course_id').annotate(cnt=Count('assignment', distinct=True)).values_list('assignment__module__course_id', 'cnt'))
+            submitted_assignments = dict(AssignmentSubmission.objects.filter(student=user, assignment__in=Assignment.objects.filter(Q(course_id__in=course_ids) | Q(module__course_id__in=course_ids)).filter(Q(students__isnull=True) | Q(students=user))).values('assignment__module__course_id').annotate(cnt=Count('assignment', distinct=True)).values_list('assignment__module__course_id', 'cnt'))
             
             context['precomputed_progress'] = {
                 'lesson_counts': lesson_counts,
@@ -195,10 +199,10 @@ class LiveClassViewSet(viewsets.ModelViewSet):
             student_courses = profile.courses.all() if profile else []
             
             if live_mode_param == 'true':
-                # Live Mentoring Mode: ONLY sessions created by assigned live mentor or specifically targeted to this student
+                # Live Mentoring Mode: ONLY sessions for mentoring tracks or standalone live sessions
                 live_staff = profile.assigned_live_staff if profile else None
                 qs = LiveClass.objects.filter(
-                    Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
+                    Q(course__is_mentoring_track=True) | Q(course__isnull=True)
                 )
                 if live_staff:
                     qs = qs.filter(Q(students=user) | Q(created_by=live_staff))
@@ -207,21 +211,22 @@ class LiveClassViewSet(viewsets.ModelViewSet):
                 return qs.select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
 
             elif live_mode_param == 'false':
-                # Course Doubt Clearing Mode: MUST be enrolled in that specific course or targeted by Admin
+                # Course Doubt Clearing Mode: MUST be enrolled in that specific course and NOT a mentoring track
                 # pyrefly: ignore [missing-attribute]
                 if not student_courses.exists():
                     return LiveClass.objects.none()
                 qs = LiveClass.objects.filter(
                     course__is_published=True,
                     course__in=student_courses,
-                    course__is_mentoring_track=False
-                ).exclude(created_by__role='STAFF')
+                    course__is_mentoring_track=False,
+                    course__isnull=False
+                )
                 return qs.filter(
                     Q(students__isnull=True) | Q(students=user)
                 ).select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
 
             else:
-                # Default fallback: strictly enrolled courses or targeted live sessions
+                # Default fallback
                 qs = LiveClass.objects.filter(
                     Q(course__in=student_courses, course__is_published=True) |
                     Q(created_by__role='STAFF', students=user)
@@ -236,23 +241,23 @@ class LiveClassViewSet(viewsets.ModelViewSet):
                 Q(students__student_profile__assigned_staff=user)
             )
             if live_mode_param == 'true':
-                qs = qs.filter(Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True))
+                qs = qs.filter(Q(course__is_mentoring_track=True) | Q(course__isnull=True))
             elif live_mode_param == 'false':
-                qs = qs.filter(course__is_mentoring_track=False).exclude(created_by__role='STAFF')
+                qs = qs.filter(Q(course__is_mentoring_track=False, course__isnull=False))
             return qs.select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
             
         # SUPER_ADMIN:
         qs = LiveClass.objects.select_related('course', 'category', 'created_by').prefetch_related('students').all()
         if live_mode_param == 'true':
-            # Live Mentoring Mode: ONLY sessions created by STAFF (mentors) or dedicated mentoring tracks
+            # Live Mentoring Mode: ONLY sessions for mentoring tracks or standalone live sessions
             qs = qs.filter(
-                Q(created_by__role='STAFF') | Q(course__is_mentoring_track=True)
+                Q(course__is_mentoring_track=True) | Q(course__isnull=True)
             )
         elif live_mode_param == 'false':
-            # Course Doubt Clearing Mode: Sessions created by SUPER_ADMIN or for non-mentoring course tracks
+            # Course Doubt Clearing Mode: ONLY sessions for regular course tracks
             qs = qs.filter(
-                Q(created_by__role='SUPER_ADMIN') | Q(course__is_mentoring_track=False)
-            ).exclude(created_by__role='STAFF')
+                Q(course__is_mentoring_track=False, course__isnull=False)
+            )
         return qs.distinct()
 
     def create(self, request, *args, **kwargs):
@@ -268,6 +273,11 @@ class LiveClassViewSet(viewsets.ModelViewSet):
         user = self.request.user
         category = getattr(user, 'staff_profile', None) and user.staff_profile.category
         live_class = serializer.save(created_by=user, category=category)
+        if hasattr(serializer, 'save_m2m'):
+            try:
+                serializer.save_m2m()
+            except Exception:
+                pass
         
         course_info = f"for Course '{live_class.course.title}'" if live_class.course else "without Course track"
         AuditLog.objects.create(

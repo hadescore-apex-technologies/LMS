@@ -204,6 +204,20 @@ class StudentSerializer(serializers.ModelSerializer):
         else:
             end_date = profile_data.get('end_date')
 
+        # Determine student_type
+        stype = profile_data.get('student_type')
+        if not stype and hasattr(self, 'initial_data') and isinstance(self.initial_data, dict):
+            stype = self.initial_data.get('student_type')
+        if not stype and request:
+            is_live = (
+                request.query_params.get('live_mode') == 'true' or
+                (hasattr(request, 'data') and isinstance(request.data, dict) and (request.data.get('live_mode') in (True, 'true') or request.data.get('student_type') == 'LIVE_CLASS'))
+            )
+            if is_live:
+                stype = 'LIVE_CLASS'
+        if not stype:
+            stype = 'COURSE'
+
         profile = StudentProfile.objects.create(
             user=user,
             phone=profile_data.get('phone', ''),
@@ -212,7 +226,7 @@ class StudentSerializer(serializers.ModelSerializer):
             start_date=start_date,
             end_date=end_date,
             notes=profile_data.get('notes', ''),
-            student_type=profile_data.get('student_type', 'COURSE'),
+            student_type=stype,
             assigned_staff=assigned_staff,
             assigned_live_staff=assigned_live_staff
         )

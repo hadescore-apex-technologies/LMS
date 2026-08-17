@@ -37,6 +37,23 @@ const StaffDashboard: React.FC = () => {
     navigate(`/staff/${tab}`);
   };
 
+  React.useEffect(() => {
+    // Preload tab chunks in background for 0ms transitions
+    import('./tabs/DashboardTab');
+    import('./tabs/StudentsTab');
+    import('./tabs/CoursesTab');
+    import('./tabs/LiveClassesTab');
+    import('./tabs/LiveAssignmentsTab');
+    import('./tabs/AttendanceTab');
+    import('./tabs/AnnouncementsTab');
+    import('./tabs/ForumTab');
+    import('./tabs/DownloadsTab');
+    import('./tabs/ReportsTab');
+    import('./tabs/NotificationsTab');
+    import('./tabs/ProfileTab');
+    import('./tabs/SettingsTab');
+  }, []);
+
   const path = location.pathname.replace(/\/$/, '');
 
   const isHome = path === '/staff' || path === '/staff/' || path === '';

@@ -85,8 +85,7 @@ export const StudentManagementTab: React.FC = () => {
 
   const { data: staffMentors = [] } = useQuery<StaffMentor[]>({
     queryKey: ['staff-mentors-list'],
-    refetchOnMount: 'always',
-    staleTime: 0,
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const res = await api.get('users/mentors/');
       return res.data;
@@ -121,12 +120,12 @@ export const StudentManagementTab: React.FC = () => {
   };
 
   // Queries
-  const { data: students = [], isLoading } = useQuery<Student[]>({
-    queryKey: ['admin-students-roster'],
+  const { data: students = [], isLoading: loadingStudents } = useQuery<Student[]>({
+    queryKey: ['students-list', liveMode],
     placeholderData: (prev) => prev,
     staleTime: 600000,
     queryFn: async () => {
-      const res = await api.get('students/');
+      const res = await api.get(`students/?live_mode=${liveMode}`);
       return res.data;
     }
   });
@@ -157,13 +156,15 @@ export const StudentManagementTab: React.FC = () => {
       if (!payload.lastName || !payload.lastName.trim()) {
         throw new Error("Please enter last name.");
       }
-      const res = await api.post('students/', {
+      const activeStudentType = liveMode ? 'LIVE_CLASS' : (payload.studentType || 'COURSE');
+      const res = await api.post(`students/?live_mode=${liveMode}`, {
         email: cleanEmail,
         first_name: payload.firstName.trim(),
         last_name: payload.lastName.trim(),
         password: payload.password && payload.password.trim() ? payload.password.trim() : undefined,
         course_duration: payload.duration,
-        student_type: payload.studentType,
+        student_type: activeStudentType,
+        live_mode: liveMode,
         assigned_staff: payload.assignedStaffId ? Number(payload.assignedStaffId) : null,
         assigned_live_staff: payload.assignedLiveStaffId ? Number(payload.assignedLiveStaffId) : null,
         courses: payload.courses
@@ -185,8 +186,8 @@ export const StudentManagementTab: React.FC = () => {
       return res.data;
     },
     onMutate: async (payload) => {
-      await queryClient.cancelQueries({ queryKey: ['admin-students-roster'] });
-      const previousStudents = queryClient.getQueryData<Student[]>(['admin-students-roster']);
+      await queryClient.cancelQueries({ queryKey: ['students-list', liveMode] });
+      const previousStudents = queryClient.getQueryData<Student[]>(['students-list', liveMode]);
       
       const newStudentOpt: Student = {
         id: -Date.now(),
@@ -195,7 +196,7 @@ export const StudentManagementTab: React.FC = () => {
         last_name: payload.lastName.trim(),
         course_duration: payload.duration,
         is_active: true,
-        student_type: payload.studentType,
+        student_type: payload.studentType || (liveMode ? 'LIVE_CLASS' : 'COURSE'),
         assigned_staff: payload.assignedStaffId ? Number(payload.assignedStaffId) : null,
         assigned_staff_name: staffMentors.find(m => m.id === Number(payload.assignedStaffId))?.name || null,
         assigned_live_staff: payload.assignedLiveStaffId ? Number(payload.assignedLiveStaffId) : null,
@@ -207,7 +208,7 @@ export const StudentManagementTab: React.FC = () => {
 
       if (previousStudents) {
         queryClient.setQueryData<Student[]>(
-          ['admin-students-roster'],
+          ['students-list', liveMode],
           [newStudentOpt, ...previousStudents]
         );
       }
@@ -217,20 +218,19 @@ export const StudentManagementTab: React.FC = () => {
     },
     onError: (err: any, variables, context) => {
       if (context?.previousStudents) {
-        queryClient.setQueryData(['admin-students-roster'], context.previousStudents);
+        queryClient.setQueryData(['students-list', liveMode], context.previousStudents);
       }
       setShowAddModal(true); // Re-open modal on error so user can fix and retry
       const msg = err.message || err.response?.data?.email?.[0] || err.response?.data?.password?.[0] || err.response?.data?.detail || 'Failed to register student.';
       toast.error(msg);
     },
     onSuccess: (data) => {
-      // Replace temp optimistic entry with real server data (real ID, real courses_names etc)
       if (data) {
-        queryClient.setQueryData<Student[]>(['admin-students-roster'], (old) =>
+        queryClient.setQueryData<Student[]>(['students-list', liveMode], (old) =>
           old ? [data, ...old.filter(s => s.id > 0)] : [data]
         );
       }
-      // Background refresh for dashboard counts only
+      queryClient.invalidateQueries({ queryKey: ['students-list'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Student account enrolled.');
@@ -262,7 +262,7 @@ export const StudentManagementTab: React.FC = () => {
         assigned_live_staff: payload.assignedLiveStaffId ? Number(payload.assignedLiveStaffId) : null,
         courses: payload.courses
       };
-      const res = await api.put(`students/${payload.id}/`, updatePayload);
+      const res = await api.put(`students/${payload.id}/?live_mode=${liveMode}`, updatePayload);
 
       if (payload.certFileUrl) {
         try {
@@ -283,8 +283,8 @@ export const StudentManagementTab: React.FC = () => {
       return res.data;
     },
     onMutate: async (payload) => {
-      await queryClient.cancelQueries({ queryKey: ['admin-students-roster'] });
-      const previousStudents = queryClient.getQueryData<Student[]>(['admin-students-roster']);
+      await queryClient.cancelQueries({ queryKey: ['students-list', liveMode] });
+      const previousStudents = queryClient.getQueryData<Student[]>(['students-list', liveMode]);
       const currentItem = previousStudents?.find(s => s.id === payload.id);
       
       const updatedStudent: Student = {
@@ -306,7 +306,7 @@ export const StudentManagementTab: React.FC = () => {
 
       if (previousStudents) {
         queryClient.setQueryData<Student[]>(
-          ['admin-students-roster'],
+          ['students-list', liveMode],
           previousStudents.map(item => item.id === payload.id ? updatedStudent : item)
         );
       }
@@ -316,17 +316,17 @@ export const StudentManagementTab: React.FC = () => {
     },
     onError: (err, variables, context) => {
       if (context?.previousStudents) {
-        queryClient.setQueryData(['admin-students-roster'], context.previousStudents);
+        queryClient.setQueryData(['students-list', liveMode], context.previousStudents);
       }
       toast.error('Failed to update student profile.');
     },
     onSuccess: (data) => {
-      // Patch the specific student row with real server data — no refetch flicker
       if (data) {
-        queryClient.setQueryData<Student[]>(['admin-students-roster'], (old) =>
+        queryClient.setQueryData<Student[]>(['students-list', liveMode], (old) =>
           old ? old.map(item => item.id === data.id ? data : item) : [data]
         );
       }
+      queryClient.invalidateQueries({ queryKey: ['students-list'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
       toast.success('Student coordinates modified.');
@@ -352,11 +352,11 @@ export const StudentManagementTab: React.FC = () => {
       await api.post(`students/${s.id}/toggle-active/`);
     },
     onMutate: async (s: Student) => {
-      await queryClient.cancelQueries({ queryKey: ['admin-students-roster'] });
-      const previousStudents = queryClient.getQueryData<Student[]>(['admin-students-roster']);
+      await queryClient.cancelQueries({ queryKey: ['students-list', liveMode] });
+      const previousStudents = queryClient.getQueryData<Student[]>(['students-list', liveMode]);
       if (previousStudents) {
         queryClient.setQueryData<Student[]>(
-          ['admin-students-roster'],
+          ['students-list', liveMode],
           previousStudents.map(item => item.id === s.id ? { ...item, is_active: !item.is_active } : item)
         );
       }
@@ -364,15 +364,15 @@ export const StudentManagementTab: React.FC = () => {
     },
     onError: (err, s, context) => {
       if (context?.previousStudents) {
-        queryClient.setQueryData(['admin-students-roster'], context.previousStudents);
+        queryClient.setQueryData(['students-list', liveMode], context.previousStudents);
       }
       toast.error('Failed to toggle status.');
     },
     onSuccess: (data, s) => {
-      // Patch just the toggled status — no full refetch
-      queryClient.setQueryData<Student[]>(['admin-students-roster'], (old) =>
+      queryClient.setQueryData<Student[]>(['students-list', liveMode], (old) =>
         old ? old.map(item => item.id === s.id ? { ...item, is_active: !s.is_active } : item) : old
       );
+      queryClient.invalidateQueries({ queryKey: ['students-list'] });
       toast.success('Account state toggled.');
     }
   });
@@ -382,11 +382,11 @@ export const StudentManagementTab: React.FC = () => {
       await api.delete(`students/${id}/`);
     },
     onMutate: async (id: number) => {
-      await queryClient.cancelQueries({ queryKey: ['admin-students-roster'] });
-      const previousStudents = queryClient.getQueryData<Student[]>(['admin-students-roster']);
+      await queryClient.cancelQueries({ queryKey: ['students-list', liveMode] });
+      const previousStudents = queryClient.getQueryData<Student[]>(['students-list', liveMode]);
       if (previousStudents) {
         queryClient.setQueryData<Student[]>(
-          ['admin-students-roster'],
+          ['students-list', liveMode],
           previousStudents.filter(s => s.id !== id)
         );
       }
@@ -394,24 +394,23 @@ export const StudentManagementTab: React.FC = () => {
     },
     onError: (err: any, id, context) => {
       if (context?.previousStudents) {
-        queryClient.setQueryData(['admin-students-roster'], context.previousStudents);
+        queryClient.setQueryData(['students-list', liveMode], context.previousStudents);
       }
       if (err?.response?.status === 404) {
         toast.error('Student not found or has already been deleted.');
-        // Refresh the list to get current state
-        queryClient.invalidateQueries({ queryKey: ['admin-students-roster'] });
+        queryClient.invalidateQueries({ queryKey: ['students-list'] });
       } else {
         toast.error('Failed to delete student.');
       }
     },
     onSuccess: (data, id) => {
-      // Item already removed in onMutate — just confirm, no refetch
-      queryClient.setQueryData<Student[]>(['admin-students-roster'], (old) =>
+      queryClient.setQueryData<Student[]>(['students-list', liveMode], (old) =>
         old ? old.filter(s => s.id !== id) : []
       );
+      queryClient.invalidateQueries({ queryKey: ['students-list'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
-      toast.success('Student record wiped.');
+      toast.success('Student account removed.');
     }
   });
 
@@ -513,8 +512,14 @@ export const StudentManagementTab: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Student Accounts Directory</h1>
-          <p className="text-muted-foreground text-sm mt-1">Super Admin CRUD matrix to register students and adjust subscription durations.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            {liveMode ? 'Live Class Student Roster' : 'Course Mode Student Directory'}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {liveMode 
+              ? 'Manage Live Mentoring students, assigned mentors, and active live tracks.'
+              : 'Manage self-paced course students, enrolled courses, and certificate releases.'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={handleExportCSV} className="flex items-center gap-1.5 px-3 py-2 bg-muted hover:bg-muted/80 rounded-xl font-bold border border-border">

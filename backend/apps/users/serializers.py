@@ -2,10 +2,19 @@ from rest_framework import serializers
 from apps.users.models import CustomUser, StaffProfile
 from apps.categories.models import Category
 
+class SafePrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+    def to_internal_value(self, data):
+        if data in (None, '', 'null', 0, '0'):
+            return None
+        try:
+            return super().to_internal_value(data)
+        except Exception:
+            return None
+
 class StaffUserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
-    category = serializers.PrimaryKeyRelatedField(
+    category = SafePrimaryKeyRelatedField(
         queryset=Category.objects.all(),
         required=False,
         allow_null=True,
@@ -24,13 +33,6 @@ class StaffUserSerializer(serializers.ModelSerializer):
         email = str(value).strip().lower()
         if '@' not in email:
             raise serializers.ValidationError("Please enter a valid email address.")
-        
-        user_id = self.instance.pk if (hasattr(self, 'instance') and self.instance) else None
-        qs = CustomUser.objects.filter(email=email)
-        if user_id:
-            qs = qs.exclude(pk=user_id)
-        if qs.exists():
-            raise serializers.ValidationError("A user with this email address already exists.")
         return email
 
     def create(self, validated_data):

@@ -71,11 +71,9 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
   const [editingLiveClass, setEditingLiveClass] = useState<LiveClass | null>(null);
 
   // 1. Fetch Live Classes
-  const { data: liveClasses = [], isLoading } = useQuery<LiveClass[]>({
+  const { data: liveClasses = [] } = useQuery<LiveClass[]>({
     queryKey: ['live-classes-list', isLiveMode],
     placeholderData: (prev) => prev,
-    staleTime: 0,
-    refetchOnMount: true,
     queryFn: async () => {
       const res = await api.get(`courses/live/?live_mode=${isLiveMode}`);
       return res.data;

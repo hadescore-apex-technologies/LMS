@@ -48,6 +48,21 @@ const StudentDashboard: React.FC = () => {
   const [aiTutorLessonId, setAiTutorLessonId] = useState<number | null>(null);
   const [aiTutorCourseId, setAiTutorCourseId] = useState<number | null>(null);
 
+  React.useEffect(() => {
+    // Preload student tab chunks in background for 0ms transitions
+    import('./tabs/DashboardTab');
+    import('./tabs/CoursesTab');
+    import('./tabs/CoursePlayer');
+    import('./tabs/LiveClassesTab');
+    import('./tabs/AssignmentsTab');
+    import('./tabs/CertificatesTab');
+    import('./tabs/DiscussionTab');
+    import('./tabs/AITutorDrawer');
+    import('../../components/student/StudentProfile');
+    import('../../components/student/Leaderboard');
+    import('../../components/student/AchievementsBadges');
+  }, []);
+
   const isLive = localStorage.getItem('studentLiveMode') === 'true' ||
                  Boolean(localStorage.getItem('loginPath')?.includes('live'));
 

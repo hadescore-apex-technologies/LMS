@@ -143,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       { label: 'Admin Home', path: '/admin', icon: Home },
       { label: 'Staff Management', path: '/admin/staff', icon: Users },
       { label: 'Mentoring Domains', path: '/admin/categories', icon: Layers },
-      { label: 'Student Management', path: '/admin/students', icon: Users },
+      { label: 'Live Student Roster', path: '/admin/students', icon: Users },
       { label: 'Live Mentoring Sessions', path: '/admin/live', icon: Video },
       { label: 'Manage Recordings', path: '/admin/recordings', icon: Film },
       { label: 'Assignments', path: '/admin/live-assignments', icon: FileEdit },
@@ -155,7 +155,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
     const courseAdminMenu = [
       { label: 'Admin Home', path: '/admin', icon: Home },
-      { label: 'Student Management', path: '/admin/students', icon: Users },
+      { label: 'Course Student Directory', path: '/admin/students', icon: Users },
       { label: 'Student Attendance', path: '/admin/attendance', icon: Calendar },
       { label: 'Course Categories', path: '/admin/categories', icon: Layers },
       { label: 'Courses Catalog', path: '/admin/courses', icon: BookOpen },

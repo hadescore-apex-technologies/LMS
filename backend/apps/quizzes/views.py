@@ -1,4 +1,6 @@
+# pyrefly: ignore [missing-import]
 from rest_framework import viewsets, status, decorators, response
+# pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
 from apps.quizzes.models import Quiz, Question, QuizAttempt
 from apps.quizzes.serializers import QuizSerializer, QuestionSerializer, StudentQuestionSerializer, QuizAttemptSerializer
@@ -15,6 +17,7 @@ class QuizViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         from typing import cast
+        # pyrefly: ignore [missing-import]
         from rest_framework.request import Request
         from apps.users.models import CustomUser
         
@@ -34,6 +37,7 @@ class QuizViewSet(viewsets.ModelViewSet):
             
             qs = Quiz.objects.filter(module__course__is_published=True)
             if student_courses or staff_cat or staff:
+                # pyrefly: ignore [missing-import]
                 from django.db.models import Q
                 filters = Q()
                 if student_courses:
@@ -161,11 +165,10 @@ class QuizViewSet(viewsets.ModelViewSet):
             passed=passed
         )
 
-        if passed:
-            course = getattr(getattr(quiz, 'module', None), 'course', None)
-            if course:
-                from apps.certificates.utils import check_and_generate_certificate
-                check_and_generate_certificate(user, course)
+        course = getattr(getattr(quiz, 'module', None), 'course', None) or getattr(quiz, 'course', None)
+        if course:
+            from apps.certificates.utils import check_and_generate_certificate
+            check_and_generate_certificate(user, course)
 
         return response.Response({
             "message": "Quiz graded successfully",
@@ -202,6 +205,7 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
 
         elif user.role == 'STAFF':
             # Filter by directly assigned students only
+            # pyrefly: ignore [missing-import]
             from django.db.models import Q
             return qs.filter(
                 Q(student__student_profile__assigned_staff=user) |
@@ -229,6 +233,7 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         
         if user.role == 'STAFF':
             # Only delete attempts for students directly assigned to this staff
+            # pyrefly: ignore [missing-import]
             from django.db.models import Q
             attempts = attempts.filter(
                 Q(student__student_profile__assigned_staff=user) |

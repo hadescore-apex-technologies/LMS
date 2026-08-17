@@ -76,7 +76,6 @@ export const StudentsTab: React.FC = () => {
   const { data: students = [] } = useQuery<Student[]>({
     queryKey: ['students-list', liveMode],
     placeholderData: (prev) => prev,
-    staleTime: 0,
     queryFn: async () => {
       const res = await api.get(`students/?live_mode=${liveMode}`);
       return res.data;

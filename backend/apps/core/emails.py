@@ -96,29 +96,29 @@ Academic Support Team
 Hadescore Apex Technologies Team
 """
 
-COURSE_COMPLETION_EMAIL_SUBJECT = "Course Completion Verification & Certificate: {course_title}"
+COURSE_COMPLETION_EMAIL_SUBJECT = "Course Completed: {course_title} – Download Your Certificate"
 
 COURSE_COMPLETION_EMAIL_BODY = """\
 Dear {student_name},
 
-This email confirms that you have completed 100% of the coursework requirements for '{course_title}'.
+Congratulations! You have successfully completed 100% of your course '{course_title}'.
 
-Your official Course Completion Certificate has been verified and issued by Hadescore Apex Technologies.
+Your official Course Completion Certificate has been verified and issued. Please log in to your account portal to download your official certificate.
 
-CERTIFICATE DETAILS
+HOW TO DOWNLOAD YOUR CERTIFICATE
+--------------------------------------------------
+1. Visit the Student Login Portal: {portal_url}
+2. Log in using your registered credentials.
+3. Go to the "Certificates" tab to view and download your certificate.
+
+COMPLETION DETAILS
 --------------------------------------------------
 Student Name: {student_name}
 Course Completed: {course_title}
-Certificate ID: {certificate_code}
+Certificate Code: {certificate_code}
 Date of Issue: {completion_date}
 
-HOW TO ACCESS YOUR CERTIFICATE
---------------------------------------------------
-Your certificate is ready! Please log in to your student portal and navigate to the "Certificates" tab to view, share, and download your official certificate.
-
-Portal Link: {portal_url}
-
-Thank you for your hard work and dedication throughout this course track.
+Thank you for your hard work and dedication!
 
 Best regards,
 
@@ -127,7 +127,11 @@ Hadescore Apex Technologies Team
 """
 
 
+
+import re
+
 def convert_text_to_html(body_text: str, subject: str = "Notification", brand_name: str = "Apex LMS", login_url: str | None = None) -> str:
+    url_pattern = re.compile(r'(https?://[^\s<"]+)')
 
     # Split text into paragraphs
     paragraphs = []
@@ -148,6 +152,7 @@ def convert_text_to_html(body_text: str, subject: str = "Notification", brand_na
     html_paragraphs = []
     for para in paragraphs:
         para_html = para.replace('\n', '<br>')
+        para_html = url_pattern.sub(r'<a href="\1" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: underline;">\1</a>', para_html)
         html_paragraphs.append(f'<p style="margin-top: 0; margin-bottom: 14px; font-size: 15px; line-height: 1.6; color: #334155;">{para_html}</p>')
 
     paragraphs_joined = "\n".join(html_paragraphs)
@@ -390,28 +395,38 @@ def _get_cached_templates(role: str):
     """
     Fetch email templates from DB, cached for 5 minutes per role.
     """
-    cache_key = (role or 'STUDENT').lower()
+    raw_role = (role or 'STUDENT').lower()
     now = time.time()
-    cached = _template_cache.get(cache_key)
+    cached = _template_cache.get(raw_role)
     if cached and now < cached['expires_at']:
         return cached['subject'], cached['body']
 
     from apps.core.models import PlatformSettings
 
-    subject_key = f"welcome_email_{cache_key}_subject"
-    body_key = f"welcome_email_{cache_key}_body"
+    keys_to_check = [f"welcome_email_{raw_role}_subject", f"welcome_email_{raw_role}_body"]
+    if raw_role in ('live_student', 'student'):
+        keys_to_check.extend(['welcome_email_student_subject', 'welcome_email_student_body', 'welcome_email_live_student_subject', 'welcome_email_live_student_body'])
 
     try:
-        rows = PlatformSettings.objects.filter(key__in=[subject_key, body_key])
-        templates = {row.key: row.value for row in rows}
-        subject_template = templates.get(subject_key, WELCOME_EMAIL_SUBJECT)
-        body_template = templates.get(body_key, WELCOME_EMAIL_BODY)
+        rows = PlatformSettings.objects.filter(key__in=keys_to_check)
+        templates = {row.key: row.value for row in rows if row.value}
+        
+        subject_template = (
+            templates.get(f"welcome_email_{raw_role}_subject") or 
+            templates.get("welcome_email_student_subject") or 
+            WELCOME_EMAIL_SUBJECT
+        )
+        body_template = (
+            templates.get(f"welcome_email_{raw_role}_body") or 
+            templates.get("welcome_email_student_body") or 
+            WELCOME_EMAIL_BODY
+        )
     except Exception as exc:
         logger.error(f"[Email] Failed to retrieve templates: {exc}")
         subject_template = WELCOME_EMAIL_SUBJECT
         body_template = WELCOME_EMAIL_BODY
 
-    _template_cache[cache_key] = {
+    _template_cache[raw_role] = {
         'subject': subject_template,
         'body': body_template,
         'expires_at': now + _TEMPLATE_CACHE_TTL,
@@ -523,12 +538,21 @@ def _send_live_class_email_thread(live_class_id: int):
         from apps.users.models import CustomUser
         from apps.core.models import PlatformSettings
 
-        live_class = LiveClass.objects.select_related('created_by').filter(id=live_class_id).first()
+        live_class = LiveClass.objects.select_related('created_by', 'course').filter(id=live_class_id).first()
         if not live_class:
             return
 
         # Fetch students to notify
         targeted_students = list(live_class.students.filter(is_active=True))
+
+        if not targeted_students and live_class.course:
+            # Course Doubt Clearing Session: Target all active students enrolled in this course track
+            targeted_students = list(CustomUser.objects.filter(
+                role='STUDENT',
+                is_active=True,
+                student_profile__courses=live_class.course
+            ).distinct())
+
         if not targeted_students and live_class.created_by:
             # pyrefly: ignore [missing-import]
             from django.db.models import Q
@@ -541,12 +565,6 @@ def _send_live_class_email_thread(live_class_id: int):
                 role='STUDENT',
                 is_active=True
             ).filter(filter_q).distinct())
-
-        if not targeted_students and live_class.course:
-            # pyrefly: ignore [missing-module-attribute]
-            from apps.courses.models import Enrollment
-            enrolled_user_ids = Enrollment.objects.filter(course=live_class.course).values_list('user_id', flat=True)
-            targeted_students = list(CustomUser.objects.filter(id__in=enrolled_user_ids, is_active=True))
 
         if not targeted_students:
             logger.info(f"[LiveClass Email] No active assigned students found for LiveClass #{live_class_id}")

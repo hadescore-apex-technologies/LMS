@@ -72,11 +72,9 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
   const [editingLiveClass, setEditingLiveClass] = useState<LiveClass | null>(null);
 
   // 1. Fetch Live Classes
-  const { data: liveClasses = [], isLoading } = useQuery<LiveClass[]>({
+  const { data: liveClasses = [] } = useQuery<LiveClass[]>({
     queryKey: ['live-classes-list', isLiveMode],
     placeholderData: (prev) => prev,
-    staleTime: 0,
-    refetchOnMount: true,
     queryFn: async () => {
       const res = await api.get(`courses/live/?live_mode=${isLiveMode}`);
       return res.data;
@@ -162,8 +160,8 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
       }
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['live-classes-list'] });
-      const previousLiveClasses = queryClient.getQueryData<LiveClass[]>(['live-classes-list']);
+      await queryClient.cancelQueries({ queryKey: ['live-classes-list', isLiveMode] });
+      const previousLiveClasses = queryClient.getQueryData<LiveClass[]>(['live-classes-list', isLiveMode]);
       
       const courseId = (!isLiveMode && liveCourse) ? Number(liveCourse) : null;
       const targetStudentIds = selectedStudentIds.length > 0 ? selectedStudentIds : assignedStudents.map(s => s.id);
@@ -189,12 +187,12 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
       if (previousLiveClasses) {
         if (editingLiveClass) {
           queryClient.setQueryData<LiveClass[]>(
-            ['live-classes-list'],
+            ['live-classes-list', isLiveMode],
             previousLiveClasses.map(l => l.id === editingLiveClass.id ? newLiveClassOpt : l)
           );
         } else {
           queryClient.setQueryData<LiveClass[]>(
-            ['live-classes-list'],
+            ['live-classes-list', isLiveMode],
             [newLiveClassOpt, ...previousLiveClasses]
           );
         }
@@ -205,7 +203,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
     },
     onError: (err: any, variables, context) => {
       if (context?.previousLiveClasses) {
-        queryClient.setQueryData(['live-classes-list'], context.previousLiveClasses);
+        queryClient.setQueryData(['live-classes-list', isLiveMode], context.previousLiveClasses);
       }
       const data = err.response?.data;
       let msg = 'Failed to configure live session.';

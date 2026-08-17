@@ -63,9 +63,12 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ onOpenCourse }) => {
 
   const filteredCourses = courses
     .filter(c => {
-      const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) || 
-                            c.description.toLowerCase().includes(search.toLowerCase());
-      const matchesCategory = categoryFilter === '' || c.category_name === categoryFilter;
+      if (!c) return false;
+      const titleText = (c.title || '').toLowerCase();
+      const descText = (c.description || '').toLowerCase();
+      const query = (search || '').toLowerCase().trim();
+      const matchesSearch = !query || titleText.includes(query) || descText.includes(query);
+      const matchesCategory = !categoryFilter || c.category_name === categoryFilter;
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {

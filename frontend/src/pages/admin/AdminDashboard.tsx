@@ -56,6 +56,34 @@ const AdminDashboard: React.FC = () => {
       setIsLiveClassMode(localStorage.getItem('super_adminLiveMode') === 'true');
     };
     window.addEventListener('storage', handleStorage);
+
+    // Preload tab chunks in background for 0ms transitions
+    import('./tabs/DashboardTab');
+    import('./tabs/StaffManagementTab');
+    import('./tabs/StudentManagementTab');
+    import('./tabs/CategoriesTab');
+    import('./tabs/CoursesTab');
+    import('./tabs/ModulesTab');
+    import('./tabs/LessonsTab');
+    import('./tabs/VideoLibraryTab');
+    import('./tabs/QuizTab');
+    import('./tabs/AssignmentTab');
+    import('./tabs/CertificateTab');
+    import('./tabs/AttendanceTab');
+    import('./tabs/LiveClassesTab');
+    import('./tabs/LiveAssignmentsTab');
+    import('./tabs/AnnouncementsTab');
+    import('./tabs/NotificationsTab');
+    import('./tabs/DiscussionTab');
+    import('./tabs/ReportsTab');
+    import('./tabs/SystemSettingsTab');
+    import('./tabs/EmailTemplatesTab');
+    import('./tabs/SecurityCenterTab');
+    import('./tabs/ProfileTab');
+    import('./tabs/SettingsTab');
+    import('./tabs/MentorAssignmentsTab');
+    import('./tabs/AdminManagerTab');
+
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 

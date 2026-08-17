@@ -112,9 +112,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
       return res.data;
     },
     placeholderData: (prev) => prev,
-    staleTime: 0,
-    refetchOnMount: true,
-    refetchInterval: 15000,
+    refetchInterval: 30000,
   });
 
 
