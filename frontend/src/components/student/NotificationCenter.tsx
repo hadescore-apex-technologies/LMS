@@ -92,8 +92,8 @@ const NotificationCenter: React.FC = () => {
 
     fetchNotifications(true);
 
-    // Poll for notifications every 10 seconds - store in ref for cleanup
-    intervalRef.current = setInterval(() => fetchNotifications(false), 10000);
+    // Poll for notifications every 30 seconds - store in ref for cleanup
+    intervalRef.current = setInterval(() => fetchNotifications(false), 30000);
 
     // Close on click outside
     const handleOutsideClick = (e: MouseEvent) => {
