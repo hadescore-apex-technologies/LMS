@@ -8,6 +8,8 @@ interface User {
   last_name: string;
   categories?: string[];
   category_name?: string | null;
+  phone?: string;
+  profile_photo?: string;
 }
 
 interface AuthState {
