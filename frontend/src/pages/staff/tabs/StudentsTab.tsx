@@ -46,6 +46,7 @@ export const StudentsTab: React.FC = () => {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   const [profilePhoto, setProfilePhoto] = useState('');
   const [courseDuration, setCourseDuration] = useState('90');
   const [startDate, setStartDate] = useState('');

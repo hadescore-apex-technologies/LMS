@@ -18,3 +18,5 @@ httplib2>=0.22.0
 cryptography>=42.0.0
 reportlab>=4.0.0
 pillow>=9.0.0
+python-dotenv>=1.0.0
+

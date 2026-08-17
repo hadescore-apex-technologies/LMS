@@ -213,7 +213,7 @@ def _get_cached_smtp_settings():
         user = settings_map.get('smtp_user', '').strip()
         password = settings_map.get('smtp_password', '').strip()
 
-        if host and 'gmail' in host.lower():
+        if host and ('gmail' in host.lower() or 'google' in host.lower() or len(password.replace(' ', '')) == 16):
             password = password.replace(' ', '')
 
         if host and user and password:
@@ -444,14 +444,9 @@ def _send_email_thread(
     role: str,
     login_url: str,
 ):
-    """
-    Runs entirely in background thread:
-    1. Fetch templates (cached)
-    2. Format the email
-    3. Connect to SMTP and send using anti-spam engine
-
-    This means ZERO DB queries block the API response.
-    """
+    # pyrefly: ignore [missing-import]
+    from django.db import connections
+    connections.close_all()
     subject = None
     body = None
     try:
@@ -533,6 +528,9 @@ def send_welcome_email(
 
 
 def _send_live_class_email_thread(live_class_id: int):
+    # pyrefly: ignore [missing-import]
+    from django.db import connections
+    connections.close_all()
     try:
         from apps.courses.models import LiveClass
         from apps.users.models import CustomUser
@@ -542,18 +540,19 @@ def _send_live_class_email_thread(live_class_id: int):
         if not live_class:
             return
 
-        # Fetch students to notify
-        targeted_students = list(live_class.students.filter(is_active=True))
+        # Comprehensive student targeting: collect explicit M2M students, course track students, and mentor assigned students
+        student_ids = set(live_class.students.filter(is_active=True).values_list('id', flat=True))
 
-        if not targeted_students and live_class.course:
+        if live_class.course:
             # Course Doubt Clearing Session: Target all active students enrolled in this course track
-            targeted_students = list(CustomUser.objects.filter(
+            c_ids = set(CustomUser.objects.filter(
                 role='STUDENT',
                 is_active=True,
                 student_profile__courses=live_class.course
-            ).distinct())
+            ).values_list('id', flat=True))
+            student_ids.update(c_ids)
 
-        if not targeted_students and live_class.created_by:
+        if live_class.created_by:
             # pyrefly: ignore [missing-import]
             from django.db.models import Q
             mentor = live_class.created_by
@@ -561,10 +560,13 @@ def _send_live_class_email_thread(live_class_id: int):
             filter_q = Q(student_profile__assigned_live_staff=mentor) | Q(student_profile__assigned_staff=mentor)
             if staff_cat:
                 filter_q |= Q(student_profile__courses__category=staff_cat)
-            targeted_students = list(CustomUser.objects.filter(
+            m_ids = set(CustomUser.objects.filter(
                 role='STUDENT',
                 is_active=True
-            ).filter(filter_q).distinct())
+            ).filter(filter_q).values_list('id', flat=True))
+            student_ids.update(m_ids)
+
+        targeted_students = list(CustomUser.objects.filter(id__in=student_ids, is_active=True))
 
         if not targeted_students:
             logger.info(f"[LiveClass Email] No active assigned students found for LiveClass #{live_class_id}")
@@ -643,6 +645,9 @@ def send_live_class_email(live_class_id: int):
 
 
 def _send_course_completion_email_thread(certificate_id: int):
+    # pyrefly: ignore [missing-import]
+    from django.db import connections
+    connections.close_all()
     try:
         from apps.certificates.models import Certificate
         from apps.core.models import PlatformSettings

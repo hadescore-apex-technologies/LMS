@@ -32,6 +32,7 @@ interface Category {
 }
 
 const StudentManager: React.FC = () => {
+  const liveMode = true;
   const [students, setStudents] = useState<Student[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -50,6 +51,7 @@ const StudentManager: React.FC = () => {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   const [profilePhoto, setProfilePhoto] = useState('');
   const [courseDuration, setCourseDuration] = useState('90');
   const [startDate, setStartDate] = useState('');

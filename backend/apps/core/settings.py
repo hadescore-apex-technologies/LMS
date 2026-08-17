@@ -5,15 +5,14 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Load .env variables manually if .env exists
-env_path = BASE_DIR / '.env'
-if env_path.exists():
-    with open(env_path) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, val = line.split('=', 1)
-                os.environ[key.strip()] = val.strip()
+# Load .env file using python-dotenv with override=True
+try:
+    # pyrefly: ignore [missing-import]
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=BASE_DIR / '.env', override=True)
+except Exception:
+    pass
+
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-apex-lms-super-secret-key-102938')
@@ -173,17 +172,18 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ── Email / SMTP Configuration ─────────────────────────────────────────────────
-# These are read from .env and serve as the fallback when the Admin Panel
-# SMTP settings (PlatformSettings) are not yet configured in the database.
+# These are read from .env and serve as fallback when System Settings (PlatformSettings) are unconfigured.
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com').strip()
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
-EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False') == 'True'
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').strip() == 'True'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False').strip() == 'True'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '').strip()
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').replace(' ', '').strip()
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', f'Apex LMS <{EMAIL_HOST_USER}>').strip()
 SERVER_EMAIL = EMAIL_HOST_USER
+EMAIL_TIMEOUT = 15
+
 
 # Custom User Model
 AUTH_USER_MODEL = 'users.CustomUser'
@@ -358,11 +358,4 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 5368709120  # 5 GB
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
 FILE_UPLOAD_PERMISSIONS = 0o644
 
-# ─── Email / SMTP Configuration ───────────────────────────────────────────────
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', f'Apex LMS <{EMAIL_HOST_USER}>')
+

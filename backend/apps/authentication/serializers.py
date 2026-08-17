@@ -102,6 +102,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             user_name = full_name or user.email
             
             def _send_concurrent_alert():
+                from django.db import connections
+                connections.close_all()
                 try:
                     send_lms_email(
                         to_email='hadescore.apex.technologies@gmail.com',

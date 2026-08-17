@@ -3,6 +3,11 @@ import os
 import sys
 
 def main():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(override=True)
+    except Exception:
+        pass
     # Set the settings module path to apps.core.settings
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'apps.core.settings')
     try:

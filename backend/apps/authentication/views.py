@@ -79,6 +79,8 @@ class RequestPasswordResetView(views.APIView):
         )
         
         def _send_otp_task():
+            from django.db import connections
+            connections.close_all()
             try:
                 send_lms_email(
                     to_email=email,
