@@ -595,15 +595,15 @@ class AdminReportsView(views.APIView):
         enrolled_counts_map = dict(student_courses_m2m)
 
         # Pre-aggregate completion per student per course
-        student_completed_lessons = dict(
+        completed_lessons_rows = (
             LessonProgress.objects.filter(completed=True, lesson__module__course__is_mentoring_track=live_mode)
             .values('student_id', 'lesson__module__course_id')
             .annotate(cnt=Count('id'))
             .values_list('student_id', 'lesson__module__course_id', 'cnt')
         )
-        # Convert (student_id, course_id) -> cnt into nested dict: course_id -> { student_id: cnt }
+        # Convert (student_id, course_id, cnt) into nested dict: course_id -> { student_id: cnt }
         course_student_lessons = {}
-        for (sid, cid), cnt in student_completed_lessons.items():
+        for sid, cid, cnt in completed_lessons_rows:
             if cid not in course_student_lessons:
                 course_student_lessons[cid] = {}
             course_student_lessons[cid][sid] = cnt
@@ -680,24 +680,44 @@ class AdminReportsView(views.APIView):
         course_totals = {c['id']: c['total_items'] for c in courses_analytics}
 
         for s in students:
-            student_courses = s.student_profile.courses.all() if hasattr(s, 'student_profile') and s.student_profile else []
+            student_courses = list(s.student_profile.courses.filter(is_mentoring_track=live_mode)) if hasattr(s, 'student_profile') and s.student_profile else []
+            
+            # Fallback: if student has no explicitly tagged courses, check courses where student has progress or all published courses
+            if not student_courses:
+                prog_cids = set(LessonProgress.objects.filter(student=s, completed=True).values_list('lesson__module__course_id', flat=True))
+                prog_cids.update(QuizAttempt.objects.filter(student=s, passed=True).values_list('quiz__module__course_id', flat=True))
+                prog_cids.update(AssignmentSubmission.objects.filter(student=s).values_list('assignment__module__course_id', flat=True))
+                
+                if prog_cids:
+                    student_courses = list(Course.objects.filter(id__in=prog_cids, is_mentoring_track=live_mode))
+                else:
+                    student_courses = list(Course.objects.filter(is_published=True, is_mentoring_track=live_mode))
+
+            course_titles = [c.title for c in student_courses]
             total_progress = 0.0
             course_count = 0
             
             for course in student_courses:
-                tot = course_totals.get(course.id, 0)
-                if tot > 0:
-                    completed_lessons = LessonProgress.objects.filter(student=s, lesson__module__course=course, completed=True).count()
+                t_l = lesson_counts.get(course.id, 0)
+                c_l = LessonProgress.objects.filter(student=s, lesson__module__course=course, completed=True).count()
+                
+                # Dynamic Course Topic Progress:
+                if t_l > 0 and c_l >= t_l:
+                    course_progress = 100.0
+                elif t_l > 0:
+                    course_progress = (c_l / t_l) * 100.0
+                else:
+                    tot = course_totals.get(course.id, 0)
                     passed_quizzes = QuizAttempt.objects.filter(
                         student=s, quiz__module__course=course, passed=True
                     ).values('quiz').distinct().count()
                     submitted_assignments = AssignmentSubmission.objects.filter(
                         student=s, assignment__module__course=course
                     ).values('assignment').distinct().count()
-                    
-                    course_progress = ((completed_lessons + passed_quizzes + submitted_assignments) / tot) * 100
-                    total_progress += course_progress
-                    course_count += 1
+                    course_progress = min(((c_l + passed_quizzes + submitted_assignments) / tot) * 100.0, 100.0) if tot > 0 else 100.0
+
+                total_progress += course_progress
+                course_count += 1
             
             completion_percentage = round(total_progress / course_count, 1) if course_count > 0 else 0.0
             sum_of_percentages += completion_percentage
@@ -723,6 +743,7 @@ class AdminReportsView(views.APIView):
                 'lessons_completed': total_completed_all,
                 'completion_percentage': completion_percentage,
                 'enrolled_courses_count': len(student_courses),
+                'courses_titles': course_titles,
             })
 
         avg_course_completion = round(sum_of_percentages / total_students_count, 1) if total_students_count > 0 else 0.0

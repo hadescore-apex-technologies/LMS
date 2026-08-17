@@ -24,13 +24,32 @@ const api = axios.create({
   },
 });
 
+const setAuthHeader = (headers: any, token: string) => {
+  if (!headers) return;
+  if (typeof headers.set === 'function') {
+    headers.set('Authorization', `Bearer ${token}`);
+  } else {
+    headers['Authorization'] = `Bearer ${token}`;
+    headers['authorization'] = `Bearer ${token}`;
+  }
+};
+
+const getAuthHeader = (headers: any): string | undefined => {
+  if (!headers) return undefined;
+  if (typeof headers.get === 'function') {
+    return headers.get('Authorization') || headers.get('authorization');
+  }
+  return headers['Authorization'] || headers['authorization'];
+};
+
 // Request Interceptor: Attach JWT Access Token
 api.interceptors.request.use(
   (config) => {
     const state = store.getState();
     const token = state.auth.accessToken;
-    if (token && !config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const existingAuth = getAuthHeader(config.headers);
+    if (token && !existingAuth) {
+      setAuthHeader(config.headers, token);
     }
     // Allow up to 10 minutes for multipart file/video uploads
     if (config.headers && (config.headers['Content-Type'] === 'multipart/form-data' || config.data instanceof FormData)) {
@@ -79,8 +98,20 @@ api.interceptors.response.use(
     }
 
     // 2. Token Refreshing for 401 Unauthorized errors
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (originalRequest.url?.includes('auth/login/')) {
+    if (error.response?.status === 401) {
+      const reqUrl = originalRequest.url || '';
+      // Don't attempt token refresh for login, refresh, or logout requests
+      if (reqUrl.includes('auth/login') || reqUrl.includes('auth/refresh') || reqUrl.includes('auth/logout')) {
+        return Promise.reject(error);
+      }
+
+      // If this request already retried after refreshing, stop looping immediately and logout
+      if (originalRequest._retry) {
+        store.dispatch(logout());
+        const loginPath = localStorage.getItem('loginPath') || '/student/login';
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('login')) {
+          window.location.href = loginPath;
+        }
         return Promise.reject(error);
       }
 
@@ -89,7 +120,8 @@ api.interceptors.response.use(
           failedQueue.push({ resolve, reject });
         })
           .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+            setAuthHeader(originalRequest.headers, token as string);
+            originalRequest._retry = true;
             return api(originalRequest);
           })
           .catch((err) => Promise.reject(err));
@@ -101,6 +133,10 @@ api.interceptors.response.use(
       const refreshToken = store.getState().auth.refreshToken;
       if (!refreshToken) {
         store.dispatch(logout());
+        const loginPath = localStorage.getItem('loginPath') || '/student/login';
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('login')) {
+          window.location.href = loginPath;
+        }
         return Promise.reject(error);
       }
 
@@ -120,7 +156,7 @@ api.interceptors.response.use(
         }
 
         processQueue(null, access);
-        originalRequest.headers.Authorization = `Bearer ${access}`;
+        setAuthHeader(originalRequest.headers, access);
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);

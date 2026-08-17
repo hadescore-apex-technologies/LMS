@@ -673,7 +673,12 @@ def _send_course_completion_email_thread(certificate_id: int):
         certificate_url = cert.file_url or "https://lms.hadescoretech.com/student"
         completion_date = cert.issued_at.strftime("%b %d, %Y") if cert.issued_at else time.strftime("%b %d, %Y")
 
-        portal_url = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com/student/login')
+        base_frontend = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        if not base_frontend.endswith('/'):
+            base_frontend += '/'
+        login_url = f"{base_frontend}student/login"
+        portal_url = login_url
+
         fmt_args = dict(
             student_name=student_name,
             full_name=student_name,
@@ -684,10 +689,11 @@ def _send_course_completion_email_thread(certificate_id: int):
             download_url=certificate_url,
             completion_date=completion_date,
             portal_url=portal_url,
+            login_url=login_url,
         )
 
         # Normalize {{placeholder}} -> {placeholder}
-        for p in ['student_name', 'full_name', 'course_title', 'course_name', 'certificate_code', 'certificate_url', 'download_url', 'completion_date', 'portal_url']:
+        for p in ['student_name', 'full_name', 'course_title', 'course_name', 'certificate_code', 'certificate_url', 'download_url', 'completion_date', 'portal_url', 'login_url']:
             subj_tpl = subj_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
             body_tpl = body_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
 

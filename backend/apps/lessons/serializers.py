@@ -103,6 +103,7 @@ class LessonSerializer(serializers.ModelSerializer):
         course = obj.module.course
         from apps.modules.models import Module
         from apps.quizzes.models import Quiz, QuizAttempt
+        from apps.lessons.models import Lesson, LessonProgress
         
         all_course_modules = Module.objects.filter(course=course).order_by('order', 'id')
         
@@ -114,25 +115,21 @@ class LessonSerializer(serializers.ModelSerializer):
             
         if not earlier_modules:
             return False
-            
-        quizzes_to_check = Quiz.objects.filter(module__in=earlier_modules)
-        if not quizzes_to_check.exists():
-            return False
-            
-        # Check quizzes
-        for quiz in quizzes_to_check:
-            passed_attempt = QuizAttempt.objects.filter(student=user, quiz=quiz, passed=True).exists()
-            if not passed_attempt:
-                return True
 
-        # Check assignments
-        from apps.assignments.models import Assignment, AssignmentSubmission
-        assignments_to_check = Assignment.objects.filter(module__in=earlier_modules)
-        for assign in assignments_to_check:
-            submitted = AssignmentSubmission.objects.filter(student=user, assignment=assign).exists()
-            if not submitted:
-                return True
-                
+        # Sequential Progression: Check earlier module completion
+        for m in earlier_modules:
+            m_lessons = Lesson.objects.filter(module=m)
+            if m_lessons.exists():
+                completed_count = LessonProgress.objects.filter(student=user, lesson__in=m_lessons, completed=True).count()
+                if completed_count < m_lessons.count():
+                    return True  # Earlier module has uncompleted lessons
+
+            m_quizzes = Quiz.objects.filter(module=m)
+            if m_quizzes.exists():
+                passed_quiz = QuizAttempt.objects.filter(student=user, quiz__in=m_quizzes, passed=True).exists()
+                if not passed_quiz:
+                    return True  # Earlier module has unpassed quizzes
+
         return False
 
     def get_completed(self, obj):

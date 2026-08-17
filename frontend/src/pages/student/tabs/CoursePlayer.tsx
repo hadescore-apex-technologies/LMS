@@ -1056,11 +1056,10 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                     const modQuizzes = courseQuizzes.filter(q => q.module === mod.id);
                     const modAssignments = assignments.filter(a => a.module === mod.id);
                     
-                    const allLessonsCompleted = modLessons.every(l => l.completed);
-                    const allQuizzesPassed = modQuizzes.every(q => quizAttempts.some(att => att.quiz === q.id && att.passed));
-                    const allAssignmentsSubmitted = modAssignments.every(a => submissions.some(s => s.assignment === a.id));
+                    const allLessonsCompleted = modLessons.length === 0 || modLessons.every(l => l.completed);
+                    const allQuizzesPassed = modQuizzes.length === 0 || modQuizzes.some(q => quizAttempts.some(att => att.quiz === q.id && att.passed));
 
-                    const isCompleted = allLessonsCompleted && allQuizzesPassed && allAssignmentsSubmitted;
+                    const isCompleted = allLessonsCompleted && allQuizzesPassed;
                     const isLocked = isLiveStudent ? false : (index === 0 ? false : !allPreviousCompleted);
                     
                     if (!isCompleted) {
