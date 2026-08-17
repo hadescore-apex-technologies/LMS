@@ -108,10 +108,11 @@ api.interceptors.response.use(
 
         const { access, refresh } = res.data;
         const currentUser = store.getState().auth.user;
+        const activeRefreshToken = refresh || refreshToken;
         
         if (currentUser) {
           const loginPath = store.getState().auth.loginPath || '/student/login';
-          store.dispatch(loginSuccess({ user: currentUser, access, refresh, loginPath }));
+          store.dispatch(loginSuccess({ user: currentUser, access, refresh: activeRefreshToken, loginPath }));
         }
 
         processQueue(null, access);

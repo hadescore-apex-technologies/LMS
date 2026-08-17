@@ -9,6 +9,13 @@ from django.utils import timezone
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
+        import uuid
+        if user.role == 'STUDENT':
+            new_session_id = uuid.uuid4().hex
+            user._prev_session_id = getattr(user, 'session_id', None)
+            user.session_id = new_session_id
+            user.save(update_fields=['session_id'])
+
         token = super().get_token(user)
         # Append role, session_id and user details to JWT payload
         token['email'] = user.email
@@ -84,9 +91,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         LoginHistory.objects.create(user=self.user, ip_address=ip, user_agent=ua)
         
         # Single Active Device Session Protection & Root Email Security Alerts
-        import uuid
-        new_session_id = uuid.uuid4().hex
-        prev_session = getattr(user, 'session_id', None)
+        prev_session = getattr(user, '_prev_session_id', None)
         full_name = f"{self.user.first_name} {self.user.last_name}".strip()
 
         if prev_session and user.role == 'STUDENT':
@@ -115,9 +120,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     print(f"Failed to dispatch security alert email: {e}")
             
             threading.Thread(target=_send_concurrent_alert, daemon=True).start()
-
-        user.session_id = new_session_id
-        user.save(update_fields=['session_id'])
 
         courses_list = []
         student_type = None
