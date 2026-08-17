@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { updateUser } from '../../features/authSlice';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { User, Phone, Mail, Award, Save, Loader2, Sparkles, Shield, KeyRound, Eye, EyeOff } from 'lucide-react';
@@ -15,6 +17,7 @@ interface ProfileData {
 }
 
 const StudentProfile: React.FC = () => {
+  const dispatch = useDispatch();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [firstName, setFirstName] = useState('');
@@ -54,14 +57,11 @@ const StudentProfile: React.FC = () => {
 
       await api.post('users/profile/', payload);
       toast.success('Profile updated successfully!');
-      // Update local storage user name
-      const stored = localStorage.getItem('user');
-      if (stored) {
-        const u = JSON.parse(stored);
-        u.first_name = firstName;
-        u.last_name = lastName;
-        localStorage.setItem('user', JSON.stringify(u));
-      }
+      dispatch(updateUser({
+        first_name: firstName,
+        last_name: lastName,
+        phone: phone,
+      }));
       
       setPassword('');
       queryClient.invalidateQueries({ queryKey: ['student-profile-tab'] });

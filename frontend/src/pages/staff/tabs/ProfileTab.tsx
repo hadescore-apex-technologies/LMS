@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
+import { updateUser } from '../../../features/authSlice';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../../services/api';
 import toast from 'react-hot-toast';
@@ -15,6 +17,7 @@ interface UserProfile {
 }
 
 export const ProfileTab: React.FC = () => {
+  const dispatch = useDispatch();
   const queryClient = useQueryClient();
 
   // Password reset inputs
@@ -54,6 +57,12 @@ export const ProfileTab: React.FC = () => {
       });
     },
     onSuccess: () => {
+      dispatch(updateUser({
+        first_name: firstName,
+        last_name: lastName,
+        phone: phone,
+        profile_photo: profilePhoto
+      }));
       queryClient.invalidateQueries({ queryKey: ['staff-profile-data'] });
       toast.success('Operational profile updated.');
     },

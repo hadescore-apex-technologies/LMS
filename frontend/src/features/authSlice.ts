@@ -21,7 +21,7 @@ interface AuthState {
 const rawStoredUser = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
 const formatUserName = (u: any) => {
   if (!u) return null;
-  if (!u.name && (u.first_name || u.last_name)) {
+  if (u.first_name !== undefined || u.last_name !== undefined) {
     u.name = `${u.first_name || ''} ${u.last_name || ''}`.trim();
   }
   return u;
@@ -61,6 +61,13 @@ const authSlice = createSlice({
       localStorage.setItem('refreshToken', action.payload.refresh);
       localStorage.setItem('loginPath', action.payload.loginPath);
     },
+    updateUser(state, action: PayloadAction<Partial<User>>) {
+      if (state.user) {
+        const updated = formatUserName({ ...state.user, ...action.payload });
+        state.user = updated;
+        localStorage.setItem('user', JSON.stringify(updated));
+      }
+    },
     logout(state) {
       state.user = null;
       state.accessToken = null;
@@ -78,6 +85,6 @@ const authSlice = createSlice({
   }
 });
 
-export const { loginSuccess, logout } = authSlice.actions;
+export const { loginSuccess, updateUser, logout } = authSlice.actions;
 export default authSlice.reducer;
 export type { User };
