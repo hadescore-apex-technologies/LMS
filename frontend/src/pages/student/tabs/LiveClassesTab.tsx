@@ -1,10 +1,11 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../../store';
 import { motion } from 'framer-motion';
 import api from '../../../services/api';
-import { Video, Clock, ExternalLink, CalendarDays, PlayCircle, ArrowLeft, Radio, Sparkles } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Video, Clock, ExternalLink, CalendarDays, PlayCircle, ArrowLeft, Radio, Sparkles, Lock, CheckCircle2, ShieldAlert } from 'lucide-react';
 import CalendarView from '../../../components/student/CalendarView';
 import { UniversalVideoPlayer } from '../../../components/UniversalVideoPlayer';
 
@@ -18,11 +19,13 @@ interface LiveClass {
   status: 'UPCOMING' | 'LIVE' | 'COMPLETED';
   created_by_name?: string;
   recording_url?: string;
+  has_viewed_recording?: boolean;
 }
 
 export const LiveClassesTab: React.FC = () => {
   const { user, accessToken } = useSelector((state: RootState) => state.auth);
-  const [activeRecording, setActiveRecording] = React.useState<{ url: string; title: string, course: string } | null>(null);
+  const queryClient = useQueryClient();
+  const [activeRecording, setActiveRecording] = React.useState<{ id: number; url: string; title: string, course: string } | null>(null);
   const [liveMode, setLiveMode] = React.useState(localStorage.getItem('studentLiveMode') === 'true');
 
   React.useEffect(() => {
@@ -44,6 +47,22 @@ export const LiveClassesTab: React.FC = () => {
     }
   });
 
+  const handleWatchPlayback = async (lc: LiveClass) => {
+    if (lc.has_viewed_recording) {
+      toast.error('You have already viewed this session recording (Single-use playback policy).');
+      return;
+    }
+
+    try {
+      await api.post(`courses/live/${lc.id}/mark-recording-viewed/`);
+      queryClient.invalidateQueries({ queryKey: ['live-classes-timeline'] });
+    } catch {
+      // Continue playback even if logging fails
+    }
+
+    setActiveRecording({ id: lc.id, url: lc.recording_url!, title: lc.title, course: lc.course_title || 'Apex Course' });
+  };
+
   const activeLive = liveClasses.filter(lc => lc.status === 'LIVE' || (lc.status === 'UPCOMING' && Math.abs(new Date(lc.scheduled_time).getTime() - Date.now()) < 1000 * 60 * 30));
   const upcomingClasses = liveClasses.filter(lc => lc.status === 'UPCOMING' && !activeLive.some(a => a.id === lc.id));
   const pastClasses = liveClasses.filter(lc => lc.status === 'COMPLETED' || Boolean(lc.recording_url));
@@ -59,9 +78,14 @@ export const LiveClassesTab: React.FC = () => {
           <span>Back to Live Sessions</span>
         </button>
         
-        <div className="space-y-1">
-          <span className="text-cyan-600 font-extrabold text-[10px] uppercase tracking-wider">{activeRecording.course}</span>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">{activeRecording.title}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <span className="text-cyan-600 font-extrabold text-[10px] uppercase tracking-wider">{activeRecording.course}</span>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">{activeRecording.title}</h1>
+          </div>
+          <span className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 font-bold text-[11px] flex items-center gap-1.5">
+            <ShieldAlert size={13} /> Single-View Session Active
+          </span>
         </div>
 
         <div className="rounded-3xl overflow-hidden border border-cyan-500/30 shadow-2xl shadow-cyan-950/40 bg-black aspect-video relative group">
@@ -216,31 +240,52 @@ export const LiveClassesTab: React.FC = () => {
         </div>
 
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          {pastClasses.map(lc => (
-            <div key={lc.id} className="p-3 rounded-2xl cyber-glass-card hover:border-cyan-400 transition-all flex flex-col justify-between gap-2 shadow-2xs">
-              <div className="space-y-0.5">
-                <span className="text-[8px] uppercase font-black text-cyan-400 tracking-wider block">{lc.course_title || 'Apex Course'}</span>
-                <h4 className="font-extrabold text-xs text-white truncate">{lc.title}</h4>
-                <span className="text-[9px] text-slate-400 flex items-center gap-1 font-mono">
-                  <Clock size={9} /> {new Date(lc.scheduled_time).toLocaleDateString()}
-                </span>
+          {pastClasses.map(lc => {
+            const hasViewed = Boolean(lc.has_viewed_recording);
+            return (
+              <div key={lc.id} className="p-3 rounded-2xl cyber-glass-card hover:border-cyan-400 transition-all flex flex-col justify-between gap-2 shadow-2xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[8px] uppercase font-black text-cyan-400 tracking-wider block">{lc.course_title || 'Apex Course'}</span>
+                    {hasViewed && (
+                      <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-0.5">
+                        <Lock size={8} /> Expired
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="font-extrabold text-xs text-white truncate">{lc.title}</h4>
+                  <span className="text-[9px] text-slate-400 flex items-center gap-1 font-mono">
+                    <Clock size={9} /> {new Date(lc.scheduled_time).toLocaleDateString()}
+                  </span>
+                </div>
+                
+                {lc.recording_url ? (
+                  hasViewed ? (
+                    <button 
+                      disabled
+                      className="w-full py-1.5 rounded-xl bg-muted/40 text-muted-foreground font-bold text-[10px] flex items-center justify-center gap-1.5 opacity-60 cursor-not-allowed border border-border"
+                      title="You have already viewed this session (Single-use playback policy)."
+                    >
+                      <Lock size={11} />
+                      <span>1-Time View Expired</span>
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => handleWatchPlayback(lc)}
+                      className="w-full py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(6,182,212,0.3)] hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                    >
+                      <PlayCircle size={13} />
+                      <span>Watch Playback (1 View)</span>
+                    </button>
+                  )
+                ) : (
+                  <span className="w-full py-1 text-center rounded-lg border border-slate-700/60 bg-slate-900/60 text-slate-400 font-bold text-[9px]">
+                    Processing Replay
+                  </span>
+                )}
               </div>
-              
-              {lc.recording_url ? (
-                <button 
-                  onClick={() => setActiveRecording({ url: lc.recording_url!, title: lc.title, course: lc.course_title || 'Apex Course' })}
-                  className="w-full py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-extrabold text-[11px] flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(6,182,212,0.3)] hover:brightness-110 active:scale-95 transition-all cursor-pointer"
-                >
-                  <PlayCircle size={13} />
-                  <span>Watch Playback</span>
-                </button>
-              ) : (
-                <span className="w-full py-1 text-center rounded-lg border border-slate-700/60 bg-slate-900/60 text-slate-400 font-bold text-[9px]">
-                  Processing Replay
-                </span>
-              )}
-            </div>
-          ))}
+            );
+          })}
 
           {pastClasses.length === 0 && (
             <div className="col-span-full py-6 text-center text-slate-400 font-medium text-[11px] cyber-glass-card border border-dashed border-slate-700/60 rounded-2xl">

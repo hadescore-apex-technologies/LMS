@@ -123,6 +123,7 @@ class LiveClassSerializer(serializers.ModelSerializer):
     course_title = serializers.CharField(source='course.title', read_only=True)
     created_by_name = serializers.SerializerMethodField()
     students_details = serializers.SerializerMethodField()
+    has_viewed_recording = serializers.SerializerMethodField()
     meeting_url = serializers.CharField(required=True)
     recording_url = serializers.URLField(required=False, allow_blank=True, allow_null=True)
     course = serializers.PrimaryKeyRelatedField(
@@ -141,8 +142,14 @@ class LiveClassSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'course', 'course_title', 'category', 'title',
             'scheduled_time', 'meeting_url', 'recording_url', 'status', 'created_by_name',
-            'students', 'students_details'
+            'students', 'students_details', 'has_viewed_recording'
         ]
+
+    def get_has_viewed_recording(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and request.user.role == 'STUDENT':
+            return obj.viewed_recording_students.filter(id=request.user.id).exists()
+        return False
 
     def get_created_by_name(self, obj):
         if obj.created_by:

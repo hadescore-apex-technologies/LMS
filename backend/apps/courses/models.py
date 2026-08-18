@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from django.db import models
 from apps.courses.discussion_models import CourseDiscussionPost, CourseDiscussionComment
 
@@ -69,6 +70,11 @@ class LiveClass(models.Model):
     students = models.ManyToManyField(
         'users.CustomUser',
         related_name='assigned_live_classes',
+        blank=True
+    )
+    viewed_recording_students = models.ManyToManyField(
+        'users.CustomUser',
+        related_name='viewed_live_recordings',
         blank=True
     )
 

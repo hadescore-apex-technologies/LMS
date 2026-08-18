@@ -1,5 +1,5 @@
 # pyrefly: ignore [missing-import]
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, decorators, response
 # pyrefly: ignore [missing-import]
 from rest_framework.permissions import IsAuthenticated
 from apps.courses.models import Course, LiveClass
@@ -179,7 +179,7 @@ class LiveClassViewSet(viewsets.ModelViewSet):
     serializer_class = LiveClassSerializer
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'mark_recording_viewed']:
             return [IsAuthenticated()]
         return [IsSuperAdminOrStaff()]
 
@@ -325,6 +325,18 @@ class LiveClassViewSet(viewsets.ModelViewSet):
         # Dispatch SMTP emails via non-blocking background thread
         from apps.core.emails import send_live_class_email
         send_live_class_email(live_class.id)
+
+    @decorators.action(detail=True, methods=['post'], url_path='mark-recording-viewed')
+    def mark_recording_viewed(self, request, pk=None):
+        live_class = self.get_object()
+        user = request.user
+        if user.is_authenticated and user.role == 'STUDENT':
+            live_class.viewed_recording_students.add(user)
+        # pyrefly: ignore [missing-attribute]
+        return response.Response({
+            "message": "Recording view logged successfully",
+            "has_viewed_recording": True
+        })
 
 from apps.courses.discussion_models import CourseDiscussionPost, CourseDiscussionComment
 from apps.courses.discussion_serializers import CourseDiscussionPostSerializer, CourseDiscussionCommentSerializer

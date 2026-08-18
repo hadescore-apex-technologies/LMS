@@ -162,6 +162,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
 
   // Upload loaders
   const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   // Queries
   const { data: courses = [], isLoading: coursesLoading } = useQuery<Course[]>({
@@ -1194,7 +1195,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                     ) : (
                       <label className="flex items-center justify-center gap-1.5 h-10 px-3 bg-muted/40 border border-dashed border-border rounded-xl cursor-pointer">
                         {uploadingField === 'video' ? <Loader2 size={13} className="animate-spin text-primary" /> : <Upload size={13} />}
-                        <span>{uploadingField === 'video' ? `Uploading... ${setUploadProgress}%` : 'Select Video/Media File'}</span>
+                        <span>{uploadingField === 'video' ? `Uploading... ${uploadProgress}%` : 'Select Video/Media File'}</span>
                         <input type="file" onChange={(e) => handleFileUpload(e, 'video')} className="hidden" />
                       </label>
                     )}
@@ -1597,7 +1598,4 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
   );
 };
 export default CoursesTab;
-function setUploadProgress(arg0: number) {
-  throw new Error('Function not implemented.');
-}
 
