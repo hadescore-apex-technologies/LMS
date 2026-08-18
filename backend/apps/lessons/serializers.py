@@ -130,6 +130,13 @@ class LessonSerializer(serializers.ModelSerializer):
                 if not passed_quiz:
                     return True  # Earlier module has unpassed quizzes
 
+            from apps.assignments.models import Assignment, AssignmentSubmission
+            m_assignments = Assignment.objects.filter(module=m)
+            if m_assignments.exists():
+                submitted_count = AssignmentSubmission.objects.filter(student=user, assignment__in=m_assignments).count()
+                if submitted_count < m_assignments.count():
+                    return True  # Earlier module has unsubmitted assignments
+
         return False
 
     def get_completed(self, obj):

@@ -1064,9 +1064,10 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                     const modAssignments = assignments.filter(a => a.module === mod.id);
                     
                     const allLessonsCompleted = modLessons.length === 0 || modLessons.every(l => l.completed);
-                    const allQuizzesPassed = modQuizzes.length === 0 || modQuizzes.some(q => quizAttempts.some(att => att.quiz === q.id && att.passed));
+                    const allQuizzesPassed = modQuizzes.length === 0 || modQuizzes.every(q => quizAttempts.some(att => att.quiz === q.id && att.passed));
+                    const allAssignmentsSubmitted = isLiveStudent || modAssignments.length === 0 || modAssignments.every(a => submissions.some(s => s.assignment === a.id));
 
-                    const isCompleted = allLessonsCompleted && allQuizzesPassed;
+                    const isCompleted = allLessonsCompleted && allQuizzesPassed && allAssignmentsSubmitted;
                     const isLocked = isLiveStudent ? false : (index === 0 ? false : !allPreviousCompleted);
                     
                     if (!isCompleted) {
@@ -1128,7 +1129,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                                     : `Checkpoint: ${quiz.title} (${attemptsCount}/${quiz.max_retries} attempts)`
                                   }
                                 </span>
-                                {quizLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />}
+                                {hasPassed ? <CheckCircle2 size={12} className="text-emerald-500 shrink-0" /> : quizLocked ? <Lock size={10} className="shrink-0 text-muted-foreground" /> : null}
                               </button>
                             );
                           })}
@@ -1147,11 +1148,11 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                                   setActiveQuiz(null);
                                   setForceRetakeQuizId(null);
                                 }}
-                                className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasSub ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' : assignLocked ? 'opacity-40 cursor-not-allowed text-muted-foreground border-transparent' : 'text-primary border-transparent hover:bg-muted/40'}`}
+                                className={`w-full text-left p-2 rounded-lg text-[11px] flex items-center gap-2 border transition-all ${hasSub ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10 font-bold' : assignLocked ? 'opacity-40 cursor-not-allowed text-muted-foreground border-transparent' : 'text-primary border-transparent hover:bg-muted/40 font-semibold'}`}
                               >
-                                <ClipboardList size={10} />
-                                <span className="truncate flex-1 font-semibold">{hasSub ? 'Homework Submitted' : `Homework: ${assign.title}`}</span>
-                                {assignLocked && <Lock size={10} className="shrink-0 text-muted-foreground" />}
+                                <ClipboardList size={11} className={hasSub ? 'text-emerald-500 shrink-0' : 'shrink-0'} />
+                                <span className="truncate flex-1 font-semibold">{hasSub ? `Homework: ${assign.title} - Submitted` : `Homework: ${assign.title}`}</span>
+                                {hasSub ? <CheckCircle2 size={12} className="text-emerald-500 shrink-0" /> : assignLocked ? <Lock size={10} className="shrink-0 text-muted-foreground" /> : null}
                               </button>
                             );
                           })}
