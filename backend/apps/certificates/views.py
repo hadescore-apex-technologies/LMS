@@ -124,7 +124,13 @@ class CertificateViewSet(viewsets.ModelViewSet):
             qs = qs.filter(student_id=student_id)
 
         if user.role == 'STUDENT':
-            return qs.filter(student=user, is_issued=True)
+            student_certs = qs.filter(student=user, is_issued=True)
+            from apps.certificates.utils import is_course_completed_by_student
+            valid_ids = []
+            for cert in student_certs:
+                if is_course_completed_by_student(user, cert.course):
+                    valid_ids.append(cert.id)
+            return Certificate.objects.filter(id__in=valid_ids).select_related('student', 'course')
 
         if user.role == 'STAFF':
             # pyrefly: ignore [missing-import]
