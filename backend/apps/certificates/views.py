@@ -124,13 +124,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
             qs = qs.filter(student_id=student_id)
 
         if user.role == 'STUDENT':
-            student_certs = qs.filter(student=user, is_issued=True)
-            from apps.certificates.utils import is_course_completed_by_student
-            valid_ids = []
-            for cert in student_certs:
-                if is_course_completed_by_student(user, cert.course):
-                    valid_ids.append(cert.id)
-            return Certificate.objects.filter(id__in=valid_ids).select_related('student', 'course')
+            return qs.filter(student=user, is_issued=True)
 
         if user.role == 'STAFF':
             # pyrefly: ignore [missing-import]
@@ -256,6 +250,16 @@ class CertificateViewSet(viewsets.ModelViewSet):
     @decorators.action(detail=True, methods=['get'], url_path='download', permission_classes=[])
     def download(self, request, pk=None):
         certificate = self.get_object()
+        
+        # Enforce that students must complete 100% of the course to download
+        user = request.user
+        is_staff_or_admin = user and user.is_authenticated and user.role in ['SUPER_ADMIN', 'STAFF']
+        if not is_staff_or_admin:
+            from apps.certificates.utils import is_course_completed_by_student
+            if not is_course_completed_by_student(certificate.student, certificate.course):
+                from django.http import HttpResponseForbidden
+                return HttpResponseForbidden("You must complete 100% of the course to download this certificate.")
+
         student_name = f"{certificate.student.first_name} {certificate.student.last_name}".strip() or certificate.student.email
         course_title = certificate.course.title if certificate.course else "Academic Course"
         issued_date = certificate.issued_at.strftime('%B %d, %Y') if certificate.issued_at else "August 15, 2026"

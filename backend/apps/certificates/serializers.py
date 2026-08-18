@@ -9,9 +9,11 @@ class CertificateSerializer(serializers.ModelSerializer):
     course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all(), required=True, allow_null=False)
     certificate_code = serializers.CharField(required=False, allow_blank=True)
 
+    is_unlocked = serializers.SerializerMethodField()
+
     class Meta:
         model = Certificate
-        fields = ['id', 'student', 'student_email', 'course', 'course_title', 'certificate_code', 'file_url', 'issued_at', 'is_issued']
+        fields = ['id', 'student', 'student_email', 'course', 'course_title', 'certificate_code', 'file_url', 'issued_at', 'is_issued', 'is_unlocked']
         read_only_fields = ['issued_at']
 
     def to_representation(self, instance):
@@ -27,3 +29,12 @@ class CertificateSerializer(serializers.ModelSerializer):
             data['file_url'] = request.build_absolute_uri(raw_url) if request else raw_url
 
         return data
+
+    def get_is_unlocked(self, instance):
+        request = self.context.get('request')
+        if request and request.user:
+            if request.user.role in ['SUPER_ADMIN', 'STAFF']:
+                return True
+            from apps.certificates.utils import is_course_completed_by_student
+            return is_course_completed_by_student(instance.student, instance.course)
+        return False
