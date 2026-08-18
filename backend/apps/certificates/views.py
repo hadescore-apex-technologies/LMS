@@ -124,7 +124,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
             qs = qs.filter(student_id=student_id)
 
         if user.role == 'STUDENT':
-            return qs.filter(student=user, is_issued=True)
+            return qs.filter(student=user)
 
         if user.role == 'STAFF':
             # pyrefly: ignore [missing-import]
