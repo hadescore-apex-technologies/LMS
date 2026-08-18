@@ -130,6 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       { label: 'Students', path: '/staff/students', icon: Users },
       { label: 'Attendance', path: '/staff/attendance', icon: Calendar },
       { label: 'Course Builder', path: '/staff/courses', icon: BookOpen },
+      { label: 'Doubt Clearing Sessions', path: '/staff/live', icon: Video },
       { label: 'Assignments', path: '/staff/assignments', icon: FileCheck },
       { label: 'Quizzes', path: '/staff/quizzes', icon: HelpCircle },
       { label: 'Certificates', path: '/staff/certificates', icon: Award },

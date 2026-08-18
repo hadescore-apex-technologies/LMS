@@ -561,6 +561,10 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
                   toast.error("Please select meeting date & time.");
                   return;
                 }
+                if (!liveCourse) {
+                  toast.error("Please select a target course.");
+                  return;
+                }
                 if (!urlVal) {
                   toast.error("Please enter meeting URL link.");
                   return;
@@ -576,6 +580,22 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
                 <div>
                   <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Session Title *</label>
                   <input name="title" type="text" value={liveTitle} onChange={(e) => setLiveTitle(e.target.value)} required placeholder="e.g. Live Doubt Clearing & Q&A Stream" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Target Course *</label>
+                  <select 
+                    name="course"
+                    value={liveCourse} 
+                    onChange={(e) => setLiveCourse(e.target.value)} 
+                    required 
+                    className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none"
+                  >
+                    <option value="">-- Select Target Course --</option>
+                    {safeCourses.map(c => (
+                      <option key={c.id} value={c.id}>{c.title}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Target Student Selection with Search & Scroll */}
