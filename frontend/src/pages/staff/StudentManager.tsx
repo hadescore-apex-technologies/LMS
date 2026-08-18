@@ -278,7 +278,7 @@ const StudentManager: React.FC = () => {
       if (err?.response?.status === 404) {
         toast.error("Student not found or has already been deleted.");
         // Refresh the students list to get current state
-        window.location.reload();
+        loadData();
       } else {
         toast.error("Failed to delete student account.");
       }
@@ -290,8 +290,8 @@ const StudentManager: React.FC = () => {
     const currentStudent = students.find(s => s.id === student.id);
     if (!currentStudent) {
       toast.error("Student no longer exists. Refreshing list...");
-      // Refresh the page or student list
-      window.location.reload();
+      // Refresh the student list seamlessly
+      loadData();
       return;
     }
     

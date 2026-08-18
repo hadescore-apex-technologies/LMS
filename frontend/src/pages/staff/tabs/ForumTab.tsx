@@ -40,6 +40,8 @@ export const ForumTab: React.FC = () => {
   // 1. Fetch Posts for Staff (Backend automatically filters by assigned mentees)
   const { data: posts = [], isLoading } = useQuery<DiscussionPost[]>({
     queryKey: ['staff-discussion-posts'],
+    placeholderData: (prev) => prev,
+    refetchInterval: 8000,
     queryFn: async () => {
       const res = await api.get('courses/discussions/posts/');
       return res.data;

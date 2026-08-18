@@ -61,6 +61,7 @@ export const AssignmentsTab: React.FC = () => {
     queryKey: ['assignments-tracker'],
     enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
+    refetchInterval: 8000,
     queryFn: async () => {
       const res = await api.get('assignments/list/');
       return res.data;
@@ -72,6 +73,7 @@ export const AssignmentsTab: React.FC = () => {
     queryKey: ['submissions-tracker'],
     enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
+    refetchInterval: 8000,
     queryFn: async () => {
       const res = await api.get('assignments/submissions/');
       return res.data;

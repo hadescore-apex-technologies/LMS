@@ -46,7 +46,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
     queryKey: ['dashboard-stats', liveMode],
     enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
-    refetchInterval: accessToken ? 30000 : false,
+    refetchInterval: accessToken ? 8000 : false,
     queryFn: async () => {
       const res = await api.get(`analytics/dashboard/?live_mode=${liveMode}`);
       return res.data;
@@ -57,7 +57,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
     queryKey: ['user-achievements', liveMode],
     enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
-    staleTime: 60000,
+    staleTime: 10000,
+    refetchInterval: 15000,
     queryFn: async () => {
       const res = await api.get('users/profile/achievements/');
       return res.data;
@@ -67,6 +68,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
   const { data: courses = [] } = useQuery<CourseItem[]>({
     queryKey: ['enrolled-courses-preview', liveMode],
     enabled: Boolean(accessToken && user),
+    placeholderData: (prev) => prev,
+    refetchInterval: 10000,
     queryFn: async () => {
       const res = await api.get(`courses/list/?live_mode=${liveMode}`);
       return res.data;
@@ -76,6 +79,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate, onOpenCo
   const { data: liveClasses = [] } = useQuery<any[]>({
     queryKey: ['live-classes-dashboard', liveMode],
     enabled: Boolean(accessToken && user),
+    placeholderData: (prev) => prev,
+    refetchInterval: 8000,
     queryFn: async () => {
       const res = await api.get(`courses/live/?live_mode=${liveMode}`);
       return res.data;

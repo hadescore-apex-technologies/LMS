@@ -17,6 +17,8 @@ export const NotificationsTab: React.FC = () => {
   // 1. Fetch Notifications
   const { data: alerts = [], isLoading, refetch } = useQuery<Notification[]>({
     queryKey: ['notifications-alerts-list'],
+    placeholderData: (prev) => prev,
+    refetchInterval: 8000,
     queryFn: async () => {
       const res = await api.get('notifications/');
       return res.data;

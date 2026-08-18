@@ -36,6 +36,7 @@ export const CertificatesTab: React.FC = () => {
     queryKey: ['certificates'],
     enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
+    refetchInterval: 8000,
     queryFn: async () => {
       const res = await api.get('certificates/');
       return res.data;

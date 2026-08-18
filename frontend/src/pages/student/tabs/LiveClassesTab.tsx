@@ -37,6 +37,7 @@ export const LiveClassesTab: React.FC = () => {
     queryKey: ['live-classes-timeline', liveMode],
     enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
+    refetchInterval: 6000,
     queryFn: async () => {
       const res = await api.get(`courses/live/?live_mode=${liveMode}`);
       return res.data;

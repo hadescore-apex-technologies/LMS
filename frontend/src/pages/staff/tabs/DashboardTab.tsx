@@ -63,6 +63,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
     queryKey: ['staff-dashboard-stats', liveMode],
     enabled: Boolean(accessToken && user),
     placeholderData: (prev) => prev,
+    refetchInterval: 8000,
     queryFn: async () => {
       const res = await api.get(`analytics/dashboard/?live_mode=${liveMode}`);
       return res.data;

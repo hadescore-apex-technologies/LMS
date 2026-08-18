@@ -64,6 +64,8 @@ export const DiscussionTab: React.FC = () => {
   // 2. Fetch Posts
   const { data: posts = [], isLoading } = useQuery<DiscussionPost[]>({
     queryKey: ['discussion-posts', selectedCourse, liveMode],
+    placeholderData: (prev) => prev,
+    refetchInterval: 8000,
     queryFn: async () => {
       let url = `courses/discussions/posts/?live_mode=${liveMode}`;
       if (selectedCourse) {
