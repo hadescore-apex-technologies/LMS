@@ -326,12 +326,33 @@ def send_lms_email(
     text_body: str,
     html_body: str | None = None,
     reply_to: str | None = None,
+    async_mode: bool = True,
 ):
     """
     Unified anti-spam transactional email sender.
     Sends high-deliverability dual-part (plain-text + clean HTML) emails.
     Avoids bot headers so emails land directly in the user's primary inbox.
     """
+    if async_mode:
+        import threading
+        thread = threading.Thread(
+            target=_send_lms_email_sync,
+            args=(to_email, subject, text_body, html_body, reply_to)
+        )
+        thread.daemon = True
+        thread.start()
+        return
+
+    _send_lms_email_sync(to_email, subject, text_body, html_body, reply_to)
+
+
+def _send_lms_email_sync(
+    to_email: str,
+    subject: str,
+    text_body: str,
+    html_body: str | None = None,
+    reply_to: str | None = None,
+):
     # ── Brevo HTTP API Integration ──────────────────────────────────────────────
     # Uses secure port 443 to bypass Render Free tier SMTP blocking restrictions.
     # pyrefly: ignore [missing-import]

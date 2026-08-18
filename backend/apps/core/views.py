@@ -272,7 +272,7 @@ class TestSMTPView(views.APIView):
             )
             # pyrefly: ignore [missing-import]
             from django.conf import settings
-            send_lms_email(to_email=to_email, subject=subject, text_body=body)
+            send_lms_email(to_email=to_email, subject=subject, text_body=body, async_mode=False)
             delivery_method = "Brevo HTTP API" if getattr(settings, 'BREVO_API_KEY', '') else "SMTP Connection"
             return response.Response({
                 "status": "success",

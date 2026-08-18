@@ -1,4 +1,5 @@
 import os
+import threading
 # pyrefly: ignore [missing-import]
 from django.db.models.signals import pre_save, post_delete
 # pyrefly: ignore [missing-import]
@@ -17,6 +18,12 @@ FILE_URL_FIELDS = [
     'banner'
 ]
 
+def delete_file_from_drive_async(file_id):
+    """Deletes a file from Google Drive asynchronously on a background thread."""
+    thread = threading.Thread(target=delete_file_from_drive, args=(file_id,))
+    thread.daemon = True
+    thread.start()
+
 @receiver(post_delete)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
     """
@@ -31,7 +38,7 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
             if url and isinstance(url, str):
                 file_id = extract_drive_file_id(url)
                 if file_id:
-                    delete_file_from_drive(file_id)
+                    delete_file_from_drive_async(file_id)
 
 @receiver(pre_save)
 def auto_delete_file_on_change(sender, instance, **kwargs):
@@ -59,4 +66,4 @@ def auto_delete_file_on_change(sender, instance, **kwargs):
             if old_url and old_url != new_url and isinstance(old_url, str):
                 file_id = extract_drive_file_id(old_url)
                 if file_id:
-                    delete_file_from_drive(file_id)
+                    delete_file_from_drive_async(file_id)
