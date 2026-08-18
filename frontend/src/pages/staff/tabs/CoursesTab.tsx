@@ -592,10 +592,9 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
     setRandomizeQuestions(true);
     setShowQuizModal(true);
 
-    try {
-      const res = await api.get(`quizzes/list/?module=${moduleId}`);
-      const quiz = res.data.find((q: any) => q.module === moduleId);
-      if (quiz) {
+    const quiz = quizzes.find((q: any) => q.module === moduleId);
+    if (quiz) {
+      try {
         const detailRes = await api.get(`quizzes/list/${quiz.id}/`);
         setActiveQuiz(detailRes.data);
         setQuizTitle(detailRes.data.title);
@@ -604,9 +603,9 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
         setMaxRetries(detailRes.data.max_retries);
         setRandomizeQuestions(detailRes.data.randomize_questions);
         setQuestions(detailRes.data.questions || []);
+      } catch {
+        toast.error('Quiz metadata details not found.');
       }
-    } catch {
-      toast.error('Quiz metadata details not found.');
     }
   };
 
@@ -1415,87 +1414,96 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                       </label>
                       
                       {qType === 'TF' ? (
-                        <div className="flex gap-4">
-                          <label className="flex items-center gap-2 font-bold cursor-pointer text-muted-foreground">
-                            <input 
-                              type="radio" 
-                              name="tfCorrect" 
-                              checked={tfCorrectVal === 'True'} 
-                              onChange={() => setTfCorrectVal('True')} 
-                              className="accent-primary h-4.5 w-4.5" 
-                            />
-                            <span>True</span>
-                          </label>
-                          <label className="flex items-center gap-2 font-bold cursor-pointer text-muted-foreground">
-                            <input 
-                              type="radio" 
-                              name="tfCorrect" 
-                              checked={tfCorrectVal === 'False'} 
-                              onChange={() => setTfCorrectVal('False')} 
-                              className="accent-primary h-4.5 w-4.5" 
-                            />
-                            <span>False</span>
-                          </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setTfCorrectVal('True')}
+                            className={`py-2 text-center rounded-xl font-bold border transition-all text-[11px] ${
+                              tfCorrectVal === 'True'
+                                ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 shadow-sm'
+                                : 'border-border bg-card text-muted-foreground hover:bg-muted/5'
+                            }`}
+                          >
+                            True
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTfCorrectVal('False')}
+                            className={`py-2 text-center rounded-xl font-bold border transition-all text-[11px] ${
+                              tfCorrectVal === 'False'
+                                ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 shadow-sm'
+                                : 'border-border bg-card text-muted-foreground hover:bg-muted/5'
+                            }`}
+                          >
+                            False
+                          </button>
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {customOptions.map((opt, idx) => (
-                            <div key={idx} className="flex items-center gap-2">
-                              <div className="shrink-0 flex items-center justify-center">
-                                {qType === 'MCQ' ? (
-                                  <input 
-                                    type="radio" 
-                                    name="mcqCorrect" 
-                                    checked={mcqCorrectIdx === idx} 
-                                    onChange={() => setMcqCorrectIdx(idx)} 
-                                    title="Mark as correct answer"
-                                    className="h-4 w-4 accent-primary cursor-pointer"
-                                  />
-                                ) : (
-                                  <input 
-                                    type="checkbox" 
-                                    checked={msqCorrectFlags[idx] || false} 
-                                    onChange={(e) => {
-                                      const copy = [...msqCorrectFlags];
-                                      copy[idx] = e.target.checked;
-                                      setMsqCorrectFlags(copy);
+                          {customOptions.map((opt, idx) => {
+                            const isCorrect = qType === 'MCQ' ? mcqCorrectIdx === idx : msqCorrectFlags[idx];
+                            return (
+                              <div key={idx} className="flex items-center gap-2">
+                                <div className="shrink-0 flex items-center justify-center">
+                                  {qType === 'MCQ' ? (
+                                    <input 
+                                      type="radio" 
+                                      name="mcqCorrect" 
+                                      checked={mcqCorrectIdx === idx} 
+                                      onChange={() => setMcqCorrectIdx(idx)} 
+                                      title="Mark as correct answer"
+                                      className="h-4 w-4 accent-emerald-600 cursor-pointer"
+                                    />
+                                  ) : (
+                                    <input 
+                                      type="checkbox" 
+                                      checked={msqCorrectFlags[idx] || false} 
+                                      onChange={(e) => {
+                                        const copy = [...msqCorrectFlags];
+                                        copy[idx] = e.target.checked;
+                                        setMsqCorrectFlags(copy);
+                                      }} 
+                                      title="Mark as correct answer"
+                                      className="h-4 w-4 accent-emerald-600 cursor-pointer"
+                                    />
+                                  )}
+                                </div>
+                                
+                                <input 
+                                  type="text" 
+                                  value={opt} 
+                                  onChange={(e) => {
+                                    const copy = [...customOptions];
+                                    copy[idx] = e.target.value;
+                                    setCustomOptions(copy);
+                                  }} 
+                                  placeholder={`Option ${String.fromCharCode(65 + idx)}`} 
+                                  className={`flex-1 h-8 px-2 bg-card border rounded-lg text-xs font-semibold outline-none transition-all ${
+                                    isCorrect 
+                                      ? 'border-emerald-500 bg-emerald-500/5 focus:border-emerald-500 ring-1 ring-emerald-500/20' 
+                                      : 'border-border focus:border-primary'
+                                  }`}
+                                />
+                                
+                                {customOptions.length > 2 && (
+                                  <button 
+                                    type="button" 
+                                    onClick={() => {
+                                      setCustomOptions(customOptions.filter((_, i) => i !== idx));
+                                      setMsqCorrectFlags(msqCorrectFlags.filter((_, i) => i !== idx));
+                                      if (mcqCorrectIdx >= customOptions.length - 1) {
+                                        setMcqCorrectIdx(Math.max(0, customOptions.length - 2));
+                                      }
                                     }} 
-                                    title="Mark as correct answer"
-                                    className="h-4 w-4 accent-primary cursor-pointer"
-                                  />
+                                    className="p-1.5 hover:bg-destructive/10 hover:text-destructive rounded-lg text-muted-foreground"
+                                    title="Remove Option"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
                                 )}
                               </div>
-                              
-                              <input 
-                                type="text" 
-                                value={opt} 
-                                onChange={(e) => {
-                                  const copy = [...customOptions];
-                                  copy[idx] = e.target.value;
-                                  setCustomOptions(copy);
-                                }} 
-                                placeholder={`Option ${String.fromCharCode(65 + idx)}`} 
-                                className="flex-1 h-8 px-2 bg-card border border-border rounded-lg text-xs font-medium" 
-                              />
-                              
-                              {customOptions.length > 2 && (
-                                <button 
-                                  type="button" 
-                                  onClick={() => {
-                                    setCustomOptions(customOptions.filter((_, i) => i !== idx));
-                                    setMsqCorrectFlags(msqCorrectFlags.filter((_, i) => i !== idx));
-                                    if (mcqCorrectIdx >= customOptions.length - 1) {
-                                      setMcqCorrectIdx(Math.max(0, customOptions.length - 2));
-                                    }
-                                  }} 
-                                  className="p-1 hover:bg-destructive/10 hover:text-destructive rounded-lg text-muted-foreground"
-                                  title="Remove Option"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                           
                           <button 
                             type="button" 
