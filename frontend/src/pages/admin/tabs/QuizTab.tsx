@@ -61,8 +61,9 @@ export const QuizTab: React.FC = () => {
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [quizTitle, setQuizTitle] = useState('');
   const [passingScore, setPassingScore] = useState(0);
-  const [timerMinutes, setTimerMinutes] = useState(15);
-  const [maxRetries, setMaxRetries] = useState(10);
+  const [minCorrectInput, setMinCorrectInput] = useState<string | number>(0);
+  const [timerMinutes, setTimerMinutes] = useState<string | number>(15);
+  const [maxRetries, setMaxRetries] = useState<string | number>(10);
   const [randomizeQuestions, setRandomizeQuestions] = useState(true);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
@@ -212,7 +213,8 @@ export const QuizTab: React.FC = () => {
   const handleOpenEditQuiz = async (quiz: Quiz) => {
     setActiveQuiz(quiz);
     setQuizTitle(quiz.title);
-    setPassingScore(quiz.passing_score);
+    const pScore = quiz.passing_score ?? 0;
+    setPassingScore(pScore);
     setTimerMinutes(quiz.timer_minutes);
     setMaxRetries(quiz.max_retries);
     setRandomizeQuestions(quiz.randomize_questions);
@@ -228,9 +230,13 @@ export const QuizTab: React.FC = () => {
 
     try {
       const detailRes = await api.get(`quizzes/list/${quiz.id}/`);
-      setQuestions(detailRes.data.questions || []);
+      const qList = detailRes.data.questions || [];
+      setQuestions(qList);
+      const calculatedMin = qList.length > 0 ? Math.round((pScore / 100) * qList.length) : pScore;
+      setMinCorrectInput(calculatedMin);
     } catch {
       setQuestions([]);
+      setMinCorrectInput(pScore);
     }
 
     setShowQuizModal(true);
@@ -240,6 +246,7 @@ export const QuizTab: React.FC = () => {
     setActiveQuiz(null);
     setQuizTitle('');
     setPassingScore(0);
+    setMinCorrectInput(0);
     setTimerMinutes(15);
     setMaxRetries(10);
     setRandomizeQuestions(true);
@@ -661,18 +668,32 @@ export const QuizTab: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <input 
                         type="number" 
-                        min={1}
+                        min={0}
                         max={questions.length > 0 ? questions.length : 100}
-                        value={questions.length > 0 ? Math.max(1, Math.min(questions.length, Math.ceil((passingScore / 100) * questions.length))) : passingScore} 
+                        value={minCorrectInput} 
                         onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (questions.length > 0) {
-                            const clamped = Math.max(1, Math.min(questions.length, val));
-                            setPassingScore(Math.round((clamped / questions.length) * 100));
-                          } else {
-                            setPassingScore(val);
+                          const rawVal = e.target.value;
+                          setMinCorrectInput(rawVal);
+                          if (rawVal === '') {
+                            setPassingScore(0);
+                            return;
                           }
-                        }} 
+                          const val = Number(rawVal);
+                          if (!isNaN(val)) {
+                            if (questions.length > 0) {
+                              const clamped = Math.max(0, Math.min(questions.length, val));
+                              setPassingScore(Math.round((clamped / questions.length) * 100));
+                            } else {
+                              setPassingScore(val);
+                            }
+                          }
+                        }}
+                        onBlur={() => {
+                          if (minCorrectInput === '' || isNaN(Number(minCorrectInput))) {
+                            setMinCorrectInput(0);
+                            setPassingScore(0);
+                          }
+                        }}
                         className="w-full h-10 px-3 bg-card border border-border rounded-xl font-mono font-bold text-xs" 
                       />
                       <span className="text-[10px] font-bold text-muted-foreground shrink-0 whitespace-nowrap">
@@ -682,7 +703,14 @@ export const QuizTab: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Time Limit (Mins) *</label>
-                    <input type="number" value={timerMinutes} onChange={(e) => setTimerMinutes(Number(e.target.value))} className="w-full h-10 px-3 bg-card border border-border rounded-xl font-mono" />
+                    <input 
+                      type="number" 
+                      min={0}
+                      value={timerMinutes} 
+                      onChange={(e) => setTimerMinutes(e.target.value === '' ? '' as any : Number(e.target.value))} 
+                      onBlur={() => { if (timerMinutes === '' || isNaN(Number(timerMinutes))) setTimerMinutes(15); }}
+                      className="w-full h-10 px-3 bg-card border border-border rounded-xl font-mono font-bold text-xs" 
+                    />
                   </div>
                 </div>
 
@@ -695,7 +723,7 @@ export const QuizTab: React.FC = () => {
                     </div>
                     {questions.length > 0 ? (
                       <span className="text-xs font-bold text-foreground">
-                        Require <span className="text-cyan-600 font-extrabold">{Math.ceil((passingScore / 100) * questions.length)}</span> out of <span className="font-extrabold">{questions.length}</span> correct ({passingScore}%)
+                        Require <span className="text-cyan-600 font-extrabold">{minCorrectInput}</span> out of <span className="font-extrabold">{questions.length}</span> correct ({passingScore}%)
                       </span>
                     ) : (
                       <span className="text-[11px] text-muted-foreground font-medium">Add questions below to enable question-by-question pass presets</span>
@@ -705,15 +733,18 @@ export const QuizTab: React.FC = () => {
                   {questions.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <span className="text-[10px] font-bold text-muted-foreground uppercase mr-1">Quick Presets:</span>
-                      {Array.from({ length: questions.length }, (_, index) => {
-                        const count = index + 1;
+                      {Array.from({ length: questions.length + 1 }, (_, index) => {
+                        const count = index;
                         const pct = Math.round((count / questions.length) * 100);
-                        const isCurrent = Math.ceil((passingScore / 100) * questions.length) === count;
+                        const isCurrent = Number(minCorrectInput) === count;
                         return (
                           <button
                             key={count}
                             type="button"
-                            onClick={() => setPassingScore(pct)}
+                            onClick={() => {
+                              setMinCorrectInput(count);
+                              setPassingScore(pct);
+                            }}
                             className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all ${isCurrent ? 'bg-cyan-600 text-white shadow-sm scale-105' : 'bg-card border border-border hover:border-cyan-400 text-foreground'}`}
                           >
                             {count} / {questions.length} ({pct}%)
@@ -728,7 +759,14 @@ export const QuizTab: React.FC = () => {
                   <div className="flex gap-[13px]">
                     <div>
                       <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Max Attempts *</label>
-                      <input type="number" value={maxRetries} onChange={(e) => setMaxRetries(Number(e.target.value))} className="w-16 h-8 text-center bg-card border border-border rounded-lg" />
+                      <input 
+                        type="number" 
+                        min={1}
+                        value={maxRetries} 
+                        onChange={(e) => setMaxRetries(e.target.value === '' ? '' as any : Number(e.target.value))} 
+                        onBlur={() => { if (maxRetries === '' || isNaN(Number(maxRetries))) setMaxRetries(10); }}
+                        className="w-16 h-8 text-center bg-card border border-border rounded-lg font-mono font-bold text-xs" 
+                      />
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer pt-4 font-bold text-muted-foreground">
                       <input type="checkbox" checked={randomizeQuestions} onChange={(e) => setRandomizeQuestions(e.target.checked)} className="h-4 w-4 accent-primary" />

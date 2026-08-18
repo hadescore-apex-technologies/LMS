@@ -130,8 +130,9 @@ const CourseBuilder: React.FC = () => {
   const [activeQuiz, setActiveQuiz] = useState<any | null>(null);
   const [quizTitle, setQuizTitle] = useState('');
   const [passingScore, setPassingScore] = useState(50); // Pass score default: 50%
-  const [timerMinutes, setTimerMinutes] = useState(15);
-  const [maxRetries, setMaxRetries] = useState(3);
+  const [minCorrectInput, setMinCorrectInput] = useState<string | number>(0);
+  const [timerMinutes, setTimerMinutes] = useState<string | number>(15);
+  const [maxRetries, setMaxRetries] = useState<string | number>(3);
   const [randomizeQuestions, setRandomizeQuestions] = useState(true);
 
   // Question State
@@ -242,11 +243,18 @@ const CourseBuilder: React.FC = () => {
         const detailRes = await api.get(`quizzes/list/${quiz.id}/`);
         setActiveQuiz(detailRes.data);
         setQuizTitle(detailRes.data.title);
-        setPassingScore(detailRes.data.passing_score);
+        const pScore = detailRes.data.passing_score ?? 0;
+        setPassingScore(pScore);
+        const qList = detailRes.data.questions || [];
+        const calculatedMin = qList.length > 0 ? Math.round((pScore / 100) * qList.length) : pScore;
+        setMinCorrectInput(calculatedMin);
         setTimerMinutes(detailRes.data.timer_minutes);
         setMaxRetries(detailRes.data.max_retries);
         setRandomizeQuestions(detailRes.data.randomize_questions);
-        setQuestions(detailRes.data.questions || []);
+        setQuestions(qList);
+      } else {
+        setMinCorrectInput(0);
+        setPassingScore(0);
       }
     } catch {
       toast.error("Failed to load quiz details.");
@@ -1659,24 +1667,33 @@ const CourseBuilder: React.FC = () => {
                           <div className="flex items-center gap-1.5">
                             <input
                               type="number"
-                              min="1"
+                              min={0}
                               max={questions.length > 0 ? questions.length : 100}
-                              value={
-                                questions.length > 0
-                                  ? Math.max(1, Math.min(questions.length, Math.ceil((passingScore / 100) * questions.length)))
-                                  : passingScore
-                              }
+                              value={minCorrectInput}
                               onChange={(e) => {
-                                const val = parseInt(e.target.value) || 1;
-                                if (questions.length > 0) {
-                                  const clamped = Math.max(1, Math.min(questions.length, val));
-                                  setPassingScore(Math.round((clamped / questions.length) * 100));
-                                } else {
-                                  setPassingScore(val);
+                                const rawVal = e.target.value;
+                                setMinCorrectInput(rawVal);
+                                if (rawVal === '') {
+                                  setPassingScore(0);
+                                  return;
+                                }
+                                const val = Number(rawVal);
+                                if (!isNaN(val)) {
+                                  if (questions.length > 0) {
+                                    const clamped = Math.max(0, Math.min(questions.length, val));
+                                    setPassingScore(Math.round((clamped / questions.length) * 100));
+                                  } else {
+                                    setPassingScore(val);
+                                  }
+                                }
+                              }}
+                              onBlur={() => {
+                                if (minCorrectInput === '' || isNaN(Number(minCorrectInput))) {
+                                  setMinCorrectInput(0);
+                                  setPassingScore(0);
                                 }
                               }}
                               className="w-full h-9 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all font-mono font-bold text-xs"
-                              required
                             />
                             <span className="text-[10px] font-bold text-muted-foreground shrink-0 whitespace-nowrap">
                               {questions.length > 0 ? `/ ${questions.length}` : 'answers'}
@@ -1687,11 +1704,11 @@ const CourseBuilder: React.FC = () => {
                           <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-semibold">Timer (Minutes) *</label>
                           <input
                             type="number"
-                            min="1"
+                            min={0}
                             value={timerMinutes}
-                            onChange={(e) => setTimerMinutes(parseInt(e.target.value))}
-                            className="w-full h-9 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
-                            required
+                            onChange={(e) => setTimerMinutes(e.target.value === '' ? '' as any : Number(e.target.value))}
+                            onBlur={() => { if (timerMinutes === '' || isNaN(Number(timerMinutes))) setTimerMinutes(15); }}
+                            className="w-full h-9 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all font-mono font-bold text-xs"
                           />
                         </div>
                       </div>
@@ -1701,20 +1718,23 @@ const CourseBuilder: React.FC = () => {
                           <div className="flex items-center justify-between text-[10px] font-bold">
                             <span className="text-muted-foreground uppercase">Pass Requirement Target:</span>
                             <span className="text-primary font-extrabold">
-                              {Math.ceil((passingScore / 100) * questions.length)} / {questions.length} Correct ({passingScore}%)
+                              {minCorrectInput} / {questions.length} Correct ({passingScore}%)
                             </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-1 pt-0.5">
                             <span className="text-[9px] font-bold text-muted-foreground uppercase mr-1">Quick Presets:</span>
-                            {Array.from({ length: questions.length }, (_, idx) => {
-                              const count = idx + 1;
+                            {Array.from({ length: questions.length + 1 }, (_, idx) => {
+                              const count = idx;
                               const pct = Math.round((count / questions.length) * 100);
-                              const isCurrent = Math.ceil((passingScore / 100) * questions.length) === count;
+                              const isCurrent = Number(minCorrectInput) === count;
                               return (
                                 <button
                                   key={count}
                                   type="button"
-                                  onClick={() => setPassingScore(pct)}
+                                  onClick={() => {
+                                    setMinCorrectInput(count);
+                                    setPassingScore(pct);
+                                  }}
                                   className={`px-2 py-0.5 rounded text-[9px] font-extrabold transition-all ${
                                     isCurrent ? 'bg-primary text-primary-foreground shadow-sm scale-105' : 'bg-card border border-border hover:border-primary text-foreground'
                                   }`}
@@ -1732,11 +1752,11 @@ const CourseBuilder: React.FC = () => {
                           <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-semibold">Max Attempts *</label>
                           <input
                             type="number"
-                            min="1"
+                            min={1}
                             value={maxRetries}
-                            onChange={(e) => setMaxRetries(parseInt(e.target.value))}
-                            className="w-full h-9 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
-                            required
+                            onChange={(e) => setMaxRetries(e.target.value === '' ? '' as any : Number(e.target.value))}
+                            onBlur={() => { if (maxRetries === '' || isNaN(Number(maxRetries))) setMaxRetries(3); }}
+                            className="w-full h-9 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all font-mono font-bold text-xs"
                           />
                         </div>
                         <div className="flex items-center gap-2 pt-5">
