@@ -141,3 +141,31 @@ def extract_drive_file_id(url):
     if match_id:
         return match_id.group(1)
     return None
+
+def get_drive_access_token():
+    """Gets a fresh OAuth2 access token for Google Drive API requests."""
+    if not has_drive_credentials():
+        return None
+    try:
+        from google.auth.transport.requests import Request as AuthRequest
+        refresh_token = os.environ.get('GOOGLE_DRIVE_REFRESH_TOKEN')
+        client_id = os.environ.get('GOOGLE_DRIVE_CLIENT_ID')
+        client_secret = os.environ.get('GOOGLE_DRIVE_CLIENT_SECRET')
+        
+        if refresh_token and client_id and client_secret:
+            creds = OAuthCredentials(
+                token=None,
+                refresh_token=refresh_token,
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=client_id,
+                client_secret=client_secret
+            )
+        else:
+            creds = service_account.Credentials.from_service_account_file(
+                SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        
+        creds.refresh(AuthRequest())
+        return creds.token
+    except Exception as e:
+        print(f"Failed to get Google Drive access token: {e}")
+        return None

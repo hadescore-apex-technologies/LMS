@@ -37,12 +37,6 @@ class VideoStreamProxyView(views.APIView):
         if not file_id and not raw_url:
             return HttpResponse("Missing video id or url parameter", status=400)
 
-        # Build download target
-        if file_id:
-            target_url = f"https://drive.google.com/uc?id={file_id}&export=download"
-        else:
-            target_url = raw_url
-
         # Pass through Range header for fast scrub, seek, and buffer
         req_headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -50,6 +44,19 @@ class VideoStreamProxyView(views.APIView):
         range_header = request.headers.get('Range') or request.META.get('HTTP_RANGE')
         if range_header:
             req_headers['Range'] = range_header
+
+        # Build download target with OAuth authorization if token exists
+        from apps.core.drive_service import get_drive_access_token
+        access_token = get_drive_access_token()
+        
+        if file_id and access_token:
+            target_url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
+            req_headers['Authorization'] = f"Bearer {access_token}"
+        else:
+            if file_id:
+                target_url = f"https://drive.google.com/uc?id={file_id}&export=download"
+            else:
+                target_url = raw_url
 
         try:
             session = requests.Session()

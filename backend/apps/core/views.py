@@ -111,26 +111,23 @@ class FileUploadView(views.APIView):
             local_file_path = default_storage.save(rel_storage_path, uploaded_file)
             absolute_path = os.path.join(settings.MEDIA_ROOT, local_file_path) if not os.path.isabs(local_file_path) else local_file_path
             
-            # Generate public URL
+            # Generate default local URL (used if Drive upload fails or is not configured)
             try:
                 url = request.build_absolute_uri(default_storage.url(local_file_path))
             except Exception:
                 url = f"/media/{local_file_path}"
 
-            # If Google Drive is configured, upload in background
+            # If Google Drive is configured, upload synchronously to return the permanent URL
             if has_drive_credentials():
-                def _bg_drive_upload(path, orig_name):
-                    try:
-                        upload_file_to_drive(path, orig_name)
-                    except Exception as exc:
-                        logger.warning(f"[Upload] Background Drive upload skipped: {exc}")
-
-                upload_thread = Thread(
-                    target=_bg_drive_upload,
-                    args=(absolute_path, uploaded_file.name),
-                    daemon=True
-                )
-                upload_thread.start()
+                try:
+                    drive_url = upload_file_to_drive(absolute_path, uploaded_file.name)
+                    if drive_url:
+                        url = drive_url
+                        # Clean up ephemeral local file to conserve Render disk space
+                        if os.path.exists(absolute_path):
+                            os.remove(absolute_path)
+                except Exception as exc:
+                    logger.warning(f"[Upload] Google Drive upload failed: {exc}. Using local storage fallback URL.")
                 
             return response.Response({
                 "url": url,
