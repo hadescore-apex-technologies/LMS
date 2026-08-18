@@ -118,53 +118,53 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     if (!user) return [];
     
     const staffMenu = [
-      { label: 'Staff Home', path: '/staff', icon: Home },
-      { label: 'Student Management', path: '/staff/students', icon: Users },
-      { label: 'Student Attendance', path: '/staff/attendance', icon: Calendar },
+      { label: 'Dashboard', path: '/staff', icon: Home },
+      { label: 'Students', path: '/staff/students', icon: Users },
+      { label: 'Attendance', path: '/staff/attendance', icon: Calendar },
       { label: 'Course Builder', path: '/staff/courses', icon: BookOpen },
-      { label: 'Student Submissions', path: '/staff/assignments', icon: FileCheck },
-      { label: 'Quizzes Evaluation', path: '/staff/quizzes', icon: HelpCircle },
-      { label: 'Issue Certificates', path: '/staff/certificates', icon: Award },
-      { label: 'Queries Manage', path: '/staff/forum', icon: MessageSquare },
-      { label: 'Reports & Analytics', path: '/staff/reports', icon: BarChart2 },
+      { label: 'Assignments', path: '/staff/assignments', icon: FileCheck },
+      { label: 'Quizzes', path: '/staff/quizzes', icon: HelpCircle },
+      { label: 'Certificates', path: '/staff/certificates', icon: Award },
+      { label: 'Discussions & Q&A', path: '/staff/forum', icon: MessageSquare },
+      { label: 'Analytics & Reports', path: '/staff/reports', icon: BarChart2 },
     ];
 
     const liveClassStaffMenu = [
-      { label: 'Mentoring Dashboard', path: '/staff', icon: Home },
-      { label: 'Live Mentees Roster', path: '/staff/students', icon: Users },
+      { label: 'Dashboard', path: '/staff', icon: Home },
+      { label: 'Students', path: '/staff/students', icon: Users },
       { label: 'Live Sessions', path: '/staff/live', icon: Video },
-      { label: 'Manage Recordings', path: '/staff/recordings', icon: Film },
+      { label: 'Recordings', path: '/staff/recordings', icon: Film },
       { label: 'Assignments', path: '/staff/live-assignments', icon: FileEdit },
-      { label: 'Class Attendance', path: '/staff/attendance', icon: Calendar },
-      { label: 'Queries Manage', path: '/staff/forum', icon: MessageSquare },
+      { label: 'Attendance', path: '/staff/attendance', icon: Calendar },
+      { label: 'Discussions & Q&A', path: '/staff/forum', icon: MessageSquare },
     ];
 
     const liveClassAdminMenu = [
-      { label: 'Admin Home', path: '/admin', icon: Home },
-      { label: 'Staff Management', path: '/admin/staff', icon: Users },
-      { label: 'Mentoring Domains', path: '/admin/categories', icon: Layers },
-      { label: 'Live Student Roster', path: '/admin/students', icon: Users },
-      { label: 'Live Mentoring Sessions', path: '/admin/live', icon: Video },
-      { label: 'Manage Recordings', path: '/admin/recordings', icon: Film },
+      { label: 'Dashboard', path: '/admin', icon: Home },
+      { label: 'Staff / Mentors', path: '/admin/staff', icon: Users },
+      { label: 'Categories', path: '/admin/categories', icon: Layers },
+      { label: 'Students', path: '/admin/students', icon: Users },
+      { label: 'Live Sessions', path: '/admin/live', icon: Video },
+      { label: 'Recordings', path: '/admin/recordings', icon: Film },
       { label: 'Assignments', path: '/admin/live-assignments', icon: FileEdit },
-      { label: 'Class Attendance', path: '/admin/attendance', icon: Calendar },
-      { label: 'Live Mentor Assignments', path: '/admin/mentor-assignments', icon: UserCheck },
-      { label: 'Queries Manage', path: '/admin/forum', icon: MessageSquare },
+      { label: 'Attendance', path: '/admin/attendance', icon: Calendar },
+      { label: 'Mentor Assignments', path: '/admin/mentor-assignments', icon: UserCheck },
+      { label: 'Discussions & Q&A', path: '/admin/forum', icon: MessageSquare },
       { label: 'Email Templates', path: '/admin/email-templates', icon: Mail },
     ];
 
     const courseAdminMenu = [
-      { label: 'Admin Home', path: '/admin', icon: Home },
-      { label: 'Course Student Directory', path: '/admin/students', icon: Users },
-      { label: 'Student Attendance', path: '/admin/attendance', icon: Calendar },
-      { label: 'Course Categories', path: '/admin/categories', icon: Layers },
-      { label: 'Courses Catalog', path: '/admin/courses', icon: BookOpen },
+      { label: 'Dashboard', path: '/admin', icon: Home },
+      { label: 'Students', path: '/admin/students', icon: Users },
+      { label: 'Attendance', path: '/admin/attendance', icon: Calendar },
+      { label: 'Categories', path: '/admin/categories', icon: Layers },
+      { label: 'Courses', path: '/admin/courses', icon: BookOpen },
       { label: 'Doubt Clearing Sessions', path: '/admin/live', icon: Video },
-      { label: 'Quiz Management', path: '/admin/quizzes', icon: HelpCircle },
-      { label: 'Assignment Inbox', path: '/admin/assignments', icon: FileCheck },
-      { label: 'Certificates Issued', path: '/admin/certificates', icon: Award },
-      { label: 'Queries Manage', path: '/admin/forum', icon: MessageSquare },
-      { label: 'Course Analytics', path: '/admin/reports', icon: FileText },
+      { label: 'Quizzes', path: '/admin/quizzes', icon: HelpCircle },
+      { label: 'Assignments', path: '/admin/assignments', icon: FileCheck },
+      { label: 'Certificates', path: '/admin/certificates', icon: Award },
+      { label: 'Discussions & Q&A', path: '/admin/forum', icon: MessageSquare },
+      { label: 'Analytics & Reports', path: '/admin/reports', icon: FileText },
       { label: 'Email Templates', path: '/admin/email-templates', icon: Mail },
     ];
 
@@ -175,7 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       }
       // Course admin mode
       if (isRoot) {
-        return [...courseAdminMenu, { label: 'Admin Manager', path: '/admin/admin-manager', icon: Crown }];
+        return [...courseAdminMenu, { label: 'Admin Accounts', path: '/admin/admin-manager', icon: Crown }];
       }
       return courseAdminMenu;
     } else if (user?.role === 'STAFF') {
@@ -184,18 +184,18 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       // Student Menu
       const isStudentLive = localStorage.getItem('studentLiveMode') === 'true';
       const courseMenu = [
-        { label: 'Student Home', path: '/student', icon: Home },
+        { label: 'Dashboard', path: '/student', icon: Home },
         { label: 'My Courses', path: '/student/courses', icon: BookOpen },
         { label: 'Certificates', path: '/student/certificates', icon: Award },
         { label: 'Doubt Clearing Sessions', path: '/student/live', icon: Video },
-        { label: 'Queries', path: '/student/forum', icon: MessageSquare },
+        { label: 'Discussions & Q&A', path: '/student/forum', icon: MessageSquare },
       ];
       const liveMenu = [
-        { label: 'Live Portal Home', path: '/student', icon: Home },
+        { label: 'Dashboard', path: '/student', icon: Home },
         { label: 'Live Videos', path: '/student/courses', icon: Video },
         { label: 'Live Sessions', path: '/student/live', icon: Video },
         { label: 'Assignments', path: '/student/assignments', icon: FileCheck },
-        { label: 'Live Q&A Forum', path: '/student/forum', icon: MessageSquare },
+        { label: 'Discussions & Q&A', path: '/student/forum', icon: MessageSquare },
       ];
       return isStudentLive ? liveMenu : courseMenu;
     }

@@ -810,18 +810,18 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
               <div 
                 key={c.id}
                 onClick={() => setSelectedCourse(c)}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all flex justify-between items-center gap-3 ${selectedCourse?.id === c.id ? 'bg-[#0f172a] border-primary/30 text-primary font-bold shadow-sm' : 'bg-card border-border hover:bg-muted/30'}`}
+                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex justify-between items-center gap-3 ${selectedCourse?.id === c.id ? 'bg-primary/10 border-primary shadow-sm' : 'bg-card border-border hover:bg-muted/30'}`}
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex justify-between items-center text-[9px] uppercase font-bold text-muted-foreground tracking-wider mb-0.5">
+                  <div className={`flex justify-between items-center text-[9px] uppercase font-bold tracking-wider mb-0.5 ${selectedCourse?.id === c.id ? 'text-primary font-extrabold' : 'text-muted-foreground'}`}>
                     <span>{c.category_name}</span>
                     {isRecordingsMode && c.created_by_name && (
-                      <span className="text-primary/75 font-extrabold font-mono">Created By: {c.created_by_name}</span>
+                      <span className="text-primary font-extrabold font-mono">Created By: {c.created_by_name}</span>
                     )}
                   </div>
-                  <h4 className="font-extrabold text-sm truncate">{c.title}</h4>
+                  <h4 className="font-extrabold text-sm truncate text-foreground">{c.title}</h4>
                 </div>
-                <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+                <ChevronRight size={14} className={`shrink-0 ${selectedCourse?.id === c.id ? 'text-primary' : 'text-muted-foreground'}`} />
               </div>
             ))}
         </div>
@@ -1314,8 +1314,35 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                       <input type="number" value={timerMinutes} onChange={(e) => setTimerMinutes(Number(e.target.value))} className="w-full h-8 px-2 bg-card border border-border rounded-lg" />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Passing Score %</label>
-                      <input type="number" value={passingScore} onChange={(e) => setPassingScore(Number(e.target.value))} className="w-full h-8 px-2 bg-card border border-border rounded-lg" />
+                      <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">
+                        Min Correct Answers *
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <input 
+                          type="number" 
+                          min={1}
+                          max={questions.length > 0 ? questions.length : 100}
+                          value={
+                            questions.length > 0 
+                              ? Math.max(1, Math.min(questions.length, Math.ceil((passingScore / 100) * questions.length))) 
+                              : passingScore
+                          } 
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            if (questions.length > 0) {
+                              const clamped = Math.max(1, Math.min(questions.length, val));
+                              const calculatedPercent = Math.round((clamped / questions.length) * 100);
+                              setPassingScore(calculatedPercent);
+                            } else {
+                              setPassingScore(val);
+                            }
+                          }} 
+                          className="w-full h-8 px-2 bg-card border border-border rounded-lg font-mono font-bold text-xs" 
+                        />
+                        <span className="text-[10px] font-bold text-muted-foreground shrink-0 whitespace-nowrap">
+                          {questions.length > 0 ? `/ ${questions.length}` : 'answers'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1330,6 +1357,38 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                       <label htmlFor="rand" className="font-bold text-[10px] uppercase text-muted-foreground cursor-pointer">Randomize Seq</label>
                     </div>
                   </div>
+
+                  {questions.length > 0 && (
+                    <div className="p-2 bg-primary/5 border border-primary/20 rounded-lg space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className="text-muted-foreground uppercase">Target:</span>
+                        <span className="text-primary font-extrabold">
+                          {Math.ceil((passingScore / 100) * questions.length)} / {questions.length} Correct
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase mr-1">Presets:</span>
+                        {Array.from({ length: questions.length }, (_, idx) => {
+                          const count = idx + 1;
+                          const pct = Math.round((count / questions.length) * 100);
+                          const isCurrent = Math.ceil((passingScore / 100) * questions.length) === count;
+                          return (
+                            <button
+                              key={count}
+                              type="button"
+                              onClick={() => setPassingScore(pct)}
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold transition-all ${
+                                isCurrent ? 'bg-primary text-primary-foreground shadow-sm scale-105' : 'bg-card border border-border hover:border-primary text-foreground'
+                              }`}
+                            >
+                              {count}/{questions.length}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <button onClick={handleSaveQuizSettings} className="w-full h-9 mt-1 bg-primary text-primary-foreground font-bold rounded-lg shadow">
                     Save Quiz Parameters
                   </button>

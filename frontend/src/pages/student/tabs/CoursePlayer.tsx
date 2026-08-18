@@ -598,14 +598,16 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                       <p className="text-[11px] text-muted-foreground">You have successfully cleared this curriculum checkpoint.</p>
                     </div>
 
-                    <div className="max-w-xs mx-auto grid grid-cols-2 gap-4 p-4 rounded-xl bg-card border border-border mt-4 text-left">
+                    <div className="max-w-sm mx-auto grid grid-cols-2 gap-4 p-4 rounded-xl bg-card border border-border mt-4 text-left">
                       <div>
                         <span className="block text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Your Score</span>
                         <span className="text-base font-extrabold text-foreground">{passAttempt.score}%</span>
                       </div>
                       <div>
-                        <span className="block text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Passing Score</span>
-                        <span className="text-base font-semibold text-muted-foreground">{activeQuiz.passing_score}%</span>
+                        <span className="block text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Pass Requirement</span>
+                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                          {Math.ceil((activeQuiz.passing_score / 100) * activeQuiz.questions.length)} / {activeQuiz.questions.length} Correct ({activeQuiz.passing_score}%)
+                        </span>
                       </div>
                     </div>
 
@@ -628,8 +630,13 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
 
             return (
               <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                  <h4 className="font-semibold text-sm">Required Checkpoint: {activeQuiz.title}</h4>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+                  <div>
+                    <h4 className="font-semibold text-sm">Required Checkpoint: {activeQuiz.title}</h4>
+                    <p className="text-[11px] text-muted-foreground font-medium">
+                      Pass Target: <span className="font-extrabold text-primary">{Math.ceil((activeQuiz.passing_score / 100) * activeQuiz.questions.length)} out of {activeQuiz.questions.length}</span> correct answers ({activeQuiz.passing_score}%)
+                    </p>
+                  </div>
                   <div className="flex items-center gap-3">
                     {quizTimeLeft !== null && (
                       <div className="px-2.5 py-1 rounded bg-destructive/10 border border-destructive/20 text-destructive font-bold font-mono">

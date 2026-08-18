@@ -1653,16 +1653,35 @@ const CourseBuilder: React.FC = () => {
 
                       <div className="grid grid-cols-2 gap-3 font-medium">
                         <div>
-                          <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-semibold">Passing Score (%) *</label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={passingScore}
-                            onChange={(e) => setPassingScore(parseInt(e.target.value))}
-                            className="w-full h-9 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all"
-                            required
-                          />
+                          <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-semibold">
+                            Min Correct Answers *
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min="1"
+                              max={questions.length > 0 ? questions.length : 100}
+                              value={
+                                questions.length > 0
+                                  ? Math.max(1, Math.min(questions.length, Math.ceil((passingScore / 100) * questions.length)))
+                                  : passingScore
+                              }
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 1;
+                                if (questions.length > 0) {
+                                  const clamped = Math.max(1, Math.min(questions.length, val));
+                                  setPassingScore(Math.round((clamped / questions.length) * 100));
+                                } else {
+                                  setPassingScore(val);
+                                }
+                              }}
+                              className="w-full h-9 px-3 bg-muted/50 border border-border rounded-xl outline-none focus:border-primary/40 focus:bg-background transition-all font-mono font-bold text-xs"
+                              required
+                            />
+                            <span className="text-[10px] font-bold text-muted-foreground shrink-0 whitespace-nowrap">
+                              {questions.length > 0 ? `/ ${questions.length}` : 'answers'}
+                            </span>
+                          </div>
                         </div>
                         <div>
                           <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-semibold">Timer (Minutes) *</label>
@@ -1676,6 +1695,37 @@ const CourseBuilder: React.FC = () => {
                           />
                         </div>
                       </div>
+
+                      {questions.length > 0 && (
+                        <div className="p-2.5 bg-primary/5 border border-primary/20 rounded-xl space-y-1 mt-2">
+                          <div className="flex items-center justify-between text-[10px] font-bold">
+                            <span className="text-muted-foreground uppercase">Pass Requirement Target:</span>
+                            <span className="text-primary font-extrabold">
+                              {Math.ceil((passingScore / 100) * questions.length)} / {questions.length} Correct ({passingScore}%)
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase mr-1">Quick Presets:</span>
+                            {Array.from({ length: questions.length }, (_, idx) => {
+                              const count = idx + 1;
+                              const pct = Math.round((count / questions.length) * 100);
+                              const isCurrent = Math.ceil((passingScore / 100) * questions.length) === count;
+                              return (
+                                <button
+                                  key={count}
+                                  type="button"
+                                  onClick={() => setPassingScore(pct)}
+                                  className={`px-2 py-0.5 rounded text-[9px] font-extrabold transition-all ${
+                                    isCurrent ? 'bg-primary text-primary-foreground shadow-sm scale-105' : 'bg-card border border-border hover:border-primary text-foreground'
+                                  }`}
+                                >
+                                  {count}/{questions.length}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-3 font-medium">
                         <div>

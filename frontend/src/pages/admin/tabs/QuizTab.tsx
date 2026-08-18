@@ -624,8 +624,28 @@ export const QuizTab: React.FC = () => {
                     <input type="text" value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="Checkpoint Quiz Title" className="w-full h-10 px-3 bg-card border border-border rounded-xl font-semibold" />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Passing Threshold (%) *</label>
-                    <input type="number" value={passingScore} onChange={(e) => setPassingScore(Number(e.target.value))} className="w-full h-10 px-3 bg-card border border-border rounded-xl font-mono" />
+                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Min Correct Answers *</label>
+                    <div className="flex items-center gap-1">
+                      <input 
+                        type="number" 
+                        min={1}
+                        max={questions.length > 0 ? questions.length : 100}
+                        value={questions.length > 0 ? Math.max(1, Math.min(questions.length, Math.ceil((passingScore / 100) * questions.length))) : passingScore} 
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (questions.length > 0) {
+                            const clamped = Math.max(1, Math.min(questions.length, val));
+                            setPassingScore(Math.round((clamped / questions.length) * 100));
+                          } else {
+                            setPassingScore(val);
+                          }
+                        }} 
+                        className="w-full h-10 px-3 bg-card border border-border rounded-xl font-mono font-bold text-xs" 
+                      />
+                      <span className="text-[10px] font-bold text-muted-foreground shrink-0 whitespace-nowrap">
+                        {questions.length > 0 ? `/ ${questions.length}` : 'answers'}
+                      </span>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Time Limit (Mins) *</label>
