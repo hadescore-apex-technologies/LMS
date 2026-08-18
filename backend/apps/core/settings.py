@@ -107,13 +107,18 @@ if 'test' in sys.argv:
     }
 elif DATABASE_URL:
     db_url = urllib.parse.urlparse(DATABASE_URL)
+    raw_pass = db_url.password
+    db_pass = urllib.parse.unquote(raw_pass) if raw_pass else os.environ.get('SUPABASE_DB_PASSWORD', '@Hadescore.com')
+    db_host = db_url.hostname or 'aws-0-ap-northeast-1.pooler.supabase.com'
+    if db_host and db_host.startswith('@'):
+        db_host = 'aws-0-ap-northeast-1.pooler.supabase.com'
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': db_url.path[1:] or 'postgres',
-            'USER': db_url.username or 'postgres',
-            'PASSWORD': db_url.password,
-            'HOST': db_url.hostname or 'aws-0-ap-northeast-1.pooler.supabase.com',
+            'USER': db_url.username or 'postgres.scltqowxstewytlvixtw',
+            'PASSWORD': db_pass,
+            'HOST': db_host,
             'PORT': db_url.port or 6543,
             'CONN_MAX_AGE': 300,
             'CONN_HEALTH_CHECKS': True,
