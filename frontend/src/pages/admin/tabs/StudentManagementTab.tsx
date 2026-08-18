@@ -10,6 +10,7 @@ interface StaffMentor {
   id: number;
   name: string;
   email: string;
+  category?: string | null;
 }
 
 interface Category {
@@ -368,12 +369,47 @@ export const StudentManagementTab: React.FC = () => {
       }
       toast.error('Failed to toggle status.');
     },
-    onSuccess: (data, s) => {
-      queryClient.setQueryData<Student[]>(['students-list', liveMode], (old) =>
-        old ? old.map(item => item.id === s.id ? { ...item, is_active: !s.is_active } : item) : old
-      );
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
-      toast.success('Account state toggled.');
+      toast.success('Student account status updated.');
+    }
+  });
+
+  const quickAssignMentorMutation = useMutation({
+    mutationFn: async ({ studentId, staffId }: { studentId: number; staffId: number | null }) => {
+      const res = await api.put(`students/${studentId}/?live_mode=${liveMode}`, {
+        assigned_live_staff: staffId,
+        assigned_staff: staffId
+      });
+      return res.data;
+    },
+    onMutate: async ({ studentId, staffId }) => {
+      await queryClient.cancelQueries({ queryKey: ['students-list', liveMode] });
+      const previousStudents = queryClient.getQueryData<Student[]>(['students-list', liveMode]);
+      const mentorName = staffMentors.find(m => m.id === staffId)?.name || null;
+
+      if (previousStudents) {
+        queryClient.setQueryData<Student[]>(
+          ['students-list', liveMode],
+          previousStudents.map(item => 
+            item.id === studentId 
+              ? { ...item, assigned_live_staff: staffId, assigned_live_staff_name: mentorName, assigned_staff: staffId, assigned_staff_name: mentorName }
+              : item
+          )
+        );
+      }
+      return { previousStudents };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousStudents) {
+        queryClient.setQueryData(['students-list', liveMode], context.previousStudents);
+      }
+      toast.error('Failed to update live mentor assignment.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students-list'] });
+      queryClient.invalidateQueries({ queryKey: ['mentor-assignments'] });
+      toast.success('Live mentor assignment updated.');
     }
   });
 
@@ -595,14 +631,21 @@ export const StudentManagementTab: React.FC = () => {
                     <td className="py-3.5 px-4 font-mono font-bold">{s.course_duration} Days</td>
                     {liveMode && (
                       <td className="py-3.5 px-4">
-                        {s.assigned_live_staff_name ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary">
-                            <UserCheck size={11} />
-                            {s.assigned_live_staff_name}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground italic">Unassigned</span>
-                        )}
+                        <select
+                          value={s.assigned_live_staff ? String(s.assigned_live_staff) : ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? Number(e.target.value) : null;
+                            quickAssignMentorMutation.mutate({ studentId: s.id, staffId: val });
+                          }}
+                          className="text-xs font-bold px-2.5 py-1 bg-card border border-border rounded-lg outline-none text-foreground cursor-pointer hover:border-primary focus:border-primary transition-all max-w-[170px] truncate"
+                        >
+                          <option value="">— Assign Mentor —</option>
+                          {staffMentors.map(m => (
+                            <option key={m.id} value={String(m.id)}>
+                              {m.name} {m.category ? `(${m.category})` : ''}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                     )}
 
@@ -715,7 +758,7 @@ export const StudentManagementTab: React.FC = () => {
                     >
                       <option value="">— No mentor assigned —</option>
                       {staffMentors.map(m => (
-                        <option key={m.id} value={String(m.id)}>{m.name} ({m.email})</option>
+                        <option key={m.id} value={String(m.id)}>{m.name} ({m.email}) {m.category ? `[${m.category}]` : ''}</option>
                       ))}
                     </select>
                   </div>
@@ -866,7 +909,7 @@ export const StudentManagementTab: React.FC = () => {
                     >
                       <option value="">— No mentor assigned —</option>
                       {staffMentors.map(m => (
-                        <option key={m.id} value={String(m.id)}>{m.name} ({m.email})</option>
+                        <option key={m.id} value={String(m.id)}>{m.name} ({m.email}) {m.category ? `[${m.category}]` : ''}</option>
                       ))}
                     </select>
                   </div>
