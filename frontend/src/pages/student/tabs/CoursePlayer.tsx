@@ -248,7 +248,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     onSuccess: (_, variables) => {
       if (variables.completed) {
         setActiveLesson(prev => prev ? { ...prev, completed: true } : null);
-        queryClient.setQueryData(['lessons', course.id], (old: any) => 
+        queryClient.setQueryData(['lessons', course.id, isLiveStudent], (old: any) => 
           (old || []).map((l: any) => l.id === activeLesson?.id ? { ...l, completed: true } : l)
         );
         refetchLessons();
@@ -286,8 +286,13 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
       setVideoDuration(duration);
     }
     
-    // Auto-mark complete when reaching near the end (>= 95% or remaining <= 2s) (Only for Course Mode Students)
-    if (!isLiveStudent && duration > 4 && (pct >= 95 || duration - currentTime <= 2) && !activeLesson.completed) {
+    // Auto-mark complete when reaching near the end (>= 90% or remaining <= 3s) (Only for Course Mode Students)
+    if (!isLiveStudent && duration > 4 && (pct >= 90 || duration - currentTime <= 3) && !activeLesson.completed) {
+      toast.success('Marked as completed! 🎉', { id: `lesson-complete-${activeLesson.id}` });
+      setActiveLesson(prev => prev ? { ...prev, completed: true } : null);
+      queryClient.setQueryData(['lessons', course.id, isLiveStudent], (old: any) => 
+        (old || []).map((l: any) => l.id === activeLesson?.id ? { ...l, completed: true } : l)
+      );
       syncProgressMutation.mutate({ current: duration, pct: 100, completed: true });
       return;
     }
@@ -338,8 +343,12 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
   const handleVideoEnded = () => {
     if (!activeLesson) return;
     if (!isLiveStudent) {
-      toast.success('Lesson completed!');
-      syncProgressMutation.mutate({ current: videoDuration, pct: 100, completed: true });
+      toast.success('Marked as completed! 🎉', { id: `lesson-complete-${activeLesson.id}` });
+      setActiveLesson(prev => prev ? { ...prev, completed: true } : null);
+      queryClient.setQueryData(['lessons', course.id, isLiveStudent], (old: any) => 
+        (old || []).map((l: any) => l.id === activeLesson?.id ? { ...l, completed: true } : l)
+      );
+      syncProgressMutation.mutate({ current: videoDuration || 100, pct: 100, completed: true });
     }
   };
 
