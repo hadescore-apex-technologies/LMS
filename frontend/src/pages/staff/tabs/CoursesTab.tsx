@@ -141,9 +141,9 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
   const [quizModuleId, setQuizModuleId] = useState<number | null>(null);
   const [activeQuiz, setActiveQuiz] = useState<any | null>(null);
   const [quizTitle, setQuizTitle] = useState('');
-  const [passingScore, setPassingScore] = useState(70);
+  const [passingScore, setPassingScore] = useState(0);
   const [timerMinutes, setTimerMinutes] = useState(15);
-  const [maxRetries, setMaxRetries] = useState(3);
+  const [maxRetries, setMaxRetries] = useState(10);
   const [randomizeQuestions, setRandomizeQuestions] = useState(true);
 
   // Questions within quiz state
@@ -579,6 +579,11 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
     setQText('');
     setQOptions('');
     setQCorrect('');
+    setQuizTitle('');
+    setPassingScore(0);
+    setTimerMinutes(15);
+    setMaxRetries(10);
+    setRandomizeQuestions(true);
     setShowQuizModal(true);
 
     try {

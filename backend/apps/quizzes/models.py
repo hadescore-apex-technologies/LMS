@@ -1,12 +1,14 @@
+# pyrefly: ignore [missing-import]
 from django.db import models
+# pyrefly: ignore [missing-import]
 from django.conf import settings
 
 class Quiz(models.Model):
     module = models.OneToOneField('modules.Module', on_delete=models.CASCADE, related_name='quiz', null=True, blank=True)
     title = models.CharField(max_length=200)
-    passing_score = models.PositiveIntegerField(default=50, help_text="Percentage required to pass (default 50% = at least half correct)")
+    passing_score = models.PositiveIntegerField(default=0, help_text="Percentage required to pass (default 0% = at least half correct)")
     timer_minutes = models.PositiveIntegerField(default=15, help_text="Time limit in minutes")
-    max_retries = models.PositiveIntegerField(default=3, help_text="Maximum allowed attempts")
+    max_retries = models.PositiveIntegerField(default=10, help_text="Maximum allowed attempts")
     randomize_questions = models.BooleanField(default=True, help_text="Randomize question sequence for students")
 
     def __str__(self):

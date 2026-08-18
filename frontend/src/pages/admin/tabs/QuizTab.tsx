@@ -60,9 +60,9 @@ export const QuizTab: React.FC = () => {
   const [showQuizModal, setShowQuizModal] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [quizTitle, setQuizTitle] = useState('');
-  const [passingScore, setPassingScore] = useState(70);
+  const [passingScore, setPassingScore] = useState(0);
   const [timerMinutes, setTimerMinutes] = useState(15);
-  const [maxRetries, setMaxRetries] = useState(3);
+  const [maxRetries, setMaxRetries] = useState(10);
   const [randomizeQuestions, setRandomizeQuestions] = useState(true);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
@@ -233,9 +233,9 @@ export const QuizTab: React.FC = () => {
   const handleOpenCreateQuiz = () => {
     setActiveQuiz(null);
     setQuizTitle('');
-    setPassingScore(50);
+    setPassingScore(0);
     setTimerMinutes(15);
-    setMaxRetries(3);
+    setMaxRetries(10);
     setRandomizeQuestions(true);
     setSelectedCourseId('');
     setSelectedModuleId('');
