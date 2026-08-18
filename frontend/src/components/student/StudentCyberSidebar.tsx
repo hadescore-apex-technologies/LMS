@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState } from '../../store';
 import { useQueryClient } from '@tanstack/react-query';
 import api from '../../services/api';
 import { 
@@ -19,6 +20,7 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
+  const { user } = useSelector((state: RootState) => state.auth);
 
   const handlePrefetch = (path: string) => {
     try {

@@ -257,6 +257,7 @@ class CertificateViewSet(viewsets.ModelViewSet):
         if not is_staff_or_admin:
             from apps.certificates.utils import is_course_completed_by_student
             if not is_course_completed_by_student(certificate.student, certificate.course):
+                # pyrefly: ignore [missing-import]
                 from django.http import HttpResponseForbidden
                 return HttpResponseForbidden("You must complete 100% of the course to download this certificate.")
 
