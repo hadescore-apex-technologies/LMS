@@ -1521,7 +1521,7 @@ export const CoursesTab: React.FC<CoursesTabProps> = ({ isRecordingsMode = false
                                     setCustomOptions(copy);
                                   }} 
                                   placeholder={`Option ${String.fromCharCode(65 + idx)}`} 
-                                  className={`flex-1 h-8 px-2 bg-card border rounded-lg text-xs font-semibold outline-none transition-all ${
+                                  className={`flex-1 min-w-0 h-8 px-2 bg-card border rounded-lg text-xs font-semibold outline-none transition-all ${
                                     isCorrect 
                                       ? 'border-emerald-500 bg-emerald-500/5 focus:border-emerald-500 ring-1 ring-emerald-500/20' 
                                       : 'border-border focus:border-primary'
