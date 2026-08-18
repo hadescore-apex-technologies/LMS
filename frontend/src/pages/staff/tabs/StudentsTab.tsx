@@ -137,7 +137,7 @@ export const StudentsTab: React.FC = () => {
           course: Number(selectedCourseId),
           certificate_code: certCode || undefined,
           file_url: certFileUrl,
-          is_issued: false
+          is_issued: true
         });
       }
       return res.data;
@@ -189,7 +189,7 @@ export const StudentsTab: React.FC = () => {
             course: courseIdToUse,
             certificate_code: certCode || undefined,
             file_url: certFileUrl,
-            is_issued: false
+            is_issued: true
           });
         }
       } else {

@@ -171,7 +171,7 @@ const StudentManager: React.FC = () => {
           student: newStudentId,
           course: Number(courseId),
           file_url: certUrl,
-          is_issued: false
+          is_issued: true
         });
       });
 
@@ -972,7 +972,7 @@ const StudentManager: React.FC = () => {
                                         student: selectedStudent?.id,
                                         course: course.id,
                                         file_url: uploadRes.data.url,
-                                        is_issued: false
+                                        is_issued: true
                                       });
                                       toast.success("Certificate uploaded & locked successfully.");
                                       setCertificates(prev => [...prev, certRes.data]);

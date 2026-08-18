@@ -178,7 +178,7 @@ export const StudentManagementTab: React.FC = () => {
             course: payload.selectedCourseId ? Number(payload.selectedCourseId) : (payload.courses?.[0] || courses[0]?.id || null),
             certificate_code: payload.certCode || undefined,
             file_url: payload.certFileUrl,
-            is_issued: false
+            is_issued: true
           });
         } catch (certErr) {
           console.error("Non-blocking certificate pre-upload error:", certErr);
@@ -274,7 +274,7 @@ export const StudentManagementTab: React.FC = () => {
               course: courseIdToUse,
               certificate_code: payload.certCode || undefined,
               file_url: payload.certFileUrl,
-              is_issued: false
+              is_issued: true
             });
           }
         } catch (certErr) {
