@@ -63,8 +63,21 @@ const StudentDashboard: React.FC = () => {
     import('../../components/student/AchievementsBadges');
   }, []);
 
-  const isLive = localStorage.getItem('studentLiveMode') === 'true' ||
-                 Boolean(localStorage.getItem('loginPath')?.includes('live'));
+  const [isLive, setIsLive] = useState<boolean>(() => {
+    return localStorage.getItem('studentLiveMode') === 'true' ||
+           Boolean(localStorage.getItem('loginPath')?.includes('live'));
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setIsLive(
+        localStorage.getItem('studentLiveMode') === 'true' ||
+        Boolean(localStorage.getItem('loginPath')?.includes('live'))
+      );
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const handleNavigate = (path: string) => {
     if (isLive) {

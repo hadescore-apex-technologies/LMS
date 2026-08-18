@@ -15,10 +15,37 @@ export const StudentCyberHeader: React.FC<StudentCyberHeaderProps> = ({ onToggle
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState<string>('');
 
-  const isStudentLive = (user as any)?.student_type === 'LIVE_CLASS' ||
-    localStorage.getItem('studentLiveMode') === 'true' ||
-    Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
-    (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS');
+  const [isStudentLive, setIsStudentLive] = useState<boolean>(() => {
+    return localStorage.getItem('studentLiveMode') === 'true' ||
+      Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+      (user as any)?.student_type === 'LIVE_CLASS' ||
+      (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS');
+  });
+
+  const toggleStudentMode = () => {
+    const nextVal = !isStudentLive;
+    setIsStudentLive(nextVal);
+    localStorage.setItem('studentLiveMode', String(nextVal));
+    window.dispatchEvent(new Event('storage'));
+    if (nextVal) {
+      navigate('/live-student');
+    } else {
+      navigate('/student');
+    }
+  };
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setIsStudentLive(
+        localStorage.getItem('studentLiveMode') === 'true' ||
+        Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+        (user as any)?.student_type === 'LIVE_CLASS' ||
+        (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS')
+      );
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [user]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -60,12 +87,16 @@ export const StudentCyberHeader: React.FC<StudentCyberHeaderProps> = ({ onToggle
 
       {/* Right side status indicators (Mode, Time, Weather, Bell, Avatar) */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Mode Indicator: Course Mode vs Live Mode */}
-        <div className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold shadow-sm ${
-          isStudentLive 
-            ? 'bg-slate-950/80 border-emerald-500/30 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-            : 'bg-slate-950/80 border-teal-500/30 text-teal-400 shadow-[0_0_10px_rgba(20,184,166,0.2)]'
-        }`}>
+        {/* Mode Indicator: Course Mode vs Live Mode (Clickable toggle) */}
+        <button 
+          onClick={toggleStudentMode}
+          title="Click to toggle Course/Live Mode"
+          className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer ${
+            isStudentLive 
+              ? 'bg-slate-950/80 border-emerald-500/30 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+              : 'bg-slate-950/80 border-teal-500/30 text-teal-400 shadow-[0_0_10px_rgba(20,184,166,0.2)]'
+          }`}
+        >
           {isStudentLive ? (
             <>
               <Wifi size={13} className="text-emerald-400 animate-pulse" />
@@ -77,7 +108,7 @@ export const StudentCyberHeader: React.FC<StudentCyberHeaderProps> = ({ onToggle
               <span className="text-[10px] text-teal-300 font-extrabold tracking-wide">Course Mode</span>
             </>
           )}
-        </div>
+        </button>
 
         {/* Live Clock */}
         <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 text-slate-200 text-xs font-mono font-bold shadow-[0_0_10px_rgba(16,185,129,0.15)]">

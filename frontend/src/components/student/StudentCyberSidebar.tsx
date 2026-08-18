@@ -36,9 +36,25 @@ export const StudentCyberSidebar: React.FC<StudentCyberSidebarProps> = ({ isOpen
     }
   };
 
-  const isStudentLive = localStorage.getItem('studentLiveMode') === 'true' ||
-    Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
-    (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS');
+  const [isStudentLive, setIsStudentLive] = React.useState<boolean>(() => {
+    return localStorage.getItem('studentLiveMode') === 'true' ||
+      Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+      (user as any)?.student_type === 'LIVE_CLASS' ||
+      (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS');
+  });
+
+  React.useEffect(() => {
+    const handleStorage = () => {
+      setIsStudentLive(
+        localStorage.getItem('studentLiveMode') === 'true' ||
+        Boolean(localStorage.getItem('loginPath')?.includes('live')) ||
+        (user as any)?.student_type === 'LIVE_CLASS' ||
+        (Boolean(localStorage.getItem('user')) && JSON.parse(localStorage.getItem('user') || '{}')?.student_type === 'LIVE_CLASS')
+      );
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [user]);
 
   const handleLogout = () => {
     const isLive = isStudentLive;

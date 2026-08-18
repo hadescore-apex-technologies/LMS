@@ -59,8 +59,16 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     const newVal = !isLiveClassMode;
     setIsLiveClassMode(newVal);
     localStorage.setItem(liveModeKey, String(newVal));
-    window.location.reload(); // Refresh to apply context
+    window.dispatchEvent(new Event('storage'));
   };
+
+  React.useEffect(() => {
+    const handleStorage = () => {
+      setIsLiveClassMode(localStorage.getItem(liveModeKey) === 'true');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [liveModeKey]);
 
   React.useEffect(() => {
     if (user?.role === 'STUDENT' && (!user.categories || user.categories.length === 0)) {
