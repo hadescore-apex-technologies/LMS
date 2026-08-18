@@ -74,6 +74,12 @@ export const QuizTab: React.FC = () => {
   const [qOptions, setQOptions] = useState('');
   const [qCorrect, setQCorrect] = useState('');
 
+  // Interactive Question Builder states
+  const [customOptions, setCustomOptions] = useState<string[]>(['', '', '', '']);
+  const [mcqCorrectIdx, setMcqCorrectIdx] = useState<number>(0);
+  const [msqCorrectFlags, setMsqCorrectFlags] = useState<boolean[]>([false, false, false, false]);
+  const [tfCorrectVal, setTfCorrectVal] = useState<'True' | 'False'>('True');
+
   // 1. Fetch Quiz Attempts
   const { data: attempts = [], isLoading: attemptsLoading, refetch: refetchAttempts } = useQuery<QuizAttempt[]>({
     queryKey: ['staff-quiz-attempts-list'],
@@ -245,27 +251,54 @@ export const QuizTab: React.FC = () => {
 
   // Add Question to active quiz
   const handleAddQuestion = async () => {
-    if (!activeQuiz || !qText.trim() || !qCorrect.trim()) {
-      toast.error('Fill in question prompt and correct match answer.');
+    if (!activeQuiz || !qText.trim()) {
+      toast.error('Please enter the question text/prompt.');
       return;
     }
-    const opts = qType === 'TF' ? ['True', 'False'] : qOptions.split(',').map(x => x.trim()).filter(Boolean);
-    if (qType !== 'TF' && opts.length === 0) {
-      toast.error('Please provide comma-separated options.');
-      return;
+
+    let opts: string[] = [];
+    let correctAnsVal = '';
+
+    if (qType === 'TF') {
+      opts = ['True', 'False'];
+      correctAnsVal = tfCorrectVal;
+    } else {
+      opts = customOptions.map(x => x.trim()).filter(Boolean);
+      if (opts.length < 2) {
+        toast.error('Please provide at least 2 non-empty options.');
+        return;
+      }
+
+      if (qType === 'MCQ') {
+        if (mcqCorrectIdx < 0 || mcqCorrectIdx >= opts.length) {
+          toast.error('Please select a valid correct option.');
+          return;
+        }
+        correctAnsVal = opts[mcqCorrectIdx];
+      } else if (qType === 'MSQ') {
+        const correctList = opts.filter((_, idx) => msqCorrectFlags[idx]);
+        if (correctList.length === 0) {
+          toast.error('Please select at least one correct option.');
+          return;
+        }
+        correctAnsVal = correctList.join(', ');
+      }
     }
+
     try {
       const res = await api.post('quizzes/questions/', {
         quiz: activeQuiz.id,
         question_text: qText,
         question_type: qType,
         options: opts,
-        correct_answer: qCorrect.trim()
+        correct_answer: correctAnsVal
       });
       setQuestions(prev => [...prev, res.data]);
       setQText('');
-      setQOptions('');
-      setQCorrect('');
+      setCustomOptions(['', '', '', '']);
+      setMcqCorrectIdx(0);
+      setMsqCorrectFlags([false, false, false, false]);
+      setTfCorrectVal('True');
       toast.success('Question pushed to quiz database.');
     } catch {
       toast.error('Failed to create question.');
@@ -730,28 +763,110 @@ export const QuizTab: React.FC = () => {
                         <option value="MSQ">Multiple Select</option>
                       </select>
                     </div>
-                    {qType !== 'TF' && (
-                      <div>
-                        <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Options (Comma separated) *</label>
-                        <input type="text" value={qOptions} onChange={(e) => setQOptions(e.target.value)} placeholder="A, B, C, D" className="w-full h-8 px-2 bg-card border border-border rounded-lg" />
-                      </div>
-                    )}
-                    {qType === 'TF' ? (
-                      <div>
-                        <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Correct Option Match *</label>
-                        <select value={qCorrect} onChange={(e) => setQCorrect(e.target.value)} className="w-full h-8 px-2 bg-card border border-border rounded-lg text-xs">
-                          <option value="">Select Correct Answer</option>
-                          <option value="True">True</option>
-                          <option value="False">False</option>
-                        </select>
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Correct Option Match *</label>
-                        <input type="text" value={qCorrect} onChange={(e) => setQCorrect(e.target.value)} placeholder="e.g. A" className="w-full h-8 px-2 bg-card border border-border rounded-lg" />
-                      </div>
-                    )}
-                    <button onClick={handleAddQuestion} className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 font-bold rounded-lg flex items-center justify-center gap-1">
+                    {/* Interactive Question Options Configurer */}
+                    <div className="space-y-3">
+                      <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">
+                        {qType === 'TF' ? 'Select Correct Answer *' : 'Configure Options & Mark Correct *'}
+                      </label>
+                      
+                      {qType === 'TF' ? (
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 font-bold cursor-pointer text-muted-foreground">
+                            <input 
+                              type="radio" 
+                              name="tfCorrect" 
+                              checked={tfCorrectVal === 'True'} 
+                              onChange={() => setTfCorrectVal('True')} 
+                              className="accent-primary h-4.5 w-4.5" 
+                            />
+                            <span>True</span>
+                          </label>
+                          <label className="flex items-center gap-2 font-bold cursor-pointer text-muted-foreground">
+                            <input 
+                              type="radio" 
+                              name="tfCorrect" 
+                              checked={tfCorrectVal === 'False'} 
+                              onChange={() => setTfCorrectVal('False')} 
+                              className="accent-primary h-4.5 w-4.5" 
+                            />
+                            <span>False</span>
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {customOptions.map((opt, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <div className="shrink-0 flex items-center justify-center">
+                                {qType === 'MCQ' ? (
+                                  <input 
+                                    type="radio" 
+                                    name="mcqCorrect" 
+                                    checked={mcqCorrectIdx === idx} 
+                                    onChange={() => setMcqCorrectIdx(idx)} 
+                                    title="Mark as correct answer"
+                                    className="h-4 w-4 accent-primary cursor-pointer"
+                                  />
+                                ) : (
+                                  <input 
+                                    type="checkbox" 
+                                    checked={msqCorrectFlags[idx] || false} 
+                                    onChange={(e) => {
+                                      const copy = [...msqCorrectFlags];
+                                      copy[idx] = e.target.checked;
+                                      setMsqCorrectFlags(copy);
+                                    }} 
+                                    title="Mark as correct answer"
+                                    className="h-4 w-4 accent-primary cursor-pointer"
+                                  />
+                                )}
+                              </div>
+                              
+                              <input 
+                                type="text" 
+                                value={opt} 
+                                onChange={(e) => {
+                                  const copy = [...customOptions];
+                                  copy[idx] = e.target.value;
+                                  setCustomOptions(copy);
+                                }} 
+                                placeholder={`Option ${String.fromCharCode(65 + idx)}`} 
+                                className="flex-1 h-8 px-2 bg-card border border-border rounded-lg text-xs font-medium" 
+                              />
+                              
+                              {customOptions.length > 2 && (
+                                <button 
+                                  type="button" 
+                                  onClick={() => {
+                                    setCustomOptions(customOptions.filter((_, i) => i !== idx));
+                                    setMsqCorrectFlags(msqCorrectFlags.filter((_, i) => i !== idx));
+                                    if (mcqCorrectIdx >= customOptions.length - 1) {
+                                      setMcqCorrectIdx(Math.max(0, customOptions.length - 2));
+                                    }
+                                  }} 
+                                  className="p-1 hover:bg-destructive/10 hover:text-destructive rounded-lg text-muted-foreground"
+                                  title="Remove Option"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              setCustomOptions([...customOptions, '']);
+                              setMsqCorrectFlags([...msqCorrectFlags, false]);
+                            }} 
+                            className="text-[10px] text-primary hover:underline font-bold flex items-center gap-1 mt-1"
+                          >
+                            <Plus size={10} /> Add Option
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button onClick={handleAddQuestion} className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 font-bold rounded-lg flex items-center justify-center gap-1 shadow-sm transition-all">
                       <PlusCircle size={12} />
                       <span>Push Question</span>
                     </button>
