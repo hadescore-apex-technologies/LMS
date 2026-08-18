@@ -332,6 +332,55 @@ def send_lms_email(
     Sends high-deliverability dual-part (plain-text + clean HTML) emails.
     Avoids bot headers so emails land directly in the user's primary inbox.
     """
+    # ── Brevo HTTP API Integration ──────────────────────────────────────────────
+    # Uses secure port 443 to bypass Render Free tier SMTP blocking restrictions.
+    from django.conf import settings
+    import requests
+    from email.utils import parseaddr
+
+    brevo_api_key = getattr(settings, 'BREVO_API_KEY', '').strip()
+    if brevo_api_key:
+        try:
+            url = "https://api.brevo.com/v3/smtp/email"
+            headers = {
+                "accept": "application/json",
+                "api-key": brevo_api_key,
+                "content-type": "application/json"
+            }
+
+            # Retrieve display name and sender email matching authenticated credentials
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
+            display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
+            if not email_addr or '@' not in email_addr:
+                email_addr = getattr(settings, 'EMAIL_HOST_USER', '')
+            if not display_name:
+                display_name = 'Apex LMS'
+            if not email_addr:
+                email_addr = 'noreply@hadescoretech.com'
+
+            if not html_body:
+                html_body = convert_text_to_html(text_body, subject=subject)
+
+            data = {
+                "sender": {"name": display_name, "email": email_addr},
+                "to": [{"email": to_email}],
+                "subject": subject,
+                "textContent": text_body,
+                "htmlContent": html_body
+            }
+            if reply_to:
+                data["replyTo"] = {"email": reply_to}
+
+            resp = requests.post(url, json=data, headers=headers, timeout=15)
+            if resp.status_code in [200, 201, 202]:
+                logger.info(f"[Email] Successfully sent email to {to_email} via Brevo HTTP API (Port 443)")
+                return
+            else:
+                logger.error(f"[Email] Brevo API error {resp.status_code}: {resp.text}. Trying SMTP fallback...")
+        except Exception as exc:
+            logger.exception(f"[Email] Brevo HTTP request failed: {exc}. Trying SMTP fallback...")
+
+    # ── Standard SMTP / Local Fallback ──────────────────────────────────────────
     # pyrefly: ignore [missing-import]
     from django.core.mail import EmailMultiAlternatives
 
