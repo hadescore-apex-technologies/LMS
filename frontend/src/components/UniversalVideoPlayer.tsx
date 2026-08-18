@@ -450,19 +450,19 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
         {/* Dynamic Anti-Screen Recording Floating Watermark (Iframe) */}
         <motion.div
           animate={{
-            left: ['5%', '70%', '25%', '65%', '10%', '50%', '5%'],
-            top: ['8%', '15%', '72%', '45%', '38%', '80%', '8%'],
-            opacity: [0.45, 0.65, 0.50, 0.62, 0.48, 0.60, 0.45]
+            left: ['8%', '75%', '30%', '68%', '12%', '55%', '8%'],
+            top: ['10%', '20%', '75%', '48%', '35%', '82%', '10%'],
+            opacity: [0.12, 0.20, 0.14, 0.22, 0.13, 0.18, 0.12]
           }}
           transition={{
-            duration: 8,
+            duration: 28,
             repeat: Infinity,
             ease: "easeInOut"
           }}
-          className="absolute z-30 pointer-events-none select-none text-[11px] font-mono font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] tracking-wider flex items-center gap-1.5 px-3 py-1 rounded-lg bg-black/55 border border-white/20 backdrop-blur-xs shadow-lg"
+          className="absolute z-30 pointer-events-none select-none text-[10px] font-mono text-white/50 tracking-wider flex items-center gap-1 px-2 py-0.5 rounded bg-black/20 backdrop-blur-[1px] shadow-none"
         >
-          <ShieldCheck size={13} className="text-cyan-400" />
-          <span className="font-semibold">{userEmail}</span>
+          <ShieldCheck size={11} className="text-cyan-400/40" />
+          <span className="font-normal text-white/50">{userEmail}</span>
         </motion.div>
 
         {/* Sleek Title Bar overlay */}
@@ -505,19 +505,19 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
       {/* Dynamic Anti-Screen Recording Floating Watermark (HTML5) */}
       <motion.div
         animate={{
-          left: ['5%', '70%', '25%', '65%', '10%', '50%', '5%'],
-          top: ['8%', '15%', '72%', '45%', '38%', '80%', '8%'],
-          opacity: [0.45, 0.65, 0.50, 0.62, 0.48, 0.60, 0.45]
+          left: ['8%', '75%', '30%', '68%', '12%', '55%', '8%'],
+          top: ['10%', '20%', '75%', '48%', '35%', '82%', '10%'],
+          opacity: [0.12, 0.20, 0.14, 0.22, 0.13, 0.18, 0.12]
         }}
         transition={{
-          duration: 8,
+          duration: 28,
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className="absolute z-30 pointer-events-none select-none text-[11px] font-mono font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] tracking-wider flex items-center gap-1.5 px-3 py-1 rounded-lg bg-black/55 border border-white/20 backdrop-blur-xs shadow-lg"
+        className="absolute z-30 pointer-events-none select-none text-[10px] font-mono text-white/50 tracking-wider flex items-center gap-1 px-2 py-0.5 rounded bg-black/20 backdrop-blur-[1px] shadow-none"
       >
-        <ShieldCheck size={13} className="text-cyan-400" />
-        <span className="font-semibold">{userEmail}</span>
+        <ShieldCheck size={11} className="text-cyan-400/40" />
+        <span className="font-normal text-white/50">{userEmail}</span>
       </motion.div>
 
       {/* Video element */}
