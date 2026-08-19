@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # ── Default Templates ──────────────────────────────────────────────────────────
 
-WELCOME_EMAIL_SUBJECT = "Welcome to Apex LMS – Account Details & Getting Started"
+WELCOME_EMAIL_SUBJECT = "Welcome to Apex LMS - Account Details & Getting Started"
 
 WELCOME_EMAIL_BODY = """\
 Dear {full_name},
@@ -96,7 +96,7 @@ Academic Support Team
 Hadescore Apex Technologies Team
 """
 
-COURSE_COMPLETION_EMAIL_SUBJECT = "Course Completed: {course_title} – Download Your Certificate"
+COURSE_COMPLETION_EMAIL_SUBJECT = "Course Completed: {course_title} - Download Your Certificate"
 
 COURSE_COMPLETION_EMAIL_BODY = """\
 Dear {student_name},
@@ -395,8 +395,8 @@ def _send_lms_email_sync(
                 email_addr = getattr(settings, 'EMAIL_HOST_USER', '')
             if not display_name:
                 display_name = 'Apex LMS'
-            if not email_addr:
-                email_addr = 'noreply@hadescoretech.com'
+            if not email_addr or '@' not in email_addr:
+                email_addr = 'hadescore.technologies@gmail.com'
 
             if not html_body:
                 html_body = convert_text_to_html(text_body, subject=subject)
@@ -413,11 +413,16 @@ def _send_lms_email_sync(
 
             resp = requests.post(url, json=data, headers=headers, timeout=15)
             if resp.status_code in [200, 201, 202]:
+                print(f"\n============================================================")
+                print(f"[EMAIL SUCCESS] Delivered to: {to_email} | Subject: '{subject}'")
+                print(f"============================================================\n")
                 logger.info(f"[Email] Successfully sent email to {to_email} via Brevo HTTP API (Port 443)")
                 return
             else:
+                print(f"\n[EMAIL BREVO ERROR {resp.status_code}]: {resp.text}\n")
                 logger.error(f"[Email] Brevo API error {resp.status_code}: {resp.text}. Trying SMTP fallback...")
         except Exception as exc:
+            print(f"\n[EMAIL EXCEPTION]: {exc}\n")
             logger.exception(f"[Email] Brevo HTTP request failed: {exc}. Trying SMTP fallback...")
 
     # ── Standard SMTP / Local Fallback ──────────────────────────────────────────
