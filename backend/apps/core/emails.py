@@ -13,8 +13,6 @@ PERFORMANCE:
 - All DB queries and SMTP work run inside the background thread.
 - API response returns instantly — zero blocking.
 """
-from google.auth.transport import requests
-from email.utils import parseaddr
 import logging
 import threading
 import time
@@ -364,62 +362,13 @@ def _send_lms_email_sync(
     html_body: str | None = None,
     reply_to: str | None = None,
 ):
+    # ── Brevo HTTP API Integration ──────────────────────────────────────────────
+    # Uses secure port 443 to bypass Render Free tier SMTP blocking restrictions.
     # pyrefly: ignore [missing-import]
     from django.conf import settings
     import requests
-    from email.utils import parseaddr, formataddr
+    from email.utils import parseaddr
 
-    # ── Resend HTTP API Integration (Port 443) ──────────────────────────────────
-    resend_api_key = getattr(settings, 'RESEND_API_KEY', '').strip()
-    if not resend_api_key:
-        try:
-            from apps.core.models import PlatformSettings
-            row = PlatformSettings.objects.filter(key='resend_api_key').first()
-            if row and row.value:
-                resend_api_key = str(row.value).strip()
-        except Exception:
-            pass
-
-    if resend_api_key:
-        try:
-            url = "https://api.resend.com/emails"
-            headers = {
-                "Authorization": f"Bearer {resend_api_key}",
-                "Content-Type": "application/json"
-            }
-            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', '')
-            display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
-            
-            # Resend requires a verified domain or onboarding@resend.dev for test/freemail
-            is_freemail = any(email_addr.lower().endswith(d) for d in ['@gmail.com', '@yahoo.com', '@outlook.com', '@hotmail.com'])
-            resend_sender_email = 'onboarding@resend.dev' if (is_freemail or not email_addr) else email_addr
-            sender_formatted = formataddr((display_name or 'Apex LMS', resend_sender_email))
-            reply_target = reply_to or email_addr or 'hadescore.apex.technologies@gmail.com'
-
-            if not html_body:
-                html_body = convert_text_to_html(text_body, subject=subject)
-
-            data = {
-                "from": sender_formatted,
-                "to": [to_email],
-                "subject": subject,
-                "text": text_body,
-                "html": html_body,
-                "reply_to": reply_target,
-            }
-
-            # pyrefly: ignore [missing-attribute]
-            resp = requests.post(url, json=data, headers=headers, timeout=15)
-            if resp.status_code in [200, 201, 202]:
-                logger.info(f"[Email] Successfully sent email to {to_email} via Resend HTTP API (Port 443)")
-                return
-            else:
-                logger.error(f"[Email] Resend API error {resp.status_code}: {resp.text}. Trying next provider...")
-        except Exception as exc:
-            logger.exception(f"[Email] Resend HTTP request failed: {exc}. Trying next provider...")
-
-    # ── Brevo HTTP API Integration ──────────────────────────────────────────────
-    # Uses secure port 443 to bypass Render Free tier SMTP blocking restrictions.
     brevo_api_key = getattr(settings, 'BREVO_API_KEY', '').strip()
     if not brevo_api_key:
         try:
@@ -462,7 +411,6 @@ def _send_lms_email_sync(
             if reply_to:
                 data["replyTo"] = {"email": reply_to}
 
-            # pyrefly: ignore [missing-attribute]
             resp = requests.post(url, json=data, headers=headers, timeout=15)
             if resp.status_code in [200, 201, 202]:
                 logger.info(f"[Email] Successfully sent email to {to_email} via Brevo HTTP API (Port 443)")
