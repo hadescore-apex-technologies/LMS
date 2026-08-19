@@ -121,10 +121,9 @@ export const StudentManagementTab: React.FC = () => {
   };
 
   // Queries
-  const { data: students = [], isLoading: loadingStudents } = useQuery<Student[]>({
+  const { data: students = [], isLoading: loadingStudents, refetch: refetchStudents } = useQuery<Student[]>({
     queryKey: ['students-list', liveMode],
     placeholderData: (prev) => prev,
-    staleTime: 600000,
     queryFn: async () => {
       const res = await api.get(`students/?live_mode=${liveMode}`);
       return res.data;
@@ -231,6 +230,7 @@ export const StudentManagementTab: React.FC = () => {
           old ? [data, ...old.filter(s => s.id > 0)] : [data]
         );
       }
+      refetchStudents();
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
@@ -327,6 +327,7 @@ export const StudentManagementTab: React.FC = () => {
           old ? old.map(item => item.id === data.id ? data : item) : [data]
         );
       }
+      refetchStudents();
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
@@ -370,6 +371,7 @@ export const StudentManagementTab: React.FC = () => {
       toast.error('Failed to toggle status.');
     },
     onSuccess: () => {
+      refetchStudents();
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
       toast.success('Student account status updated.');
     }
@@ -407,6 +409,7 @@ export const StudentManagementTab: React.FC = () => {
       toast.error('Failed to update live mentor assignment.');
     },
     onSuccess: () => {
+      refetchStudents();
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
       queryClient.invalidateQueries({ queryKey: ['mentor-assignments'] });
       toast.success('Live mentor assignment updated.');
@@ -434,6 +437,7 @@ export const StudentManagementTab: React.FC = () => {
       }
       if (err?.response?.status === 404) {
         toast.error('Student not found or has already been deleted.');
+        refetchStudents();
         queryClient.invalidateQueries({ queryKey: ['students-list'] });
       } else {
         toast.error('Failed to delete student.');
@@ -443,6 +447,7 @@ export const StudentManagementTab: React.FC = () => {
       queryClient.setQueryData<Student[]>(['students-list', liveMode], (old) =>
         old ? old.filter(s => s.id !== id) : []
       );
+      refetchStudents();
       queryClient.invalidateQueries({ queryKey: ['students-list'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });

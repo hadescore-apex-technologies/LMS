@@ -181,6 +181,7 @@ export const QuizTab: React.FC = () => {
       await api.delete(`quizzes/attempts/${id}/`);
     },
     onSuccess: () => {
+      refetchAttempts();
       queryClient.invalidateQueries({ queryKey: ['staff-quiz-attempts-list'] });
       toast.success('Quiz attempt record deleted.');
     },
@@ -194,6 +195,7 @@ export const QuizTab: React.FC = () => {
       await api.delete(`quizzes/attempts/delete_student/?email=${email}`);
     },
     onSuccess: () => {
+      refetchAttempts();
       queryClient.invalidateQueries({ queryKey: ['staff-quiz-attempts-list'] });
       toast.success('Student quiz attempts deleted.');
     },

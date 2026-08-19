@@ -6,7 +6,10 @@ import { useEffect } from 'react';
  */
 export const useStudentSecurity = (enabled: boolean = true) => {
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      document.body.classList.remove('student-protected-content');
+      return;
+    }
 
     const isEditable = (target: EventTarget | null) => {
       if (!target || !(target instanceof HTMLElement)) return false;
@@ -44,12 +47,25 @@ export const useStudentSecurity = (enabled: boolean = true) => {
       }
     };
 
-    // 4. Block Copy & Cut Keyboard Shortcuts outside input fields
+    // 4. Block DevTools & Copy/Cut keyboard shortcuts outside input fields
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
       const key = e.key ? e.key.toUpperCase() : '';
 
-      if (isCtrlOrCmd && (key === 'C' || key === 'X' || key === 'U' || key === 'S' || key === 'P')) {
+      // DevTools shortcuts
+      if (
+        key === 'F12' ||
+        (isCtrlOrCmd && isShift && (key === 'I' || key === 'J' || key === 'C')) ||
+        (isCtrlOrCmd && key === 'U')
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+
+      // Copy/Cut/Print outside editable fields
+      if (isCtrlOrCmd && (key === 'C' || key === 'X' || key === 'P')) {
         if (!isEditable(e.target)) {
           e.preventDefault();
           e.stopPropagation();

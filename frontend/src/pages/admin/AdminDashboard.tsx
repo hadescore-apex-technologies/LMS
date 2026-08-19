@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 
 // Smooth skeleton fallback during tab transition
 const TabFallback: React.FC = () => (
@@ -41,22 +41,46 @@ const SettingsTab = lazy(() => import('./tabs/SettingsTab').then(m => ({ default
 const MentorAssignmentsTab = lazy(() => import('./tabs/MentorAssignmentsTab').then(m => ({ default: m.MentorAssignmentsTab })));
 const AdminManagerTab = lazy(() => import('./tabs/AdminManagerTab').then(m => ({ default: m.AdminManagerTab })));
 
-const AdminDashboard: React.FC = () => {
-  const location = useLocation();
+const DashboardTabWrapper: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isLive = location.pathname.startsWith('/admin/live');
 
-  const handleNavigate = (tab: string) => {
-    navigate(`/admin/${tab}`);
-  };
+  return (
+    <DashboardTab
+      onNavigate={(tab) => {
+        const prefix = isLive ? '/admin/live' : '/admin/course';
+        navigate(`${prefix}/${tab}`);
+      }}
+    />
+  );
+};
 
-  const [isLiveClassMode, setIsLiveClassMode] = React.useState(localStorage.getItem('super_adminLiveMode') === 'true');
+const CategoriesTabWrapper: React.FC = () => {
+  const location = useLocation();
+  const isLivePath = location.pathname.startsWith('/admin/live');
+  const [isLiveClassMode, setIsLiveClassMode] = React.useState(
+    isLivePath || localStorage.getItem('super_adminLiveMode') === 'true'
+  );
 
   React.useEffect(() => {
     const handleStorage = () => {
-      setIsLiveClassMode(localStorage.getItem('super_adminLiveMode') === 'true');
+      setIsLiveClassMode(isLivePath || localStorage.getItem('super_adminLiveMode') === 'true');
     };
     window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [isLivePath]);
 
+  return <CategoriesTab type={isLiveClassMode ? 'LIVE' : 'COURSE'} />;
+};
+
+const RootRedirect: React.FC = () => {
+  const isLiveClassMode = localStorage.getItem('super_adminLiveMode') === 'true';
+  return <Navigate to={isLiveClassMode ? '/admin/live/dashboard' : '/admin/course/dashboard'} replace />;
+};
+
+const AdminDashboard: React.FC = () => {
+  React.useEffect(() => {
     // Preload tab chunks in background for 0ms transitions
     import('./tabs/DashboardTab');
     import('./tabs/StaffManagementTab');
@@ -83,68 +107,78 @@ const AdminDashboard: React.FC = () => {
     import('./tabs/SettingsTab');
     import('./tabs/MentorAssignmentsTab');
     import('./tabs/AdminManagerTab');
-
-    return () => window.removeEventListener('storage', handleStorage);
   }, []);
-
-  const path = location.pathname.replace(/\/$/, '');
-
-  const isHome = path === '/admin' || path === '/admin/' || path === '';
-  const isStaff = path === '/admin/staff' && isLiveClassMode;
-  const isStudents = path === '/admin/students';
-  const isCategories = path === '/admin/categories';
-  const isCourses = path === '/admin/courses';
-  const isModules = path === '/admin/modules';
-  const isLessons = path === '/admin/lessons';
-  const isVideos = path === '/admin/videos';
-  const isQuizzes = path === '/admin/quizzes';
-  const isAssignments = path === '/admin/assignments';
-  const isCertificates = path === '/admin/certificates';
-  const isAttendance = path === '/admin/attendance';
-  const isLive = path === '/admin/live';
-  const isRecordings = path === '/admin/recordings' && isLiveClassMode;
-  const isLiveAssignments = path === '/admin/live-assignments' && isLiveClassMode;
-  const isAnnouncements = path === '/admin/announcements';
-  const isNotifications = path === '/admin/notifications';
-  const isForum = path === '/admin/forum';
-  const isReports = path === '/admin/reports';
-  const isSettings = path === '/admin/settings';
-  const isEmailTemplates = path === '/admin/email-templates';
-  const isSecurity = path === '/admin/security';
-  const isProfile = path === '/admin/profile';
-  const isPreferences = path === '/admin/preferences';
-  const isMentorAssignments = path === '/admin/mentor-assignments' && isLiveClassMode;
-  const isAdminManager = path === '/admin/admin-manager';
 
   return (
     <div className="relative">
       <Suspense fallback={<TabFallback />}>
-        {isHome && <DashboardTab onNavigate={handleNavigate} />}
-        {isStaff && <StaffManagementTab />}
-        {isStudents && <StudentManagementTab />}
-        {isCategories && <CategoriesTab type={isLiveClassMode ? 'LIVE' : 'COURSE'} />}
-        {isCourses && <CoursesTab />}
-        {isModules && <ModulesTab />}
-        {isLessons && <LessonsTab />}
-        {isVideos && <VideoLibraryTab />}
-        {isQuizzes && <QuizTab />}
-        {isAssignments && <AssignmentTab />}
-        {isCertificates && <CertificateTab />}
-        {isAttendance && <AttendanceTab />}
-        {isLive && <LiveClassesTab />}
-        {isRecordings && <CoursesTab isRecordingsMode={true} />}
-        {isLiveAssignments && <LiveAssignmentsTab />}
-        {isAnnouncements && <AnnouncementsTab />}
-        {isNotifications && <NotificationsTab />}
-        {isForum && <DiscussionTab />}
-        {isReports && <ReportsTab />}
-        {isSettings && <SystemSettingsTab />}
-        {isEmailTemplates && <EmailTemplatesTab />}
-        {isSecurity && <SecurityCenterTab />}
-        {isProfile && <ProfileTab />}
-        {isPreferences && <SettingsTab />}
-        {isMentorAssignments && <MentorAssignmentsTab />}
-        {isAdminManager && <AdminManagerTab />}
+        <Routes>
+          {/* Default Root Redirect */}
+          <Route index element={<RootRedirect />} />
+
+          {/* Dedicated Course Admin Routes */}
+          <Route path="course" element={<DashboardTabWrapper />} />
+          <Route path="course/dashboard" element={<DashboardTabWrapper />} />
+          <Route path="course/students" element={<StudentManagementTab />} />
+          <Route path="course/attendance" element={<AttendanceTab />} />
+          <Route path="course/categories" element={<CategoriesTab type="COURSE" />} />
+          <Route path="course/courses" element={<CoursesTab isRecordingsMode={false} />} />
+          <Route path="course/modules" element={<ModulesTab />} />
+          <Route path="course/lessons" element={<LessonsTab />} />
+          <Route path="course/videos" element={<VideoLibraryTab />} />
+          <Route path="course/live" element={<LiveClassesTab />} />
+          <Route path="course/quizzes" element={<QuizTab />} />
+          <Route path="course/assignments" element={<AssignmentTab />} />
+          <Route path="course/certificates" element={<CertificateTab />} />
+          <Route path="course/forum" element={<DiscussionTab />} />
+          <Route path="course/reports" element={<ReportsTab />} />
+          <Route path="course/email-templates" element={<EmailTemplatesTab />} />
+          <Route path="course/admin-manager" element={<AdminManagerTab />} />
+
+          {/* Dedicated Live Admin Routes */}
+          <Route path="live" element={<DashboardTabWrapper />} />
+          <Route path="live/dashboard" element={<DashboardTabWrapper />} />
+          <Route path="live/staff" element={<StaffManagementTab />} />
+          <Route path="live/categories" element={<CategoriesTab type="LIVE" />} />
+          <Route path="live/students" element={<StudentManagementTab />} />
+          <Route path="live/sessions" element={<LiveClassesTab />} />
+          <Route path="live/recordings" element={<CoursesTab isRecordingsMode={true} />} />
+          <Route path="live/assignments" element={<LiveAssignmentsTab />} />
+          <Route path="live/attendance" element={<AttendanceTab />} />
+          <Route path="live/mentor-assignments" element={<MentorAssignmentsTab />} />
+          <Route path="live/forum" element={<DiscussionTab />} />
+          <Route path="live/email-templates" element={<EmailTemplatesTab />} />
+
+          {/* Shared / General Admin Routes */}
+          <Route path="profile" element={<ProfileTab />} />
+          <Route path="settings" element={<SystemSettingsTab />} />
+          <Route path="security" element={<SecurityCenterTab />} />
+          <Route path="preferences" element={<SettingsTab />} />
+
+          {/* Legacy Fallbacks */}
+          <Route path="staff" element={<StaffManagementTab />} />
+          <Route path="students" element={<StudentManagementTab />} />
+          <Route path="categories" element={<CategoriesTabWrapper />} />
+          <Route path="courses" element={<CoursesTab />} />
+          <Route path="modules" element={<ModulesTab />} />
+          <Route path="lessons" element={<LessonsTab />} />
+          <Route path="videos" element={<VideoLibraryTab />} />
+          <Route path="quizzes" element={<QuizTab />} />
+          <Route path="assignments" element={<AssignmentTab />} />
+          <Route path="certificates" element={<CertificateTab />} />
+          <Route path="attendance" element={<AttendanceTab />} />
+          <Route path="recordings" element={<CoursesTab isRecordingsMode={true} />} />
+          <Route path="live-assignments" element={<LiveAssignmentsTab />} />
+          <Route path="announcements" element={<AnnouncementsTab />} />
+          <Route path="notifications" element={<NotificationsTab />} />
+          <Route path="forum" element={<DiscussionTab />} />
+          <Route path="reports" element={<ReportsTab />} />
+          <Route path="email-templates" element={<EmailTemplatesTab />} />
+          <Route path="admin-manager" element={<AdminManagerTab />} />
+
+          {/* Wildcard Fallback */}
+          <Route path="*" element={<RootRedirect />} />
+        </Routes>
       </Suspense>
     </div>
   );

@@ -152,16 +152,16 @@ export const AssignmentTab: React.FC = () => {
       await api.delete(`assignments/submissions/${id}/`);
     },
     onMutate: async (id: number) => {
-      await queryClient.cancelQueries({ queryKey: ['staff-submissions-list'] });
-      const previousSubmissions = queryClient.getQueryData(['staff-submissions-list']);
-      queryClient.setQueryData(['staff-submissions-list'], (old: any) =>
+      await queryClient.cancelQueries({ queryKey: ['staff-submissions-list', liveMode] });
+      const previousSubmissions = queryClient.getQueryData(['staff-submissions-list', liveMode]);
+      queryClient.setQueryData(['staff-submissions-list', liveMode], (old: any) =>
         (old || []).filter((s: any) => s.id !== id)
       );
       return { previousSubmissions };
     },
     onError: (err, id, context: any) => {
       if (context?.previousSubmissions) {
-        queryClient.setQueryData(['staff-submissions-list'], context.previousSubmissions);
+        queryClient.setQueryData(['staff-submissions-list', liveMode], context.previousSubmissions);
       }
       toast.error('Failed to delete submission.');
     },
@@ -178,16 +178,16 @@ export const AssignmentTab: React.FC = () => {
       await api.delete(`assignments/list/${id}/`);
     },
     onMutate: async (id: number) => {
-      await queryClient.cancelQueries({ queryKey: ['admin-assignments-list'] });
-      const previousAssignments = queryClient.getQueryData(['admin-assignments-list']);
-      queryClient.setQueryData(['admin-assignments-list'], (old: any) =>
+      await queryClient.cancelQueries({ queryKey: ['admin-assignments-list', liveMode] });
+      const previousAssignments = queryClient.getQueryData(['admin-assignments-list', liveMode]);
+      queryClient.setQueryData(['admin-assignments-list', liveMode], (old: any) =>
         (old || []).filter((a: any) => a.id !== id)
       );
       return { previousAssignments };
     },
     onError: (err, id, context: any) => {
       if (context?.previousAssignments) {
-        queryClient.setQueryData(['admin-assignments-list'], context.previousAssignments);
+        queryClient.setQueryData(['admin-assignments-list', liveMode], context.previousAssignments);
       }
       toast.error('Failed to delete assignment.');
     },

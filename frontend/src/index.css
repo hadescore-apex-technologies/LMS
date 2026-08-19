@@ -193,51 +193,9 @@
   -webkit-touch-callout: default !important;
 }
 
-/* ─── Anti-Screenshot / Screen Recording Overlay ─────────────────────────── */
-/* Screenshot blocking overlay shown by JS */
-#apex-screenshot-block {
-  position: fixed;
-  inset: 0;
-  z-index: 2147483647;
-  background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 16px;
-  pointer-events: none;
-}
-
 /* Prevent image drag from student content */
 .student-protected-content img,
 .student-protected-content video {
   pointer-events: none;
   -webkit-user-drag: none;
-  user-drag: none;
 }
-
-/* ─── Print / Screenshot via browser print dialog ─────────────────────────── */
-@media print {
-  body > * {
-    visibility: hidden !important;
-    display: none !important;
-  }
-  body::before {
-    content: "🔒  PROTECTED CONTENT — HadesCore Apex LMS";
-    visibility: visible !important;
-    display: flex !important;
-    position: fixed;
-    inset: 0;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-    font-weight: 900;
-    color: #ef4444;
-    background: #000;
-    z-index: 2147483647;
-    text-align: center;
-    padding: 2rem;
-    font-family: sans-serif;
-  }
-}
-

@@ -269,15 +269,6 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
     const duration = videoRef.current.duration || 1;
     const pct = (currentTime / duration) * 100;
     
-    // Prevent forward seeking (Only enforced for Course Students)
-    if (!isLiveStudent && currentTime > maxTimeWatchedRef.current + 2 && !activeLesson.completed) {
-      videoRef.current.currentTime = maxTimeWatchedRef.current;
-      toast.error('Seeking forward is disabled for learning integrity. Please watch the lesson fully.', {
-        id: 'no-seeking' // prevents duplicate toasts
-      });
-      return;
-    }
-    
     // Update maximum time watched
     maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, currentTime);
 
@@ -820,7 +811,7 @@ export const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack, onOp
                     className="w-full h-full object-cover"
                     onTimeUpdate={handleTimeUpdate}
                     onEnded={handleVideoEnded}
-                    disableForwardSeeking={isLiveStudent ? false : !activeLesson.completed}
+                    disableForwardSeeking={false}
                     initialResumeTime={activeLesson.resume_time || 0}
                     onLoadedMetadata={() => {
                       if (videoRef.current) {

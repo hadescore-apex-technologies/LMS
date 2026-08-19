@@ -60,6 +60,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     setIsLiveClassMode(newVal);
     localStorage.setItem(liveModeKey, String(newVal));
     window.dispatchEvent(new Event('storage'));
+    if (user?.role === 'SUPER_ADMIN') {
+      navigate(newVal ? '/admin/live/dashboard' : '/admin/course/dashboard');
+    }
   };
 
   React.useEffect(() => {
@@ -149,32 +152,32 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     ];
 
     const liveClassAdminMenu = [
-      { label: 'Dashboard', path: '/admin', icon: Home },
-      { label: 'Staff / Mentors', path: '/admin/staff', icon: Users },
-      { label: 'Categories', path: '/admin/categories', icon: Layers },
-      { label: 'Students', path: '/admin/students', icon: Users },
-      { label: 'Live Sessions', path: '/admin/live', icon: Video },
-      { label: 'Recordings', path: '/admin/recordings', icon: Film },
-      { label: 'Assignments', path: '/admin/live-assignments', icon: FileEdit },
-      { label: 'Attendance', path: '/admin/attendance', icon: Calendar },
-      { label: 'Mentor Assignments', path: '/admin/mentor-assignments', icon: UserCheck },
-      { label: 'Discussions & Q&A', path: '/admin/forum', icon: MessageSquare },
-      { label: 'Email Templates', path: '/admin/email-templates', icon: Mail },
+      { label: 'Dashboard', path: '/admin/live/dashboard', icon: Home },
+      { label: 'Staff / Mentors', path: '/admin/live/staff', icon: Users },
+      { label: 'Categories', path: '/admin/live/categories', icon: Layers },
+      { label: 'Students', path: '/admin/live/students', icon: Users },
+      { label: 'Live Sessions', path: '/admin/live/sessions', icon: Video },
+      { label: 'Recordings', path: '/admin/live/recordings', icon: Film },
+      { label: 'Assignments', path: '/admin/live/assignments', icon: FileEdit },
+      { label: 'Attendance', path: '/admin/live/attendance', icon: Calendar },
+      { label: 'Mentor Assignments', path: '/admin/live/mentor-assignments', icon: UserCheck },
+      { label: 'Discussions & Q&A', path: '/admin/live/forum', icon: MessageSquare },
+      { label: 'Email Templates', path: '/admin/live/email-templates', icon: Mail },
     ];
 
     const courseAdminMenu = [
-      { label: 'Dashboard', path: '/admin', icon: Home },
-      { label: 'Students', path: '/admin/students', icon: Users },
-      { label: 'Attendance', path: '/admin/attendance', icon: Calendar },
-      { label: 'Categories', path: '/admin/categories', icon: Layers },
-      { label: 'Courses', path: '/admin/courses', icon: BookOpen },
-      { label: 'Doubt Clearing Sessions', path: '/admin/live', icon: Video },
-      { label: 'Quizzes', path: '/admin/quizzes', icon: HelpCircle },
-      { label: 'Assignments', path: '/admin/assignments', icon: FileCheck },
-      { label: 'Certificates', path: '/admin/certificates', icon: Award },
-      { label: 'Discussions & Q&A', path: '/admin/forum', icon: MessageSquare },
-      { label: 'Analytics & Reports', path: '/admin/reports', icon: FileText },
-      { label: 'Email Templates', path: '/admin/email-templates', icon: Mail },
+      { label: 'Dashboard', path: '/admin/course/dashboard', icon: Home },
+      { label: 'Students', path: '/admin/course/students', icon: Users },
+      { label: 'Attendance', path: '/admin/course/attendance', icon: Calendar },
+      { label: 'Categories', path: '/admin/course/categories', icon: Layers },
+      { label: 'Courses', path: '/admin/course/courses', icon: BookOpen },
+      { label: 'Doubt Clearing Sessions', path: '/admin/course/live', icon: Video },
+      { label: 'Quizzes', path: '/admin/course/quizzes', icon: HelpCircle },
+      { label: 'Assignments', path: '/admin/course/assignments', icon: FileCheck },
+      { label: 'Certificates', path: '/admin/course/certificates', icon: Award },
+      { label: 'Discussions & Q&A', path: '/admin/course/forum', icon: MessageSquare },
+      { label: 'Analytics & Reports', path: '/admin/course/reports', icon: FileText },
+      { label: 'Email Templates', path: '/admin/course/email-templates', icon: Mail },
     ];
 
     if (user?.role === 'SUPER_ADMIN') {
@@ -184,7 +187,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       }
       // Course admin mode
       if (isRoot) {
-        return [...courseAdminMenu, { label: 'Admin Accounts', path: '/admin/admin-manager', icon: Crown }];
+        return [...courseAdminMenu, { label: 'Admin Accounts', path: '/admin/course/admin-manager', icon: Crown }];
       }
       return courseAdminMenu;
     } else if (user?.role === 'STAFF') {

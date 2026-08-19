@@ -75,11 +75,12 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.refreshToken = null;
       state.isAuthenticated = false;
-      // keep loginPath so Sidebar can redirect back to it
+      // keep loginPath in state so redirect works, but clear other auth data
 
       localStorage.removeItem('user');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      // Do NOT clear loginPath — needed for post-logout redirect
       
       // Clear any polling intervals by dispatching a custom event
       window.dispatchEvent(new Event('auth-logout'));

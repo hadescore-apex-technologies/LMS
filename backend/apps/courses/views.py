@@ -241,9 +241,9 @@ class LiveClassViewSet(viewsets.ModelViewSet):
                 Q(students__student_profile__assigned_staff=user)
             )
             if live_mode_param == 'true':
-                qs = qs.filter(Q(course__is_mentoring_track=True) | Q(course__isnull=True))
+                qs = qs.filter(Q(created_by=user) | Q(course__is_mentoring_track=True) | Q(course__isnull=True))
             elif live_mode_param == 'false':
-                qs = qs.filter(Q(course__is_mentoring_track=False, course__isnull=False))
+                qs = qs.filter(Q(created_by=user) | Q(course__is_mentoring_track=False) | Q(course__isnull=True))
             return qs.select_related('course', 'category', 'created_by').prefetch_related('students').distinct()
             
         # SUPER_ADMIN:

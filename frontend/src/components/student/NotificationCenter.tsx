@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../../store';
 import api from '../../services/api';
-import { Bell, Check, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, Check, CheckCheck, Loader2, X, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Notification {
@@ -21,10 +21,13 @@ const NotificationCenter: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Track IDs we've already shown a toast for — persists across re-renders
+  const seenIdsRef = useRef<Set<number>>(new Set());
+  const isFirstLoadRef = useRef(true);
 
-  const fetchNotifications = async (isFirstLoad = false) => {
+  const fetchNotifications = async () => {
     // Don't poll if not authenticated — avoids 401 spam from the interval
-    if (!accessToken || user?.role === 'SUPER_ADMIN') return;
+    if (!accessToken) return;
     
     // Additional check: if user is not properly authenticated, stop polling
     if (!user?.email) {
@@ -37,37 +40,38 @@ const NotificationCenter: React.FC = () => {
     
     try {
       const res = await api.get('notifications/');
-      const fetched = res.data;
+      const fetched: Notification[] = res.data;
 
-      // Only trigger screen toast if it is a new unread notification
-      if (!isFirstLoad && notifications.length > 0) {
-        const previousIds = new Set(notifications.map(n => n.id));
-        const newUnread = fetched.filter((n: Notification) => !n.is_read && !previousIds.has(n.id));
-        
-        newUnread.forEach((n: Notification) => {
-          toast.success(
+      // On very first load, just populate seenIds — no toast spam
+      if (isFirstLoadRef.current) {
+        isFirstLoadRef.current = false;
+        fetched.forEach(n => seenIdsRef.current.add(n.id));
+      } else {
+        // Show toast for every new unread notification not yet seen
+        const newUnread = fetched.filter(n => !n.is_read && !seenIdsRef.current.has(n.id));
+        newUnread.forEach(n => {
+          seenIdsRef.current.add(n.id);
+          const isAdminQuizAlert = user?.role === 'SUPER_ADMIN' && n.title.includes('Quiz Submitted');
+          toast(
             <div className="flex flex-col gap-0.5 text-left text-xs">
               <span className="font-extrabold text-slate-800">{n.title}</span>
               <span className="text-slate-600 text-[10px]">{n.message}</span>
             </div>,
-            { duration: 6000, icon: '🔔' }
+            {
+              duration: isAdminQuizAlert ? 8000 : 6000,
+              icon: isAdminQuizAlert ? '📝' : '🔔',
+              style: isAdminQuizAlert
+                ? { border: '1.5px solid #6366f1', background: '#fafafe' }
+                : undefined,
+            }
           );
         });
       }
 
       setNotifications(fetched);
-      setUnreadCount(fetched.filter((n: Notification) => !n.is_read).length);
+      setUnreadCount(fetched.filter(n => !n.is_read).length);
     } catch (err: any) {
-      // If 401, stop polling immediately to prevent spam
-      if (err?.response?.status === 401) {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        // Clear notifications on auth failure
-        setNotifications([]);
-        setUnreadCount(0);
-      } else if (err?.response?.status !== 401) {
+      if (err?.response?.status !== 401) {
         console.error('Failed to load notifications', err);
       }
     }
@@ -86,14 +90,14 @@ const NotificationCenter: React.FC = () => {
     }
 
     // Don't start polling if user doesn't have proper authentication
-    if (!user?.email || user?.role === 'SUPER_ADMIN') {
+    if (!user?.email) {
       return;
     }
 
-    fetchNotifications(true);
+    fetchNotifications();
 
-    // Poll for notifications every 8 seconds - store in ref for cleanup
-    intervalRef.current = setInterval(() => fetchNotifications(false), 8000);
+    // Poll for notifications every 5 seconds for faster admin alerts
+    intervalRef.current = setInterval(() => fetchNotifications(), 5000);
 
     // Close on click outside
     const handleOutsideClick = (e: MouseEvent) => {
@@ -148,9 +152,36 @@ const NotificationCenter: React.FC = () => {
     }
   };
 
-  if (user?.role === 'SUPER_ADMIN') {
-    return null;
-  }
+  // Dismiss (delete) a single notification — admin only or any user
+  const handleDismiss = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Optimistic: remove immediately
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    setUnreadCount(prev => {
+      const wasDismissedUnread = notifications.find(n => n.id === id && !n.is_read);
+      return wasDismissedUnread ? Math.max(0, prev - 1) : prev;
+    });
+    try {
+      await api.delete(`notifications/${id}/`);
+    } catch {
+      // Refetch to restore correct state on error
+      fetchNotifications();
+    }
+  };
+
+  // Clear all notifications entirely
+  const handleClearAll = async () => {
+    const prev = notifications;
+    setNotifications([]);
+    setUnreadCount(0);
+    try {
+      await api.delete('notifications/clear-all/');
+    } catch {
+      setNotifications(prev);
+    }
+  };
+
+  // SUPER_ADMIN also sees the notification bell (quiz submission alerts etc.)
 
   return (
     <div className="relative text-xs" ref={dropdownRef}>
@@ -174,16 +205,28 @@ const NotificationCenter: React.FC = () => {
           {/* Header */}
           <div className="flex items-center justify-between px-4 pb-2 border-b border-border/40">
             <h4 className="font-bold text-xs">Notifications</h4>
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllRead}
-                disabled={loading}
-                className="text-[10px] text-primary hover:underline flex items-center gap-1 font-semibold"
-              >
-                {loading ? <Loader2 className="animate-spin" size={10} /> : <CheckCheck size={10} />}
-                <span>Mark all read</span>
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  disabled={loading}
+                  className="text-[10px] text-primary hover:underline flex items-center gap-1 font-semibold"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={10} /> : <CheckCheck size={10} />}
+                  <span>Mark all read</span>
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  className="text-[10px] text-rose-500 hover:underline flex items-center gap-1 font-semibold"
+                  title="Clear all notifications"
+                >
+                  <Trash2 size={10} />
+                  <span>Clear all</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* List */}
@@ -205,15 +248,26 @@ const NotificationCenter: React.FC = () => {
                     {new Date(n.created_at).toLocaleString()}
                   </span>
                 </div>
-                {!n.is_read && (
+                {/* Action buttons */}
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {!n.is_read && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleMarkRead(n.id); }}
+                      className="p-1 text-primary hover:bg-primary/10 rounded-lg"
+                      title="Mark as Read"
+                    >
+                      <Check size={10} />
+                    </button>
+                  )}
+                  {/* Dismiss X button */}
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleMarkRead(n.id); }}
-                    className="p-1 text-primary hover:bg-primary/10 rounded-lg shrink-0"
-                    title="Mark as Read"
+                    onClick={(e) => handleDismiss(n.id, e)}
+                    className="p-1 text-rose-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg"
+                    title="Dismiss"
                   >
-                    <Check size={10} />
+                    <X size={10} />
                   </button>
-                )}
+                </div>
               </div>
             ))}
 

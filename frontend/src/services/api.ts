@@ -107,8 +107,8 @@ api.interceptors.response.use(
 
       // If this request already retried after refreshing, stop looping immediately and logout
       if (originalRequest._retry) {
+        const loginPath = store.getState().auth.loginPath || localStorage.getItem('loginPath') || '/student/login';
         store.dispatch(logout());
-        const loginPath = localStorage.getItem('loginPath') || '/student/login';
         if (typeof window !== 'undefined' && !window.location.pathname.includes('login')) {
           window.location.href = loginPath;
         }
@@ -132,8 +132,8 @@ api.interceptors.response.use(
 
       const refreshToken = store.getState().auth.refreshToken;
       if (!refreshToken) {
+        const loginPath = store.getState().auth.loginPath || localStorage.getItem('loginPath') || '/student/login';
         store.dispatch(logout());
-        const loginPath = localStorage.getItem('loginPath') || '/student/login';
         if (typeof window !== 'undefined' && !window.location.pathname.includes('login')) {
           window.location.href = loginPath;
         }
@@ -160,8 +160,8 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
+        const loginPath = store.getState().auth.loginPath || localStorage.getItem('loginPath') || '/student/login';
         store.dispatch(logout());
-        const loginPath = localStorage.getItem('loginPath') || '/student/login';
         if (typeof window !== 'undefined' && !window.location.pathname.includes('login')) {
           window.location.href = loginPath;
         }

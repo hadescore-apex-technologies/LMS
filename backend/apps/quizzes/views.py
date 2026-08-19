@@ -165,6 +165,25 @@ class QuizViewSet(viewsets.ModelViewSet):
             passed=passed
         )
 
+        # ── Notify all SUPER_ADMIN users about this quiz submission ──────────
+        try:
+            from apps.notifications.models import Notification
+            from apps.users.models import CustomUser as _CU
+            admins = _CU.objects.filter(role='SUPER_ADMIN')
+            student_name = f"{user.first_name} {user.last_name}".strip() or user.email
+            result_label = f"{score:.0f}% — {'✅ Passed' if passed else '❌ Failed'}"
+            notifs = [
+                Notification(
+                    recipient=admin,
+                    title=f"📝 Quiz Submitted — {quiz.title}",
+                    message=f"{student_name} submitted \"{quiz.title}\" and scored {result_label} ({correct_count}/{total_questions} correct).",
+                )
+                for admin in admins
+            ]
+            Notification.objects.bulk_create(notifs)
+        except Exception:
+            pass  # Non-blocking — never crash submission on notification failure
+
         course = getattr(getattr(quiz, 'module', None), 'course', None) or getattr(quiz, 'course', None)
         if course:
             from apps.certificates.utils import check_and_generate_certificate

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 
 // Smooth skeleton fallback during tab transition
 const TabFallback: React.FC = () => (
@@ -29,14 +29,12 @@ const NotificationsTab = lazy(() => import('./tabs/NotificationsTab').then(m => 
 const ProfileTab = lazy(() => import('./tabs/ProfileTab').then(m => ({ default: m.ProfileTab })));
 const SettingsTab = lazy(() => import('./tabs/SettingsTab').then(m => ({ default: m.SettingsTab })));
 
-const StaffDashboard: React.FC = () => {
-  const location = useLocation();
+const DashboardTabWrapper: React.FC = () => {
   const navigate = useNavigate();
+  return <DashboardTab onNavigate={(tab) => navigate(`/staff/${tab}`)} />;
+};
 
-  const handleNavigate = (tab: string) => {
-    navigate(`/staff/${tab}`);
-  };
-
+const StaffDashboard: React.FC = () => {
   React.useEffect(() => {
     // Preload tab chunks in background for 0ms transitions
     import('./tabs/DashboardTab');
@@ -54,38 +52,26 @@ const StaffDashboard: React.FC = () => {
     import('./tabs/SettingsTab');
   }, []);
 
-  const path = location.pathname.replace(/\/$/, '');
-
-  const isHome = path === '/staff' || path === '/staff/' || path === '';
-  const isStudents = path === '/staff/students';
-  const isLive = path === '/staff/live';
-  const isRecordings = path === '/staff/recordings';
-  const isLiveAssignments = path === '/staff/live-assignments';
-  const isAttendance = path === '/staff/attendance';
-  const isAnnouncements = path === '/staff/announcements';
-  const isForum = path === '/staff/forum';
-  const isDownloads = path === '/staff/downloads';
-  const isReports = path === '/staff/reports';
-  const isNotifications = path === '/staff/notifications';
-  const isProfile = path === '/staff/profile';
-  const isSettings = path === '/staff/settings';
-
   return (
     <div className="relative">
       <Suspense fallback={<TabFallback />}>
-        {isHome && <DashboardTab onNavigate={handleNavigate} />}
-        {isStudents && <StudentsTab />}
-        {isLive && <LiveClassesTab />}
-        {isRecordings && <CoursesTab isRecordingsMode={true} />}
-        {isLiveAssignments && <LiveAssignmentsTab />}
-        {isAttendance && <AttendanceTab />}
-        {isAnnouncements && <AnnouncementsTab />}
-        {isForum && <ForumTab />}
-        {isDownloads && <DownloadsTab />}
-        {isReports && <ReportsTab />}
-        {isNotifications && <NotificationsTab />}
-        {isProfile && <ProfileTab />}
-        {isSettings && <SettingsTab />}
+        <Routes>
+          <Route index element={<DashboardTabWrapper />} />
+          <Route path="students" element={<StudentsTab />} />
+          <Route path="live" element={<LiveClassesTab />} />
+          <Route path="recordings" element={<CoursesTab isRecordingsMode={true} />} />
+          <Route path="live-assignments" element={<LiveAssignmentsTab />} />
+          <Route path="attendance" element={<AttendanceTab />} />
+          <Route path="announcements" element={<AnnouncementsTab />} />
+          <Route path="forum" element={<ForumTab />} />
+          <Route path="downloads" element={<DownloadsTab />} />
+          <Route path="reports" element={<ReportsTab />} />
+          <Route path="notifications" element={<NotificationsTab />} />
+          <Route path="profile" element={<ProfileTab />} />
+          <Route path="settings" element={<SettingsTab />} />
+          <Route path="courses" element={<CoursesTab />} />
+          <Route path="assignments" element={<LiveAssignmentsTab />} />
+        </Routes>
       </Suspense>
     </div>
   );

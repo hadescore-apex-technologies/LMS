@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { 
   Play, Pause, Volume2, Volume1, VolumeX, 
-  Maximize, Minimize, PictureInPicture2, Loader2, Check, AlertCircle, Lock, ShieldCheck 
+  Maximize, Minimize, PictureInPicture2, Loader2, Check, AlertCircle, Lock, ShieldCheck,
+  RotateCcw, RotateCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
@@ -96,7 +97,7 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
   playbackSpeed = 1,
   onSpeedChange,
   autoPlay = false,
-  disableForwardSeeking = true,
+  disableForwardSeeking = false,
   initialResumeTime = 0,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -697,6 +698,24 @@ export const UniversalVideoPlayer: React.FC<UniversalVideoPlayerProps> = ({
                   title={isPlaying ? "Pause (Space)" : "Play (Space)"}
                 >
                   {isPlaying ? <Pause size={17} /> : <Play size={17} />}
+                </button>
+
+                {/* Rewind -10s */}
+                <button
+                  onClick={() => seekRelative(-10)}
+                  className="p-1.5 rounded-lg text-slate-300 hover:text-cyan-400 hover:bg-white/10 transition-colors"
+                  title="Rewind 10 seconds"
+                >
+                  <RotateCcw size={15} />
+                </button>
+
+                {/* Skip +10s */}
+                <button
+                  onClick={() => seekRelative(10)}
+                  className="p-1.5 rounded-lg text-slate-300 hover:text-cyan-400 hover:bg-white/10 transition-colors"
+                  title="Forward 10 seconds"
+                >
+                  <RotateCw size={15} />
                 </button>
 
                 {/* Volume Slider */}

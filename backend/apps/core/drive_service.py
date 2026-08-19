@@ -22,7 +22,10 @@ def has_drive_credentials():
     )
     return oauth_configured or os.path.exists(SERVICE_ACCOUNT_FILE)
 
+from dotenv import load_dotenv
+
 def get_drive_service():
+    load_dotenv(override=True)
     if not has_drive_credentials():
         raise FileNotFoundError("Missing Google Drive credentials. Please configure OAuth environment variables or credentials.json.")
     

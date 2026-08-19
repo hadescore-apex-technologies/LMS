@@ -72,7 +72,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
   const [editingLiveClass, setEditingLiveClass] = useState<LiveClass | null>(null);
 
   // 1. Fetch Live Classes
-  const { data: liveClasses = [] } = useQuery<LiveClass[]>({
+  const { data: liveClasses = [], refetch: refetchLiveClasses } = useQuery<LiveClass[]>({
     queryKey: ['live-classes-list', isLiveMode],
     placeholderData: (prev) => prev,
     queryFn: async () => {
@@ -101,10 +101,10 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
   });
 
   React.useEffect(() => {
-    if (courses.length > 0 && !liveCourse) {
+    if (courses.length > 0 && !editingLiveClass && (!liveCourse || !courses.some(c => c.id.toString() === liveCourse))) {
       setLiveCourse(courses[0].id.toString());
     }
-  }, [courses, liveCourse]);
+  }, [courses, liveCourse, editingLiveClass]);
 
   // Filtered Students list based on search query
   const filteredStudents = assignedStudents.filter(st => {
@@ -139,7 +139,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
 
   const saveLiveClassMutation = useMutation({
     mutationFn: async (overrideData?: { title: string; scheduled_time: string; meeting_url: string }) => {
-      const courseId = (!isLiveMode && liveCourse) ? Number(liveCourse) : null;
+      const courseId = liveCourse ? Number(liveCourse) : null;
       const finalTitle = overrideData?.title ?? liveTitle;
       const finalTime = overrideData?.scheduled_time ?? liveTime;
       const finalUrl = overrideData?.meeting_url ?? liveMeetingUrl;
@@ -163,13 +163,13 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
       await queryClient.cancelQueries({ queryKey: ['live-classes-list', isLiveMode] });
       const previousLiveClasses = queryClient.getQueryData<LiveClass[]>(['live-classes-list', isLiveMode]);
       
-      const courseId = (!isLiveMode && liveCourse) ? Number(liveCourse) : null;
+      const courseId = liveCourse ? Number(liveCourse) : null;
       const targetStudentIds = selectedStudentIds.length > 0 ? selectedStudentIds : assignedStudents.map(s => s.id);
       const newLiveClassOpt: LiveClass = {
         id: editingLiveClass ? editingLiveClass.id : -Date.now(),
         title: liveTitle,
         course: courseId,
-        course_title: (!isLiveMode && courseId) ? courses.find(c => c.id === courseId)?.title || '' : 'Live Mentoring',
+        course_title: courseId ? (courses.find(c => c.id === courseId)?.title || 'Live Session') : 'Live Mentoring',
         scheduled_time: liveTime,
         meeting_url: liveMeetingUrl,
         recording_url: liveRecordingUrl,
@@ -218,6 +218,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
       toast.error(msg);
     },
     onSuccess: () => {
+      refetchLiveClasses();
       queryClient.invalidateQueries({ queryKey: ['live-classes-list'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
@@ -230,11 +231,11 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
       await api.delete(`courses/live/${id}/`);
     },
     onMutate: async (id: number) => {
-      await queryClient.cancelQueries({ queryKey: ['live-classes-list'] });
-      const previousLiveClasses = queryClient.getQueryData<LiveClass[]>(['live-classes-list']);
+      await queryClient.cancelQueries({ queryKey: ['live-classes-list', isLiveMode] });
+      const previousLiveClasses = queryClient.getQueryData<LiveClass[]>(['live-classes-list', isLiveMode]);
       if (previousLiveClasses) {
         queryClient.setQueryData<LiveClass[]>(
-          ['live-classes-list'],
+          ['live-classes-list', isLiveMode],
           previousLiveClasses.filter(l => l.id !== id)
         );
       }
@@ -242,11 +243,12 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
     },
     onError: (err, id, context) => {
       if (context?.previousLiveClasses) {
-        queryClient.setQueryData(['live-classes-list'], context.previousLiveClasses);
+        queryClient.setQueryData(['live-classes-list', isLiveMode], context.previousLiveClasses);
       }
       toast.error('Failed to delete live class.');
     },
     onSuccess: () => {
+      refetchLiveClasses();
       queryClient.invalidateQueries({ queryKey: ['live-classes-list'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-stats'] });
@@ -530,7 +532,7 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
                   toast.error("Please select meeting date & time.");
                   return;
                 }
-                if (!liveCourse) {
+                if (courses.length > 0 && !liveCourse) {
                   toast.error("Please select a target course.");
                   return;
                 }
@@ -550,21 +552,23 @@ export const LiveClassesTab: React.FC<{ defaultFilter?: 'ALL' | 'UPCOMING' | 'LI
                   <input name="title" type="text" value={liveTitle} onChange={(e) => setLiveTitle(e.target.value)} required placeholder="e.g. Django Advanced ORM Optimization" className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none" />
                 </div>
 
-                <div>
-                  <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Target Course *</label>
-                  <select 
-                    name="course"
-                    value={liveCourse} 
-                    onChange={(e) => setLiveCourse(e.target.value)} 
-                    required 
-                    className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none"
-                  >
-                    <option value="">-- Select Target Course --</option>
-                    {courses.map(c => (
-                      <option key={c.id} value={c.id}>{c.title}</option>
-                    ))}
-                  </select>
-                </div>
+                {courses.length > 0 && (
+                  <div>
+                    <label className="block text-[10px] text-muted-foreground uppercase mb-1 font-bold">Target Course *</label>
+                    <select 
+                      name="course"
+                      value={liveCourse} 
+                      onChange={(e) => setLiveCourse(e.target.value)} 
+                      required 
+                      className="w-full h-10 px-3 bg-muted/40 border border-border rounded-xl outline-none font-medium"
+                    >
+                      {courses.length > 1 && <option value="">-- Select Target Course --</option>}
+                      {courses.map(c => (
+                        <option key={c.id} value={c.id}>{c.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
 
 
