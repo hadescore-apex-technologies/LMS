@@ -4,6 +4,7 @@ import sys
 
 def main():
     try:
+        # pyrefly: ignore [missing-import]
         from dotenv import load_dotenv
         load_dotenv(override=True)
     except Exception:
@@ -11,6 +12,7 @@ def main():
     # Set the settings module path to apps.core.settings
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'apps.core.settings')
     try:
+        # pyrefly: ignore [missing-import]
         from django.core.management import execute_from_command_line
     except ImportError as exc:
         raise ImportError(
