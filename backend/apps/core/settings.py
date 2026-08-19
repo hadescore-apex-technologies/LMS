@@ -189,7 +189,8 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', f'Apex LMS <{EMAIL_HOS
 SERVER_EMAIL = EMAIL_HOST_USER
 EMAIL_TIMEOUT = 15
 
-# Brevo HTTP API Email configuration (For Free Render tier port 443 compatibility)
+# Resend HTTP API Email configuration (Port 443 — works seamlessly on Local & Hosted environments)
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '').strip()
 BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '').strip()
 
 
