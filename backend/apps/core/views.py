@@ -267,13 +267,10 @@ class TestSMTPView(views.APIView):
                 f"Best regards,\n"
                 f"Apex LMS Technical Team"
             )
-            # pyrefly: ignore [missing-import]
-            from django.conf import settings
             send_lms_email(to_email=to_email, subject=subject, text_body=body, async_mode=False)
-            delivery_method = "Brevo HTTP API" if getattr(settings, 'BREVO_API_KEY', '') else "SMTP Connection"
             return response.Response({
                 "status": "success",
-                "message": f"Test email sent successfully to {to_email}! {delivery_method} verified."
+                "message": f"Test email sent successfully to {to_email}! SMTP Connection verified."
             }, status=status.HTTP_200_OK)
         except Exception as exc:
             logger.exception(f"[SMTP Test] Failed to send test email: {exc}")
