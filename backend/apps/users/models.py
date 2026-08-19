@@ -148,56 +148,7 @@ class PasswordResetOTP(models.Model):
         return not self.is_used and self.created_at >= timezone.now() - timedelta(minutes=10)
 
 
-# ── Automatic Welcome Email Signal ─────────────────────────────────────────────
-# pyrefly: ignore [missing-import]
-from django.db.models.signals import post_save
-# pyrefly: ignore [missing-import]
-from django.dispatch import receiver
 
-@receiver(post_save, sender=CustomUser)
-def send_welcome_email_on_user_create(sender, instance, created, **kwargs):
-    """
-    Guarantees that ANY user created in Django (via Django Admin, API, or shell)
-    automatically receives a Welcome Email with login credentials and portal links.
-    """
-    if created and instance.email:
-        if getattr(instance, '_welcome_email_sent', False):
-            return
-        instance._welcome_email_sent = True
 
-        raw_pwd = getattr(instance, '_raw_password', None) or 'apex123'
-        role = getattr(instance, 'role', 'STUDENT')
-        
-        # pyrefly: ignore [missing-import]
-        from django.conf import settings
-        frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
-        
-        stype = 'COURSE'
-        if hasattr(instance, 'student_profile') and instance.student_profile:
-            stype = getattr(instance.student_profile, 'student_type', 'COURSE')
-
-        if role == 'LIVE_STUDENT' or stype == 'LIVE_CLASS':
-            login_url = f"{frontend_base}/student/live-login"
-            role_label = 'LIVE_STUDENT'
-        elif role == 'STUDENT':
-            login_url = f"{frontend_base}/student/login"
-            role_label = 'STUDENT'
-        else:
-            login_url = f"{frontend_base}/staff/login"
-            role_label = role
-
-        try:
-            from apps.core.emails import send_welcome_email
-            send_welcome_email(
-                first_name=instance.first_name,
-                last_name=instance.last_name,
-                email=instance.email,
-                password=raw_pwd,
-                role=role_label,
-                login_url=login_url,
-            )
-        except Exception as err:
-            import logging
-            logging.getLogger(__name__).error(f"[User Signal] Failed to dispatch welcome email for {instance.email}: {err}")
 
 
