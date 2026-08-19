@@ -442,13 +442,14 @@ def _send_lms_email_sync(
             # pyrefly: ignore [missing-import]
             from django.conf import settings
             host_to_use = getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com') or 'smtp.gmail.com'
+            user_to_use = str(getattr(settings, 'EMAIL_HOST_USER', '') or sender_addr).strip()
             pass_to_use = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').replace(' ', '').strip()
             
             ssl_conn = get_connection(
                 backend='django.core.mail.backends.smtp.EmailBackend',
                 host=host_to_use,
                 port=465,
-                username=sender_addr,
+                username=user_to_use,
                 password=pass_to_use,
                 use_ssl=True,
                 use_tls=False,
