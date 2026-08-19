@@ -290,6 +290,7 @@ def get_smtp_connection_and_sender():
     smtp = _get_cached_smtp_settings()
 
     if smtp:
+        # pyrefly: ignore [missing-import]
         from django.conf import settings
         env_port = getattr(settings, 'EMAIL_PORT', None)
         env_use_ssl = getattr(settings, 'EMAIL_USE_SSL', None)
