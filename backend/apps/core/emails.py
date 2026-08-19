@@ -437,22 +437,29 @@ def _send_lms_email_sync(
         email_message.send(fail_silently=False)
         logger.info(f"[Email] Successfully sent email to {to_email}")
     except Exception as primary_exc:
-        logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Attempting fallback...")
-        fallback_conn, fallback_sender, fallback_addr = _get_env_fallback_connection()
-        if fallback_conn and fallback_conn != connection:
-            fb_reply_to = [reply_to] if reply_to else ([fallback_addr] if fallback_addr else None)
-            fallback_msg = EmailMultiAlternatives(
-                subject=subject,
-                body=text_body,
-                from_email=fallback_sender,
-                to=[to_email],
-                reply_to=fb_reply_to,
-                connection=fallback_conn,
+        logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Attempting Port 465 SSL fallback...")
+        try:
+            # pyrefly: ignore [missing-import]
+            from django.conf import settings
+            host_to_use = getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com') or 'smtp.gmail.com'
+            pass_to_use = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').replace(' ', '').strip()
+            
+            ssl_conn = get_connection(
+                backend='django.core.mail.backends.smtp.EmailBackend',
+                host=host_to_use,
+                port=465,
+                username=sender_addr,
+                password=pass_to_use,
+                use_ssl=True,
+                use_tls=False,
+                timeout=15,
             )
-            fallback_msg.attach_alternative(html_body, "text/html")
-            fallback_msg.send(fail_silently=False)
-            logger.info(f"[Email] Fallback email sent successfully to {to_email}")
-        else:
+            email_message.connection = ssl_conn
+            email_message.send(fail_silently=False)
+            logger.info(f"[Email] Successfully sent email to {to_email} via Port 465 SSL fallback!")
+            return
+        except Exception as ssl_exc:
+            logger.error(f"[Email] Port 465 SSL fallback failed for {to_email}: {ssl_exc}")
             raise primary_exc
 
 
