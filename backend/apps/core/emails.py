@@ -587,6 +587,7 @@ def _send_email_thread(
             to_email=email,
             subject=subject,
             text_body=body,
+            async_mode=False,
         )
 
     except Exception as exc:
@@ -720,6 +721,7 @@ def _send_live_class_email_thread(live_class_id: int):
                     to_email=student.email,
                     subject=subject,
                     text_body=body,
+                    async_mode=False,
                 )
             except Exception as e:
                 logger.error(f"[LiveClass Email] Failed to send email to {student.email}: {e}")
@@ -808,6 +810,7 @@ def _send_course_completion_email_thread(certificate_id: int):
             to_email=cert.student.email,
             subject=subject,
             text_body=body,
+            async_mode=False,
         )
         logger.info(f"[Course Completion Email] Successfully sent completion email to {cert.student.email} for Certificate {cert.certificate_code}")
 
