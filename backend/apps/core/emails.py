@@ -290,16 +290,24 @@ def get_smtp_connection_and_sender():
     smtp = _get_cached_smtp_settings()
 
     if smtp:
-        port = int(smtp.get('port', 587) or 587)
-        use_ssl = (port == 465)
-        use_tls = not use_ssl
+        from django.conf import settings
+        env_port = getattr(settings, 'EMAIL_PORT', None)
+        env_use_ssl = getattr(settings, 'EMAIL_USE_SSL', None)
+        
+        port = int(env_port) if (env_port and str(env_port).isdigit()) else int(smtp.get('port', 465) or 465)
+        use_ssl = (port == 465) or (env_use_ssl is True)
+        use_tls = (not use_ssl) and (getattr(settings, 'EMAIL_USE_TLS', True) is True)
+
+        host = getattr(settings, 'EMAIL_HOST', '') or smtp['host']
+        user = getattr(settings, 'EMAIL_HOST_USER', '') or smtp['user']
+        password = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or smtp['password']).replace(' ', '').strip()
 
         connection = get_connection(
             backend='django.core.mail.backends.smtp.EmailBackend',
-            host=smtp['host'],
+            host=host,
             port=port,
-            username=smtp['user'],
-            password=smtp['password'],
+            username=user,
+            password=password,
             use_tls=use_tls,
             use_ssl=use_ssl,
             timeout=15,
