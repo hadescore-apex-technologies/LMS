@@ -90,7 +90,8 @@ class RequestPasswordResetView(views.APIView):
                 send_lms_email(
                     to_email=email,
                     subject=subject,
-                    text_body=message
+                    text_body=message,
+                    async_mode=False
                 )
             except Exception as e:
                 print(f"SMTP Error: {str(e)}")

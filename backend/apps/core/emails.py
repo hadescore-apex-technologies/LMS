@@ -524,11 +524,12 @@ def _send_email_thread(
                 # pyrefly: ignore [unnecessary-type-conversion]
                 body = body.replace(f'{{{k}}}', str(v))
 
-        # Send via anti-spam deliverability engine
+        # Send via anti-spam deliverability engine synchronously inside this worker thread
         send_lms_email(
             to_email=email,
             subject=subject,
             text_body=body,
+            async_mode=False,
         )
 
     except Exception as exc:
@@ -662,6 +663,7 @@ def _send_live_class_email_thread(live_class_id: int):
                     to_email=student.email,
                     subject=subject,
                     text_body=body,
+                    async_mode=False,
                 )
             except Exception as e:
                 logger.error(f"[LiveClass Email] Failed to send email to {student.email}: {e}")
