@@ -1,8 +1,11 @@
+# pyrefly: ignore [missing-import]
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from apps.authentication.serializers import CustomTokenObtainPairSerializer
+# pyrefly: ignore [missing-import]
 from rest_framework import views, status, response
 from apps.core.permissions import IsSuperAdmin
 from apps.core.models import AuditLog, PlatformSettings
+# pyrefly: ignore [missing-import]
 from django.utils import timezone
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -28,6 +31,7 @@ class RevokeAllSessionsView(views.APIView):
 
 
 import random
+# pyrefly: ignore [missing-import]
 from django.core.mail import send_mail
 from apps.users.models import CustomUser, PasswordResetOTP
 
@@ -79,6 +83,7 @@ class RequestPasswordResetView(views.APIView):
         )
         
         def _send_otp_task():
+            # pyrefly: ignore [missing-import]
             from django.db import connections
             connections.close_all()
             try:
