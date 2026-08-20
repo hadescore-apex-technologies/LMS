@@ -288,20 +288,14 @@ def get_smtp_connection_and_sender():
     """
     from email.utils import parseaddr
     smtp = _get_cached_smtp_settings()
-
-    if smtp:
-        # pyrefly: ignore [missing-import]
-        from django.conf import settings
-        env_port = getattr(settings, 'EMAIL_PORT', None)
-        env_use_ssl = getattr(settings, 'EMAIL_USE_SSL', None)
-        
-        port = int(env_port) if (env_port and str(env_port).isdigit()) else int(smtp.get('port', 465) or 465)
-        use_ssl = (port == 465) or (env_use_ssl is True)
-        use_tls = (not use_ssl) and (getattr(settings, 'EMAIL_USE_TLS', True) is True)
-
-        host = getattr(settings, 'EMAIL_HOST', '') or smtp['host']
-        user = getattr(settings, 'EMAIL_HOST_USER', '') or smtp['user']
-        password = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or smtp['password']).replace(' ', '').strip()
+    if smtp and smtp.get('host') and smtp.get('user') and smtp.get('password'):
+        # Use DB dynamic settings cohesively
+        host = smtp['host']
+        user = smtp['user']
+        password = str(smtp['password']).replace(' ', '').strip()
+        port = int(smtp.get('port', 465) or 465)
+        use_ssl = (port == 465) or ('gmail' in host.lower() and port != 587)
+        use_tls = (not use_ssl)
 
         connection = get_connection(
             backend='django.core.mail.backends.smtp.EmailBackend',
@@ -314,12 +308,12 @@ def get_smtp_connection_and_sender():
             timeout=15,
         )
 
-        from_email = str(smtp['from_email'])
+        from_email = str(smtp.get('from_email') or '')
         display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
         
         # Anti-Spam Check: Ensure From domain aligns with authenticated SMTP user
         if not email_addr or '@' not in email_addr:
-            email_addr = str(smtp['user'])
+            email_addr = str(user)
         if not display_name:
             display_name = 'Apex LMS'
 
