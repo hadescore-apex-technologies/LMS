@@ -245,7 +245,7 @@ _default_cors_origins = [
     "https://www.hadescoretech.com",
     "https://apex-lms.hadescore.com",
     "https://www.apex-lms.hadescore.com",
-    "https://lms-7ev4.onrender.com",
+    "https://lms-production-0ace.up.railway.app",
     # Local development
     "http://localhost:5173",
     "http://localhost:5174",
@@ -297,7 +297,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.hadescoretech.com",
     "https://apex-lms.hadescore.com",
     "https://www.apex-lms.hadescore.com",
-    "https://lms-7ev4.onrender.com",
+    "https://lms-production-0ace.up.railway.app",
 ]
 _env_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 if _env_csrf:
