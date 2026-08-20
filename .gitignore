@@ -85,3 +85,6 @@ Thumbs.db
 *.rar
 *.7z
 
+# AI Agent working files (auto-generated, not part of the project)
+brain/
+.agents/
