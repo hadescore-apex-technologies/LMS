@@ -168,39 +168,41 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
       portalLabel: "ADMIN",
       portalFull: "Administrator Access",
       icon: Shield,
-      bgGradient: "from-purple-50 via-violet-100/70 to-fuchsia-50",
-      gradient: "from-violet-600 via-purple-600 to-fuchsia-600",
-      btnGradient: "from-violet-600 via-purple-600 to-fuchsia-600",
-      hoverShadow: "hover:shadow-[0_10px_35px_rgba(139,92,246,0.35)]",
-      accentColor: "text-violet-600",
-      badgeBg: "bg-violet-100 border-violet-200 text-violet-700 font-bold",
-      inputFocus: "focus:border-violet-500 focus:ring-violet-500/15",
-      aurora1: "rgba(139, 92, 246, 0.22)",
-      aurora2: "rgba(192, 132, 252, 0.18)",
-      aurora3: "rgba(232, 121, 249, 0.20)",
-      ringColor: "rgba(139,92,246,1)",
-      glowColor: "rgba(139,92,246,0.25)",
-      orb1: "bg-violet-300/50",
-      orb2: "bg-fuchsia-300/40"
+      isDark: true,
+      bgGradient: "from-[#050a0e] via-[#081318] to-[#04080b]",
+      gradient: "from-emerald-500 via-teal-400 to-emerald-500",
+      btnGradient: "from-emerald-600 via-teal-500 to-emerald-600",
+      hoverShadow: "hover:shadow-[0_10px_35px_rgba(16,185,129,0.45)]",
+      accentColor: "text-emerald-400",
+      badgeBg: "bg-emerald-500/15 border-emerald-500/35 text-emerald-300 font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.2)]",
+      inputFocus: "focus:border-emerald-400 focus:ring-emerald-500/20",
+      aurora1: "rgba(16, 185, 129, 0.40)",
+      aurora2: "rgba(45, 212, 191, 0.28)",
+      aurora3: "rgba(5, 150, 105, 0.22)",
+      ringColor: "rgba(16,185,129,1)",
+      glowColor: "rgba(16,185,129,0.40)",
+      orb1: "bg-emerald-500/25",
+      orb2: "bg-teal-500/20"
     },
     STAFF: {
       portalLabel: "MENTOR",
       portalFull: "Mentor Access",
       icon: Briefcase,
-      bgGradient: "from-emerald-50 via-teal-100/70 to-cyan-50",
-      gradient: "from-emerald-600 via-teal-600 to-cyan-600",
-      btnGradient: "from-emerald-600 via-teal-600 to-cyan-600",
-      hoverShadow: "hover:shadow-[0_10px_35px_rgba(20,184,166,0.35)]",
-      accentColor: "text-teal-600",
-      badgeBg: "bg-teal-100 border-teal-200 text-teal-700 font-bold",
-      inputFocus: "focus:border-teal-500 focus:ring-teal-500/15",
-      aurora1: "rgba(20, 184, 166, 0.22)",
-      aurora2: "rgba(52, 211, 153, 0.18)",
-      aurora3: "rgba(6, 182, 212, 0.20)",
-      ringColor: "rgba(20,184,166,1)",
-      glowColor: "rgba(20,184,166,0.25)",
-      orb1: "bg-teal-300/50",
-      orb2: "bg-emerald-300/40"
+      isDark: true,
+      bgGradient: "from-[#050a0e] via-[#081318] to-[#04080b]",
+      gradient: "from-emerald-400 via-teal-300 to-emerald-400",
+      btnGradient: "from-emerald-500 via-teal-500 to-emerald-600",
+      hoverShadow: "hover:shadow-[0_10px_35px_rgba(16,185,129,0.45)]",
+      accentColor: "text-emerald-400",
+      badgeBg: "bg-emerald-500/15 border-emerald-500/35 text-emerald-300 font-extrabold shadow-[0_0_15px_rgba(16,185,129,0.2)]",
+      inputFocus: "focus:border-emerald-400 focus:ring-emerald-500/20",
+      aurora1: "rgba(16, 185, 129, 0.40)",
+      aurora2: "rgba(45, 212, 191, 0.30)",
+      aurora3: "rgba(5, 150, 105, 0.25)",
+      ringColor: "rgba(16,185,129,1)",
+      glowColor: "rgba(16,185,129,0.45)",
+      orb1: "bg-emerald-500/25",
+      orb2: "bg-teal-500/20"
     },
     STUDENT: isStudentLiveMode ? {
       portalLabel: "LIVE STUDENT",
@@ -327,13 +329,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
 
   // ── Styles ──────────────────────────────────────────────────────────────
   const isDark = Boolean((roleConfig as any).isDark);
-  const inputCls = isDark
-    ? `w-full h-[50px] pl-12 pr-4 bg-slate-900/90 border border-emerald-500/30 rounded-2xl outline-none text-[13px] text-white font-semibold placeholder:text-slate-500 transition-all duration-300 focus:ring-4 focus:bg-slate-950/95 backdrop-blur-md ${roleConfig.inputFocus}`
-    : `w-full h-[50px] pl-12 pr-4 bg-slate-100/80 border border-slate-200/90 rounded-2xl outline-none text-[13px] text-slate-800 font-semibold placeholder:text-slate-400 transition-all duration-300 focus:ring-4 focus:bg-white backdrop-blur-sm ${roleConfig.inputFocus}`;
+  const inputCls = `w-full h-[50px] pl-12 pr-4 bg-slate-900/90 border border-emerald-500/30 rounded-2xl outline-none text-[13px] text-white font-semibold placeholder:text-slate-500 transition-all duration-300 focus:ring-4 focus:bg-slate-950/95 backdrop-blur-md ${roleConfig.inputFocus}`;
 
-  const inputClsR = isDark
-    ? `w-full h-[50px] pl-12 pr-12 bg-slate-900/90 border border-emerald-500/30 rounded-2xl outline-none text-[13px] text-white font-semibold placeholder:text-slate-500 transition-all duration-300 focus:ring-4 focus:bg-slate-950/95 backdrop-blur-md ${roleConfig.inputFocus}`
-    : `w-full h-[50px] pl-12 pr-12 bg-slate-100/80 border border-slate-200/90 rounded-2xl outline-none text-[13px] text-slate-800 font-semibold placeholder:text-slate-400 transition-all duration-300 focus:ring-4 focus:bg-white backdrop-blur-sm ${roleConfig.inputFocus}`;
+  const inputClsR = `w-full h-[50px] pl-12 pr-12 bg-slate-900/90 border border-emerald-500/30 rounded-2xl outline-none text-[13px] text-white font-semibold placeholder:text-slate-500 transition-all duration-300 focus:ring-4 focus:bg-slate-950/95 backdrop-blur-md ${roleConfig.inputFocus}`;
 
   return (
     <div
@@ -609,7 +607,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                     {loading ? <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span className="relative">Send Code</span><ChevronRight size={15} className="relative" /></>}
                   </motion.button>
                   <button type="button" onClick={() => setView('LOGIN')}
-                    className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors py-1">
+                    className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400 hover:text-emerald-400 transition-colors py-1">
                     <ArrowLeft size={12} /> Back to Sign In
                   </button>
                 </motion.form>
@@ -684,7 +682,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ role, mode }) => {
                     {loading ? <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span className="relative">Reset Password</span><ChevronRight size={15} className="relative" /></>}
                   </motion.button>
                   <button type="button" onClick={() => setView('LOGIN')}
-                    className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors py-1">
+                    className={`w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold transition-colors py-1 ${isDark ? 'text-slate-400 hover:text-emerald-400' : 'text-slate-500 hover:text-slate-800'}`}>
                     <ArrowLeft size={12} /> Cancel & Return
                   </button>
                 </motion.form>
