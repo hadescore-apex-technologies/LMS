@@ -137,14 +137,24 @@ class ResetPasswordView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Find the latest OTP for this user
-        latest_otp = PasswordResetOTP.objects.filter(user=user, otp=otp, is_used=False).order_by('-created_at').first()
+        # Find the latest active OTP for this user
+        latest_active_otp = PasswordResetOTP.objects.filter(user=user, is_used=False).order_by('-created_at').first()
 
-        if not latest_otp or not latest_otp.is_valid():
+        if not latest_active_otp or not latest_active_otp.is_valid() or latest_active_otp.otp != otp:
+            if latest_active_otp and latest_active_otp.is_valid():
+                latest_active_otp.increment_attempt()
+                remaining = max(0, latest_active_otp.MAX_ATTEMPTS - latest_active_otp.attempt_count)
+                if remaining == 0:
+                    return response.Response(
+                        {"detail": "Too many failed attempts. This code has expired. Please request a new one."}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
             return response.Response(
                 {"detail": "Invalid or expired verification code."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        latest_otp = latest_active_otp
 
         # Update password
         user.set_password(new_password)

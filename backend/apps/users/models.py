@@ -1,6 +1,8 @@
 # pyrefly: ignore [missing-import]
 from django.db import models
 # pyrefly: ignore [missing-import]
+from django.utils import timezone
+# pyrefly: ignore [missing-import]
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
 class CustomUserManager(BaseUserManager):
@@ -88,6 +90,9 @@ class StudentProfile(models.Model):
         limit_choices_to={'role': 'STAFF'}
     )
 
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
     def __str__(self):
         return f"Student: {self.user.email}"
 
@@ -110,42 +115,67 @@ class StudentAttendance(models.Model):
         ('ABSENT', 'Absent'),
         ('LATE', 'Late'),
     )
+    SESSION_TYPE_CHOICES = (
+        ('COURSE', 'Course Session'),
+        ('LIVE_CLASS', 'Live Class Session'),
+    )
     student = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='attendance_records')
     # pyrefly: ignore [implicit-import]
     date = models.DateField(default=models.functions.Now)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PRESENT')
+    session_type = models.CharField(max_length=20, choices=SESSION_TYPE_CHOICES, default='COURSE')
     first_login = models.TimeField(null=True, blank=True)
 
     class Meta:
-        unique_together = ('student', 'date')
+        unique_together = ('student', 'date', 'session_type')
 
     def __str__(self):
-        return f"{self.student.email} - {self.date} ({self.status})"
+        return f"{self.student.email} - {self.date} [{self.session_type}] ({self.status})"
 
 class LoginHistory(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='login_history')
     timestamp = models.DateTimeField(auto_now_add=True)
+    logout_time = models.DateTimeField(null=True, blank=True)  # Tracked on logout
     ip_address = models.GenericIPAddressField(blank=True, null=True)
     user_agent = models.TextField(blank=True, null=True)
 
     class Meta:
         ordering = ['-timestamp']
 
+    @property
+    def session_duration(self):
+        """Returns session duration as a timedelta, or None if still active."""
+        if self.logout_time and self.timestamp:
+            return self.logout_time - self.timestamp
+        return None
+
     def __str__(self):
         return f"{self.user.email} logged in at {self.timestamp}"
 
 
 class PasswordResetOTP(models.Model):
+    MAX_ATTEMPTS = 5  # Brute-force protection
+
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='password_reset_otps')
     otp = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
+    attempt_count = models.PositiveSmallIntegerField(default=0)  # Track failed attempts
 
     def is_valid(self):
         # pyrefly: ignore [missing-import]
         from django.utils import timezone
         from datetime import timedelta
-        return not self.is_used and self.created_at >= timezone.now() - timedelta(minutes=10)
+        return (
+            not self.is_used
+            and self.attempt_count < self.MAX_ATTEMPTS
+            and self.created_at >= timezone.now() - timedelta(minutes=10)
+        )
+
+    def increment_attempt(self):
+        """Call this on every failed OTP verification attempt."""
+        self.attempt_count += 1
+        self.save(update_fields=['attempt_count'])
 
 
 
