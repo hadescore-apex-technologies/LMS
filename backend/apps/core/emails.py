@@ -151,9 +151,15 @@ def convert_text_to_html(body_text: str, subject: str = "Notification", brand_na
 
     html_paragraphs = []
     for para in paragraphs:
-        para_html = para.replace('\n', '<br>')
-        para_html = url_pattern.sub(r'<a href="\1" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: underline;">\1</a>', para_html)
-        html_paragraphs.append(f'<p style="margin-top: 0; margin-bottom: 14px; font-size: 15px; line-height: 1.6; color: #334155;">{para_html}</p>')
+        # Check if line looks like a header section
+        if para.isupper() and len(para) < 40:
+            html_paragraphs.append(f'<h3 style="margin-top: 20px; margin-bottom: 8px; font-size: 14px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em;">{para}</h3>')
+        elif '--------------------' in para:
+            html_paragraphs.append('<hr style="border: none; border-top: 1px solid #e2e8f0; margin: 12px 0 16px 0;" />')
+        else:
+            para_html = para.replace('\n', '<br>')
+            para_html = url_pattern.sub(r'<a href="\1" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: underline; word-break: break-all;">\1</a>', para_html)
+            html_paragraphs.append(f'<p style="margin-top: 0; margin-bottom: 14px; font-size: 15px; line-height: 1.65; color: #334155;">{para_html}</p>')
 
     paragraphs_joined = "\n".join(html_paragraphs)
 
@@ -164,10 +170,34 @@ def convert_text_to_html(body_text: str, subject: str = "Notification", brand_na
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{subject}</title>
 </head>
-<body style="margin: 0; padding: 0; width: 100%; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; line-height: 1.6;">
-  <div style="max-width: 580px; margin: 0 auto; padding: 24px;">
-    {paragraphs_joined}
-  </div>
+<body style="margin: 0; padding: 0; width: 100%; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; overflow: hidden; text-align: left;">
+          <!-- Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 24px 32px; border-bottom: 3px solid #3b82f6;">
+              <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #ffffff; letter-spacing: -0.02em;">Apex LMS</h1>
+              <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8;">Hadescore Apex Technologies</p>
+            </td>
+          </tr>
+          <!-- Body Content -->
+          <tr>
+            <td style="padding: 32px; font-size: 15px; line-height: 1.65; color: #334155;">
+              {paragraphs_joined}
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 32px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; text-align: center;">
+              This is an automated message from <strong>Apex LMS</strong>. Please do not reply directly if unattended.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>"""
     return html_template
