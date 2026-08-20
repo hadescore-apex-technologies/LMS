@@ -9,7 +9,9 @@ import time
 import hashlib
 import threading
 from collections import defaultdict
+# pyrefly: ignore [missing-import]
 from django.http import JsonResponse
+# pyrefly: ignore [missing-import]
 from django.conf import settings
 
 # -- In-memory rate-limit store

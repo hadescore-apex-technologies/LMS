@@ -294,6 +294,7 @@ def get_smtp_connection_and_sender():
         user = smtp['user']
         password = str(smtp['password']).replace(' ', '').strip()
         port = int(smtp.get('port', 465) or 465)
+        # pyrefly: ignore [missing-attribute]
         use_ssl = (port == 465) or ('gmail' in host.lower() and port != 587)
         use_tls = (not use_ssl)
 
