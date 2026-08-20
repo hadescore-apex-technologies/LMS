@@ -747,6 +747,7 @@ def _send_course_completion_email_thread(certificate_id: int):
             to_email=cert.student.email,
             subject=subject,
             text_body=body,
+            async_mode=False,
         )
         logger.info(f"[Course Completion Email] Successfully sent completion email to {cert.student.email} for Certificate {cert.certificate_code}")
 
