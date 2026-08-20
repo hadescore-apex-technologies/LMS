@@ -26,7 +26,7 @@ const DashboardLayout: React.FC = () => {
     <div className={`min-h-screen transition-colors duration-300 overflow-x-hidden relative ${
       isStudent 
         ? 'student-ambient-bg text-slate-100 dark' 
-        : 'bg-slate-50 text-slate-900'
+        : 'admin-ambient-bg text-slate-100 dark'
     }`}>
 
       {/* Student Cyber Glass Sidebar */}

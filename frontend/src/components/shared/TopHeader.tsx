@@ -52,12 +52,12 @@ const TopHeader: React.FC<TopHeaderProps> = ({ sidebarOpen, setSidebarOpen }) =>
   const isStudentLive = localStorage.getItem('studentLiveMode') === 'true';
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/90 bg-white/95 backdrop-blur-xl px-4 sm:px-6 shadow-xs text-slate-800">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between admin-glass-header px-4 sm:px-6 text-slate-200">
       {/* Left side: Toggle Button for Staff & Admin */}
       <div className="flex items-center gap-4">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="rounded-xl p-2 hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
+          className="rounded-xl p-2 hover:bg-white/10 text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer"
           title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
           <Menu size={20} />
@@ -73,22 +73,22 @@ const TopHeader: React.FC<TopHeaderProps> = ({ sidebarOpen, setSidebarOpen }) =>
         <div className="relative">
           <button
             onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-            className="flex items-center gap-2.5 p-1.5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-cyan-400 hover:shadow-xs transition-all duration-200 group cursor-pointer text-slate-800"
+            className="flex items-center gap-2.5 p-1.5 rounded-2xl border border-emerald-500/30 bg-slate-950/80 hover:bg-slate-900/80 hover:border-emerald-400/50 hover:shadow-[0_0_12px_rgba(16,185,129,0.2)] transition-all duration-200 group cursor-pointer text-slate-200"
           >
             <div className="relative">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white font-black text-xs shadow-sm border border-cyan-400/40 group-hover:scale-105 transition-transform">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-xs shadow-sm border border-emerald-400/40 group-hover:scale-105 transition-transform">
                 {getInitials(user?.first_name ? `${user.first_name} ${user.last_name || ''}` : '', 'A')}
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-slate-950 shadow-[0_0_6px_#34d399]" />
             </div>
 
             <div className="hidden text-left sm:block max-w-[130px] overflow-hidden">
-              <p className="text-xs font-black text-slate-800 truncate group-hover:text-cyan-600 transition-colors leading-tight">
+              <p className="text-xs font-black text-slate-200 truncate group-hover:text-emerald-400 transition-colors leading-tight">
                 {user?.first_name || 'Admin'}
               </p>
             </div>
 
-            <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${profileDropdownOpen ? 'rotate-180 text-cyan-600' : ''}`} />
+            <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${profileDropdownOpen ? 'rotate-180 text-emerald-400' : ''}`} />
           </button>
 
           {/* Profile Dropdown Menu */}
@@ -99,19 +99,19 @@ const TopHeader: React.FC<TopHeaderProps> = ({ sidebarOpen, setSidebarOpen }) =>
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.95 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="absolute right-0 mt-2 w-64 rounded-2xl bg-white border border-slate-200 shadow-xl shadow-slate-200/50 p-2 z-50 overflow-hidden text-slate-800"
+                className="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-950 border border-emerald-500/30 shadow-xl shadow-black/50 p-2 z-50 overflow-hidden text-slate-200"
               >
                 {/* Header Summary inside dropdown */}
-                <div className="p-3 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border border-slate-800 rounded-xl text-white mb-2 shadow-sm">
+                <div className="p-3 bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border border-emerald-500/25 rounded-xl text-white mb-2 shadow-sm">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500 text-white font-black text-sm border border-cyan-400">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white font-black text-sm border border-emerald-400">
                       {getInitials(user?.first_name ? `${user.first_name} ${user.last_name || ''}` : '', 'A')}
                     </div>
                     <div className="overflow-hidden min-w-0">
                       <h4 className="font-extrabold text-xs text-white truncate">
                         {user?.first_name ? `${user.first_name} ${user.last_name || ''}` : 'Administrator'}
                       </h4>
-                      <p className="text-[10px] text-cyan-300 font-mono truncate">{user?.email}</p>
+                      <p className="text-[10px] text-emerald-300 font-mono truncate">{user?.email}</p>
                     </div>
                   </div>
                 </div>
@@ -121,17 +121,17 @@ const TopHeader: React.FC<TopHeaderProps> = ({ sidebarOpen, setSidebarOpen }) =>
                   <Link
                     to={getProfilePath()}
                     onClick={() => setProfileDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-cyan-50 hover:text-cyan-700 rounded-xl transition-colors"
+                    className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-emerald-500/15 hover:text-emerald-400 rounded-xl transition-colors"
                   >
                     <User size={14} className="text-slate-400" />
                     <span>My Profile</span>
                   </Link>
 
-                  <div className="h-px bg-slate-100 my-1" />
+                  <div className="h-px bg-emerald-500/15 my-1" />
 
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer text-left"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/15 rounded-xl transition-colors cursor-pointer text-left"
                   >
                     <LogOut size={14} />
                     <span>Sign Out</span>

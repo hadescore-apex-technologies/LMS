@@ -216,11 +216,11 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'SUPER_ADMIN':
-        return 'bg-cyan-50 text-cyan-700 border border-cyan-200/80 font-bold';
+        return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold';
       case 'STAFF':
-        return 'bg-teal-50 text-teal-700 border border-teal-200/80 font-bold';
+        return 'bg-teal-500/15 text-teal-400 border border-teal-500/30 font-bold';
       default:
-        return 'bg-sky-50 text-sky-700 border border-sky-200/80 font-bold';
+        return 'bg-sky-500/15 text-sky-400 border border-sky-500/30 font-bold';
     }
   };
 
@@ -235,46 +235,47 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       {/* Mobile Drawer Backdrop */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-slate-900/60 lg:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-md lg:hidden transition-opacity"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar container */}
+      {/* Sidebar container — Dark Emerald Glass */}
       <aside className={`
         fixed bottom-0 top-0 left-0 z-50 flex w-72 flex-col
-        bg-white border-r border-slate-200/80 shadow-sm transition-transform duration-300 ease-in-out
+        admin-glass-sidebar transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Header - Centered Logo & 3-Line Branding */}
-        <div className="relative flex flex-col items-center justify-center text-center pt-5 pb-4 px-4 border-b border-slate-200/90 bg-slate-50/70">
+        <div className="relative flex flex-col items-center justify-center text-center pt-5 pb-4 px-4 border-b border-emerald-500/20">
           <button 
             onClick={() => setSidebarOpen(false)}
-            className="absolute top-3 right-3 rounded-lg p-1.5 hover:bg-slate-200/60 text-slate-500 lg:hidden"
+            className="absolute top-3 right-3 rounded-lg p-1.5 hover:bg-white/10 text-slate-400 hover:text-white lg:hidden"
           >
             <X size={18} />
           </button>
 
-          {/* Logo Emblem */}
+          {/* Logo Emblem with Emerald Glow */}
           <div className="relative flex items-center justify-center h-16 w-16 mb-2">
+            <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl animate-pulse" />
             <img 
               src="/logo.png" 
               alt="Hadescore Apex Logo" 
-              className="h-14 w-14 object-contain drop-shadow-[0_4px_12px_rgba(6,182,212,0.35)] hover:scale-105 transition-transform"
+              className="h-14 w-14 object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.85)] relative z-10 hover:scale-105 transition-transform"
             />
           </div>
 
-          {/* Typography from Image */}
+          {/* Typography — White/Emerald on Dark */}
           <div className="space-y-0.5">
-            <h2 className="font-display font-black text-sm tracking-wider uppercase text-slate-900 leading-tight">
+            <h2 className="font-display font-black text-sm tracking-wider uppercase text-white leading-tight">
               HADESCORE
             </h2>
-            <div className="flex items-center justify-center gap-2 text-cyan-600 font-black text-[11px] tracking-widest uppercase">
-              <span className="w-3.5 h-px bg-cyan-600/60" />
+            <div className="flex items-center justify-center gap-2 text-emerald-400 font-black text-[11px] tracking-widest uppercase">
+              <span className="w-3.5 h-px bg-emerald-400/60" />
               <span>APEX</span>
-              <span className="w-3.5 h-px bg-cyan-600/60" />
+              <span className="w-3.5 h-px bg-emerald-400/60" />
             </div>
-            <span className="text-[8.5px] text-cyan-600 font-black uppercase tracking-[0.2em] block pt-0.5">
+            <span className="text-[8.5px] text-emerald-400/90 font-black uppercase tracking-[0.2em] block pt-0.5">
               &amp; TECHNOLOGIES
             </span>
           </div>
@@ -297,16 +298,16 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                   }
                 }}
                 className={`
-                  flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group relative
+                  flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all duration-200 group relative
                   ${active 
-                    ? 'bg-cyan-600 text-white shadow-md shadow-cyan-500/25 font-bold scale-[1.01]' 
-                    : 'text-slate-600 hover:bg-cyan-50/70 hover:text-cyan-700'}
+                    ? 'admin-active-nav font-extrabold text-emerald-300' 
+                    : 'text-slate-300 hover:text-white hover:bg-slate-900/60 hover:border hover:border-emerald-500/30'}
                 `}
               >
-                <Icon size={17} className={`${active ? 'text-white' : 'text-slate-400 group-hover:text-cyan-600'}`} />
+                <Icon size={17} className={`transition-transform duration-200 group-hover:scale-110 ${active ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'text-slate-400'}`} />
                 <span>{item.label}</span>
                 {active && (
-                  <span className="absolute right-2.5 h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                  <span className="absolute right-2.5 h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
                 )}
               </Link>
             );
@@ -314,14 +315,14 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
         </nav>
 
         {/* Footer actions */}
-        <div className="p-4 border-t border-slate-200/80 bg-slate-50/40 space-y-2">
+        <div className="p-4 border-t border-emerald-500/20 space-y-2">
           {user?.role === 'SUPER_ADMIN' && (
             <button
               onClick={toggleLiveClassMode}
               className={`flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm ${
                 isLiveClassMode 
-                  ? 'text-white bg-violet-600 hover:bg-violet-700 shadow-violet-500/25' 
-                  : 'text-violet-600 bg-violet-50 border border-violet-200/60 hover:bg-violet-100/80'
+                  ? 'text-white bg-violet-600 hover:bg-violet-700 shadow-violet-500/25 border border-violet-500/40' 
+                  : 'text-violet-300 bg-violet-500/15 border border-violet-500/30 hover:bg-violet-500/25'
               }`}
             >
               <Video size={15} />
@@ -330,7 +331,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
           )}
           <button
             onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100/80 border border-rose-200/60 transition-all active:scale-95 shadow-sm"
+            className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-red-500/20 hover:border-red-500/40 border border-transparent transition-all active:scale-95"
           >
             <LogOut size={15} />
             <span>Sign Out</span>

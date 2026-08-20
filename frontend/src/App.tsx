@@ -32,11 +32,11 @@ function App() {
             toastOptions={{
               duration: 4000,
               style: {
-                background: '#ffffff',
-                color: '#1e293b',
-                border: '1px solid rgba(0,0,0,0.08)',
+                background: '#0c1520',
+                color: '#e2e8f0',
+                border: '1px solid rgba(52, 211, 153, 0.2)',
                 borderRadius: '0.75rem',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4), 0 0 12px rgba(16,185,129,0.08)',
               }
             }}
           />
