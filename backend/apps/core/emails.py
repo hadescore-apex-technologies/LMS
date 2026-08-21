@@ -324,6 +324,11 @@ def get_smtp_connection_and_sender():
     return _get_env_fallback_connection()
 
 
+from concurrent.futures import ThreadPoolExecutor
+
+_email_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix='apex_email_worker')
+
+
 def send_lms_email(
     to_email: str,
     subject: str,
@@ -334,17 +339,13 @@ def send_lms_email(
 ):
     """
     Unified anti-spam transactional email sender.
-    Sends high-deliverability dual-part (plain-text + clean HTML) emails.
-    Avoids bot headers so emails land directly in the user's primary inbox.
+    Dispatches to persistent background ThreadPoolExecutor when async_mode=True.
     """
     if async_mode:
-        import threading
-        thread = threading.Thread(
-            target=_send_lms_email_sync,
-            args=(to_email, subject, text_body, html_body, reply_to)
+        _email_executor.submit(
+            _send_lms_email_sync,
+            to_email, subject, text_body, html_body, reply_to
         )
-        thread.daemon = True
-        thread.start()
         return
 
     _send_lms_email_sync(to_email, subject, text_body, html_body, reply_to)
@@ -545,17 +546,15 @@ def send_welcome_email(
 ):
     """
     Send the welcome email to a newly created user (student or staff).
-    Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
+    Returns INSTANTLY — processed via dedicated background worker pool.
     """
     if not login_url:
         login_url = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com/student/login')
 
-    thread = threading.Thread(
-        target=_send_email_thread,
-        args=(first_name, last_name, email, password, role, login_url),
-        daemon=True,
+    _email_executor.submit(
+        _send_email_thread,
+        first_name, last_name, email, password, role, login_url
     )
-    thread.start()
 
 
 def _send_live_class_email_thread(live_class_id: int):
@@ -666,14 +665,9 @@ def _send_live_class_email_thread(live_class_id: int):
 def send_live_class_email(live_class_id: int):
     """
     Send SMTP email notifications to assigned students for a Live Class.
-    Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
+    Returns INSTANTLY — processed via dedicated background worker pool.
     """
-    thread = threading.Thread(
-        target=_send_live_class_email_thread,
-        args=(live_class_id,),
-        daemon=True,
-    )
-    thread.start()
+    _email_executor.submit(_send_live_class_email_thread, live_class_id)
 
 
 def _send_course_completion_email_thread(certificate_id: int):
@@ -705,7 +699,7 @@ def _send_course_completion_email_thread(certificate_id: int):
         certificate_url = cert.file_url or "https://lms.hadescoretech.com/student"
         completion_date = cert.issued_at.strftime("%b %d, %Y") if cert.issued_at else time.strftime("%b %d, %Y")
 
-        base_frontend = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        base_frontend = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com')
         if not base_frontend.endswith('/'):
             base_frontend += '/'
         login_url = f"{base_frontend}student/login"
@@ -754,13 +748,8 @@ def _send_course_completion_email_thread(certificate_id: int):
 def send_course_completion_email(certificate_id: int):
     """
     Triggers SMTP email notifications to a student upon course completion / certificate issuance.
-    Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
+    Returns INSTANTLY — processed via dedicated background worker pool.
     """
-    thread = threading.Thread(
-        target=_send_course_completion_email_thread,
-        args=(certificate_id,),
-        daemon=True,
-    )
-    thread.start()
+    _email_executor.submit(_send_course_completion_email_thread, certificate_id)
 
 
