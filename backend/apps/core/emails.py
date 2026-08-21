@@ -331,10 +331,14 @@ def send_lms_email(
     Dispatches to persistent background ThreadPoolExecutor when async_mode=True.
     """
 def _safe_async_send_worker(to_email: str, subject: str, text_body: str, html_body: str | None = None, reply_to: str | None = None):
+    # Close any stale connections for multi-threaded Gunicorn environment
+    from django.db import connections
+    connections.close_all()
     try:
+        logger.info(f"[Email Worker] Starting background send to {to_email} (Subject: '{subject}')")
         _send_lms_email_sync(to_email, subject, text_body, html_body, reply_to)
     except Exception as exc:
-        logger.error(f"[Email] Failed background email dispatch to {to_email}: {exc}", exc_info=True)
+        logger.error(f"[Email Worker] Failed background email dispatch to {to_email}: {exc}", exc_info=True)
 
 
 def send_lms_email(
@@ -466,6 +470,9 @@ def _get_cached_templates(role: str):
     if cached and now < cached['expires_at']:
         return cached['subject'], cached['body']
 
+    # pyrefly: ignore [missing-import]
+    from django.db import connections
+    connections.close_all()
     from apps.core.models import PlatformSettings
 
     keys_to_check = [f"welcome_email_{raw_role}_subject", f"welcome_email_{raw_role}_body"]
