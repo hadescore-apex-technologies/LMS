@@ -14,10 +14,21 @@ PERFORMANCE:
 - API response returns instantly — zero blocking.
 """
 import logging
+import socket
 import threading
 import time
 from email.utils import formataddr
 from typing import Any
+
+# Force IPv4 socket resolution on Linux/Render containers to eliminate [Errno 101] Network is unreachable
+_orig_getaddrinfo = socket.getaddrinfo
+
+def _smtp_ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    if host and ('gmail' in str(host).lower() or 'smtp' in str(host).lower()):
+        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    return _orig_getaddrinfo(host, port, family, type, proto, flags)
+
+socket.getaddrinfo = _smtp_ipv4_getaddrinfo
 
 # pyrefly: ignore [missing-import]
 from django.conf import settings
