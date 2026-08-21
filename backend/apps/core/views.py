@@ -1,15 +1,39 @@
+import os
+import uuid
+import logging
+import mimetypes
+import re
+import requests
+from threading import Thread
+
+# pyrefly: ignore [missing-import]
+from django.conf import settings
 # pyrefly: ignore [missing-import]
 from django.utils import timezone
 # pyrefly: ignore [missing-import]
+from django.core.files.storage import default_storage
+# pyrefly: ignore [missing-import]
+from django.http import StreamingHttpResponse, HttpResponse, FileResponse
+# pyrefly: ignore [missing-import]
 from rest_framework import viewsets, views, status, response
+# pyrefly: ignore [missing-import]
+from rest_framework.parsers import MultiPartParser, FormParser
+# pyrefly: ignore [missing-import]
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
 from apps.core.models import AuditLog, PlatformSettings
 from apps.core.serializers import AuditLogSerializer, PlatformSettingsSerializer
 from apps.core.permissions import IsSuperAdmin
+from apps.core.drive_service import has_drive_credentials, upload_file_to_drive
+
+logger = logging.getLogger(__name__)
+
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.select_related('user').all()
     serializer_class = AuditLogSerializer
     permission_classes = [IsSuperAdmin]
+
 
 class PlatformSettingsViewSet(viewsets.ModelViewSet):
     queryset = PlatformSettings.objects.all()
@@ -31,6 +55,7 @@ class PlatformSettingsViewSet(viewsets.ModelViewSet):
         from apps.core.emails import clear_smtp_cache
         clear_smtp_cache()
 
+
 class TriggerBackupView(views.APIView):
     permission_classes = [IsSuperAdmin]
 
@@ -49,21 +74,6 @@ class TriggerBackupView(views.APIView):
             "backup_file": f"backup_hadescore_apex_{int(timezone.now().timestamp() if 'timezone' in globals() else 1718000000)}.sql.gz"
         }, status=status.HTTP_200_OK)
 
-import os
-import uuid
-import logging
-from threading import Thread
-# pyrefly: ignore [missing-import]
-from django.conf import settings
-# pyrefly: ignore [missing-import]
-from django.core.files.storage import default_storage
-# pyrefly: ignore [missing-import]
-from rest_framework.parsers import MultiPartParser, FormParser
-# pyrefly: ignore [missing-import]
-from rest_framework.permissions import IsAuthenticated
-from apps.core.drive_service import has_drive_credentials, upload_file_to_drive
-
-logger = logging.getLogger(__name__)
 
 class FileUploadView(views.APIView):
     permission_classes = [IsAuthenticated]
@@ -71,7 +81,6 @@ class FileUploadView(views.APIView):
 
     def post(self, request):
         try:
-            # Look for file under any provided form key
             uploaded_file = request.FILES.get('file')
             if not uploaded_file and len(request.FILES) > 0:
                 uploaded_file = next(iter(request.FILES.values()))
@@ -79,7 +88,6 @@ class FileUploadView(views.APIView):
             if not uploaded_file:
                 return response.Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Check file size (limit to 5GB for video and asset files)
             max_size = 5 * 1024 * 1024 * 1024  # 5GB
             if uploaded_file.size > max_size:
                 return response.Response({"error": "File too large. Maximum allowed size is 5GB."}, status=status.HTTP_400_BAD_REQUEST)
@@ -100,30 +108,25 @@ class FileUploadView(views.APIView):
             else:
                 subfolder = 'uploads'
 
-            # Ensure media directory exists
             upload_dir = os.path.join(settings.MEDIA_ROOT, subfolder)
             os.makedirs(upload_dir, exist_ok=True)
 
             filename = f"{uuid.uuid4().hex}{ext}"
             rel_storage_path = os.path.join(subfolder, filename).replace('\\', '/')
             
-            # Save file to media storage
             local_file_path = default_storage.save(rel_storage_path, uploaded_file)
             absolute_path = os.path.join(settings.MEDIA_ROOT, local_file_path) if not os.path.isabs(local_file_path) else local_file_path
             
-            # Generate default local URL (used if Drive upload fails or is not configured)
             try:
                 url = request.build_absolute_uri(default_storage.url(local_file_path))
             except Exception:
                 url = f"/media/{local_file_path}"
 
-            # If Google Drive is configured, upload synchronously to return the permanent URL
             if has_drive_credentials():
                 try:
                     drive_url = upload_file_to_drive(absolute_path, uploaded_file.name)
                     if drive_url:
                         url = drive_url
-                        # Clean up ephemeral local file to conserve Render disk space
                         if os.path.exists(absolute_path):
                             os.remove(absolute_path)
                 except Exception as exc:
@@ -146,19 +149,10 @@ class FileUploadView(views.APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-import mimetypes
-import re
-import requests
-# pyrefly: ignore [missing-import]
-from django.http import StreamingHttpResponse, HttpResponse, FileResponse
-# pyrefly: ignore [missing-import]
-from rest_framework.permissions import AllowAny
-
 class FileDownloadProxyView(views.APIView):
     """
     Proxies file downloads with explicit 'Content-Disposition: attachment; filename=...'
-    forcing browsers to immediately download any file (PDF, PPT, DOC, ZIP, certificates, guides, etc.)
-    directly to local disk rather than opening or rendering in a new browser tab.
+    forcing browsers to immediately download any file directly to local disk.
     """
     permission_classes = [AllowAny]
 
@@ -171,7 +165,6 @@ class FileDownloadProxyView(views.APIView):
 
         clean_url = target_url.strip()
 
-        # 1. Local /media/ file path handling
         if '/media/' in clean_url:
             rel_path = clean_url.split('/media/', 1)[1].split('?')[0]
             disk_path = os.path.join(settings.MEDIA_ROOT, rel_path)
@@ -185,7 +178,6 @@ class FileDownloadProxyView(views.APIView):
                 resp['Access-Control-Expose-Headers'] = 'Content-Disposition'
                 return resp
 
-        # 2. Google Drive / Remote HTTP URL handling
         drive_match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', clean_url) or re.search(r'[?&]id=([a-zA-Z0-9_-]+)', clean_url)
         if 'drive.google.com' in clean_url and drive_match:
             clean_url = f"https://drive.google.com/uc?id={drive_match.group(1)}&export=download"
@@ -195,9 +187,7 @@ class FileDownloadProxyView(views.APIView):
             if '.' not in filename:
                 filename += '.pdf'
                 
-        # Fix relative URLs for internal fetches
         if clean_url.startswith('/'):
-            # Convert to absolute URL using the request's host
             clean_url = request.build_absolute_uri(clean_url)
 
         try:
@@ -207,7 +197,6 @@ class FileDownloadProxyView(views.APIView):
             session = requests.Session()
             remote_resp = session.get(clean_url, headers=req_headers, stream=True, timeout=30, allow_redirects=True)
 
-            # Handle Google Drive large file confirmation warning
             if 'text/html' in remote_resp.headers.get('Content-Type', ''):
                 cookies = session.cookies.get_dict()
                 confirm_token = None
@@ -252,7 +241,6 @@ class TestSMTPView(views.APIView):
         if not to_email:
             return response.Response({"error": "Target email is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Invalidate SMTP cache to force reload of newest settings
         from apps.core.emails import clear_smtp_cache, send_lms_email
         clear_smtp_cache()
 
@@ -275,14 +263,7 @@ class TestSMTPView(views.APIView):
         except Exception as exc:
             logger.exception(f"[SMTP Test] Failed to send test email: {exc}")
             err_str = str(exc)
-            if "Authentication" in err_str or "auth" in err_str.lower() or "535" in err_str:
-                msg = f"SMTP Authentication Failed ({err_str}). For Gmail, ensure you are using a 16-character App Password with 2-Step Verification enabled."
-            elif "Connection refused" in err_str or "timeout" in err_str.lower() or "111" in err_str:
-                msg = f"SMTP Connection Failed ({err_str}). Check your SMTP Host name and Port number (587 for TLS, 465 for SSL)."
-            else:
-                msg = f"SMTP Error: {err_str}"
             return response.Response({
                 "status": "error",
-                "error": msg
+                "message": f"SMTP Error: {err_str}"
             }, status=status.HTTP_400_BAD_REQUEST)
-

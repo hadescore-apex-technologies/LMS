@@ -289,13 +289,11 @@ def get_smtp_connection_and_sender():
     from email.utils import parseaddr
     smtp = _get_cached_smtp_settings()
     if smtp and smtp.get('host') and smtp.get('user') and smtp.get('password'):
-        # Use DB dynamic settings cohesively
         host = smtp['host']
         user = smtp['user']
         password = str(smtp['password']).replace(' ', '').strip()
-        port = int(smtp.get('port', 465) or 465)
-        # pyrefly: ignore [missing-attribute]
-        use_ssl = (port == 465) or ('gmail' in host.lower() and port != 587)
+        port = int(smtp.get('port', 587) or 587)
+        use_ssl = (port == 465)
         use_tls = (not use_ssl)
 
         connection = get_connection(
@@ -312,7 +310,6 @@ def get_smtp_connection_and_sender():
         from_email = str(smtp.get('from_email') or '')
         display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
         
-        # Anti-Spam Check: Ensure From domain aligns with authenticated SMTP user
         if not email_addr or '@' not in email_addr:
             email_addr = str(user)
         if not display_name:
@@ -413,33 +410,14 @@ def _send_lms_email_sync(
         logger.info(f"[Email] Successfully sent email to {to_email}")
         return
     except Exception as primary_exc:
-        logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Trying Port 465 SSL...")
+        logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Trying Port 587 TLS fallback...")
 
-    # Tier 2: Try Port 465 SSL
+    # Tier 2: Fallback attempt with TLS (Port 587)
     user_to_use = str(getattr(settings, 'EMAIL_HOST_USER', '') or sender_addr).strip()
     pass_to_use = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').replace(' ', '').strip()
     host_to_use = getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com') or 'smtp.gmail.com'
 
     if user_to_use and pass_to_use:
-        try:
-            ssl_conn = get_connection(
-                backend='django.core.mail.backends.smtp.EmailBackend',
-                host=host_to_use,
-                port=465,
-                username=user_to_use,
-                password=pass_to_use,
-                use_ssl=True,
-                use_tls=False,
-                timeout=15,
-            )
-            email_message.connection = ssl_conn
-            email_message.send(fail_silently=False)
-            logger.info(f"[Email] Successfully sent email to {to_email} via Port 465 SSL fallback!")
-            return
-        except Exception as ssl_exc:
-            logger.warning(f"[Email] Port 465 SSL fallback failed for {to_email}: {ssl_exc}. Trying Port 587 TLS...")
-
-        # Tier 3: Try Port 587 TLS
         try:
             tls_conn = get_connection(
                 backend='django.core.mail.backends.smtp.EmailBackend',
@@ -456,8 +434,27 @@ def _send_lms_email_sync(
             logger.info(f"[Email] Successfully sent email to {to_email} via Port 587 TLS fallback!")
             return
         except Exception as tls_exc:
-            logger.error(f"[Email] All SMTP attempts (Primary, Port 465 SSL, Port 587 TLS) failed for {to_email}: {tls_exc}")
-            raise tls_exc
+            logger.warning(f"[Email] Port 587 TLS fallback failed for {to_email}: {tls_exc}. Trying Port 465 SSL...")
+
+        # Tier 3: Fallback attempt with SSL (Port 465)
+        try:
+            ssl_conn = get_connection(
+                backend='django.core.mail.backends.smtp.EmailBackend',
+                host=host_to_use,
+                port=465,
+                username=user_to_use,
+                password=pass_to_use,
+                use_ssl=True,
+                use_tls=False,
+                timeout=15,
+            )
+            email_message.connection = ssl_conn
+            email_message.send(fail_silently=False)
+            logger.info(f"[Email] Successfully sent email to {to_email} via Port 465 SSL fallback!")
+            return
+        except Exception as ssl_exc:
+            logger.error(f"[Email] All SMTP attempts (Primary, Port 587 TLS, Port 465 SSL) failed for {to_email}: {ssl_exc}")
+            raise ssl_exc
 
 
 

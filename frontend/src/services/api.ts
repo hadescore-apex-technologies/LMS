@@ -13,7 +13,7 @@ export const getBaseURL = () => {
       return `http://${hostname}:8000/api/`;
     }
   }
-  return 'https://lms-production-0ace.up.railway.app/api/';
+  return 'https://lms-nv6s.onrender.com/api/';
 };
 
 const api = axios.create({
