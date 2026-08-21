@@ -378,7 +378,9 @@ def _send_lms_email_sync(
     reply_to: str | None = None,
 ):
     # ── Pure Standard SMTP Connection ───────────────────────────────────────────
+    # pyrefly: ignore [missing-import]
     from django.core.mail import EmailMultiAlternatives, get_connection
+    # pyrefly: ignore [missing-import]
     from django.conf import settings
 
     connection, sender_formatted, sender_addr = get_smtp_connection_and_sender()
