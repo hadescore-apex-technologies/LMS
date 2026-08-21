@@ -234,36 +234,45 @@ class FileDownloadProxyView(views.APIView):
 
 
 class TestSMTPView(views.APIView):
-    permission_classes = [IsSuperAdmin]
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return self._handle_test(request)
 
     def post(self, request):
-        to_email = request.data.get('email', '').strip() or request.user.email
-        if not to_email:
-            return response.Response({"error": "Target email is required."}, status=status.HTTP_400_BAD_REQUEST)
+        return self._handle_test(request)
 
-        from apps.core.emails import clear_smtp_cache, send_lms_email
+    def _handle_test(self, request):
+        to_email = request.query_params.get('email', '').strip() or request.data.get('email', '').strip() or 'hadescore.apex.technologies@gmail.com'
+        if not to_email or '@' not in to_email:
+            return response.Response({"error": "Valid target email is required, e.g. ?email=your@email.com"}, status=status.HTTP_400_BAD_REQUEST)
+
+        from apps.core.emails import clear_smtp_cache, _send_lms_email_sync
         clear_smtp_cache()
 
         try:
-            subject = "Apex LMS - SMTP Test Verification"
+            subject = "Apex LMS - Live SMTP Test Verification"
             body = (
-                f"Hello {request.user.first_name or 'Admin'},\n\n"
-                f"This is a test email sent from Apex LMS to verify that your Outgoing SMTP server is functioning properly.\n\n"
+                f"Hello,\n\n"
+                f"This is a live test email sent from Apex LMS on Render to verify SMTP delivery.\n\n"
                 f"Recipient: {to_email}\n"
                 f"Timestamp: {timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
                 f"If you received this message, your SMTP credentials and deliverability configuration are correctly set up!\n\n"
                 f"Best regards,\n"
                 f"Apex LMS Technical Team"
             )
-            send_lms_email(to_email=to_email, subject=subject, text_body=body, async_mode=False)
+            _send_lms_email_sync(to_email=to_email, subject=subject, text_body=body)
             return response.Response({
                 "status": "success",
-                "message": f"Test email sent successfully to {to_email}! SMTP Connection verified."
+                "message": f"Test email sent successfully to {to_email}! SMTP Connection verified on Render."
             }, status=status.HTTP_200_OK)
         except Exception as exc:
+            import traceback
             logger.exception(f"[SMTP Test] Failed to send test email: {exc}")
             err_str = str(exc)
+            tb_str = traceback.format_exc()
             return response.Response({
                 "status": "error",
-                "message": f"SMTP Error: {err_str}"
+                "message": f"SMTP Error: {err_str}",
+                "traceback": tb_str,
             }, status=status.HTTP_400_BAD_REQUEST)
