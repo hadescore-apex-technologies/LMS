@@ -42,6 +42,7 @@ class StudentViewSet(viewsets.ModelViewSet):
             ).distinct()
         
         if self.request.query_params.get('live_mode') is not None:
+            # pyrefly: ignore [missing-import]
             from django.db.models import Q
             if live_mode:
                 qs = qs.filter(
@@ -184,7 +185,7 @@ class StudentViewSet(viewsets.ModelViewSet):
                 prof.save()
 
         role_label = 'LIVE_STUDENT' if stype == 'LIVE_CLASS' else 'STUDENT'
-        frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        frontend_base = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com')
         login_url = f"{frontend_base}/student/live-login" if stype == 'LIVE_CLASS' else f"{frontend_base}/student/login"
 
         send_welcome_email(

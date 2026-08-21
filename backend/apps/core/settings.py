@@ -299,6 +299,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.apex-lms.hadescore.com",
     "https://lms-production-0ace.up.railway.app",
 ]
+
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://lms.hadescoretech.com')
 _env_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 if _env_csrf:
     CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in _env_csrf.split(',') if o.strip()])
