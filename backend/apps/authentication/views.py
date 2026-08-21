@@ -35,10 +35,9 @@ import random
 from django.core.mail import send_mail
 from apps.users.models import CustomUser, PasswordResetOTP
 
-class RequestPasswordResetView(views.APIView):
+class BaseRequestPasswordResetView:
     authentication_classes = []
     permission_classes = []
-
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
         if not email:
@@ -99,8 +98,8 @@ class RequestPasswordResetView(views.APIView):
                 print(f"PASSWORD RESET OTP FOR {email}: {otp_code}")
                 print(f"============================================================")
 
-        from apps.core.emails import _email_executor
-        _email_executor.submit(_send_otp_task)
+        thread = threading.Thread(target=_send_otp_task, daemon=True)
+        thread.start()
 
         AuditLog.objects.create(
             user=user,
@@ -112,6 +111,10 @@ class RequestPasswordResetView(views.APIView):
             {"detail": "A verification code has been sent to your email."}, 
             status=status.HTTP_200_OK
         )
+
+class RequestPasswordResetView(views.APIView, BaseRequestPasswordResetView):
+    pass
+
 
 
 class ResetPasswordView(views.APIView):

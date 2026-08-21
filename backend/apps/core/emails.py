@@ -537,10 +537,6 @@ def _send_email_thread(
         print(f"============================================================\n")
 
 
-from concurrent.futures import ThreadPoolExecutor
-
-_email_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix='apex_email_worker')
-
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 def send_welcome_email(
@@ -553,31 +549,222 @@ def send_welcome_email(
 ):
     """
     Send the welcome email to a newly created user (student or staff).
-    Returns INSTANTLY — processed via dedicated background worker pool.
+    Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
     """
     if not login_url:
         login_url = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com/student/login')
 
-    _email_executor.submit(
-        _send_email_thread,
-        first_name, last_name, email, password, role, login_url
+    thread = threading.Thread(
+        target=_send_email_thread,
+        args=(first_name, last_name, email, password, role, login_url),
+        daemon=True,
     )
+    thread.start()
+
+
+def _send_live_class_email_thread(live_class_id: int):
+    # pyrefly: ignore [missing-import]
+    from django.db import connections
+    connections.close_all()
+    try:
+        from apps.courses.models import LiveClass
+        from apps.users.models import CustomUser
+        from apps.core.models import PlatformSettings
+
+        live_class = LiveClass.objects.select_related('created_by', 'course').filter(id=live_class_id).first()
+        if not live_class:
+            return
+
+        # Comprehensive student targeting: collect explicit M2M students, course track students, and mentor assigned students
+        student_ids = set(live_class.students.filter(is_active=True).values_list('id', flat=True))
+
+        if live_class.course:
+            # Course Doubt Clearing Session: Target all active students enrolled in this course track
+            c_ids = set(CustomUser.objects.filter(
+                role='STUDENT',
+                is_active=True,
+                student_profile__courses=live_class.course
+            ).values_list('id', flat=True))
+            student_ids.update(c_ids)
+
+        if live_class.created_by:
+            # pyrefly: ignore [missing-import]
+            from django.db.models import Q
+            mentor = live_class.created_by
+            staff_cat = mentor.staff_profile.category if hasattr(mentor, 'staff_profile') and mentor.staff_profile else None
+            filter_q = Q(student_profile__assigned_live_staff=mentor) | Q(student_profile__assigned_staff=mentor)
+            if staff_cat:
+                filter_q |= Q(student_profile__courses__category=staff_cat)
+            m_ids = set(CustomUser.objects.filter(
+                role='STUDENT',
+                is_active=True
+            ).filter(filter_q).values_list('id', flat=True))
+            student_ids.update(m_ids)
+
+        targeted_students = list(CustomUser.objects.filter(id__in=student_ids, is_active=True))
+
+        if not targeted_students:
+            logger.info(f"[LiveClass Email] No active assigned students found for LiveClass #{live_class_id}")
+            return
+
+        # Fetch custom templates from DB or fallback
+        try:
+            rows = PlatformSettings.objects.filter(key__in=['live_class_email_subject', 'live_class_email_body'])
+            templates = {row.key: row.value for row in rows}
+            subj_tpl = templates.get('live_class_email_subject', LIVE_CLASS_EMAIL_SUBJECT)
+            body_tpl = templates.get('live_class_email_body', LIVE_CLASS_EMAIL_BODY)
+        except Exception as exc:
+            logger.error(f"[LiveClass Email] Failed to fetch template settings: {exc}")
+            subj_tpl = LIVE_CLASS_EMAIL_SUBJECT
+            body_tpl = LIVE_CLASS_EMAIL_BODY
+
+        # Format variables
+        mentor_name = f"{live_class.created_by.first_name} {live_class.created_by.last_name}".strip() if live_class.created_by else "Your Mentor"
+        if not mentor_name or mentor_name == "":
+            mentor_name = live_class.created_by.email if live_class.created_by else "Your Mentor"
+
+        session_title = live_class.title or "Doubt Clearing Session"
+        scheduled_time = live_class.scheduled_time.strftime("%b %d, %Y at %I:%M %p") if live_class.scheduled_time else "Scheduled Time"
+        meeting_link = getattr(live_class, 'meeting_url', None) or getattr(live_class, 'meeting_link', None) or "Check dashboard for link"
+
+        # Normalize {{placeholder}} → {placeholder}
+        for p in ['student_name', 'session_title', 'mentor_name', 'scheduled_time', 'meeting_link', 'full_name']:
+            subj_tpl = subj_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+            body_tpl = body_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+
+        for student in targeted_students:
+            student_name = f"{student.first_name} {student.last_name}".strip() or student.email.split('@')[0]
+            fmt_args = dict(
+                student_name=student_name,
+                full_name=student_name,
+                session_title=session_title,
+                mentor_name=mentor_name,
+                scheduled_time=scheduled_time,
+                meeting_link=meeting_link
+            )
+
+            try:
+                subject = subj_tpl.format(**fmt_args)
+                body = body_tpl.format(**fmt_args)
+            except Exception:
+                subject = subj_tpl
+                body = body_tpl
+                for k, v in fmt_args.items():
+                    subject = subject.replace(f'{{{k}}}', str(v))
+                    body = body.replace(f'{{{k}}}', str(v))
+
+            try:
+                send_lms_email(
+                    to_email=student.email,
+                    subject=subject,
+                    text_body=body,
+                    async_mode=False,
+                )
+            except Exception as e:
+                logger.error(f"[LiveClass Email] Failed to send email to {student.email}: {e}")
+
+    except Exception as exc:
+        logger.error(f"[LiveClass Email] Thread error: {exc}")
 
 
 def send_live_class_email(live_class_id: int):
     """
     Send SMTP email notifications to assigned students for a Live Class.
-    Returns INSTANTLY — processed via dedicated background worker pool.
+    Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
     """
-    _email_executor.submit(_send_live_class_email_thread, live_class_id)
+    thread = threading.Thread(
+        target=_send_live_class_email_thread,
+        args=(live_class_id,),
+        daemon=True,
+    )
+    thread.start()
+
+
+def _send_course_completion_email_thread(certificate_id: int):
+    # pyrefly: ignore [missing-import]
+    from django.db import connections
+    connections.close_all()
+    try:
+        from apps.certificates.models import Certificate
+        from apps.core.models import PlatformSettings
+
+        cert = Certificate.objects.select_related('student', 'course').filter(id=certificate_id).first()
+        if not cert or not cert.student or not cert.student.email:
+            return
+
+        # Fetch custom template settings from DB or fallback
+        try:
+            rows = PlatformSettings.objects.filter(key__in=['course_completion_email_subject', 'course_completion_email_body'])
+            templates = {row.key: row.value for row in rows}
+            subj_tpl = templates.get('course_completion_email_subject', COURSE_COMPLETION_EMAIL_SUBJECT)
+            body_tpl = templates.get('course_completion_email_body', COURSE_COMPLETION_EMAIL_BODY)
+        except Exception as exc:
+            logger.error(f"[Course Completion Email] Failed to fetch template settings: {exc}")
+            subj_tpl = COURSE_COMPLETION_EMAIL_SUBJECT
+            body_tpl = COURSE_COMPLETION_EMAIL_BODY
+
+        student_name = f"{cert.student.first_name} {cert.student.last_name}".strip() or cert.student.email.split('@')[0]
+        course_title = cert.course.title if cert.course else "Your Course Track"
+        certificate_code = cert.certificate_code or "N/A"
+        certificate_url = cert.file_url or "https://lms.hadescoretech.com/student"
+        completion_date = cert.issued_at.strftime("%b %d, %Y") if cert.issued_at else time.strftime("%b %d, %Y")
+
+        base_frontend = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        if not base_frontend.endswith('/'):
+            base_frontend += '/'
+        login_url = f"{base_frontend}student/login"
+        portal_url = login_url
+
+        fmt_args = dict(
+            student_name=student_name,
+            full_name=student_name,
+            course_title=course_title,
+            course_name=course_title,
+            certificate_code=certificate_code,
+            certificate_url=certificate_url,
+            download_url=certificate_url,
+            completion_date=completion_date,
+            portal_url=portal_url,
+            login_url=login_url,
+        )
+
+        # Normalize {{placeholder}} -> {placeholder}
+        for p in ['student_name', 'full_name', 'course_title', 'course_name', 'certificate_code', 'certificate_url', 'download_url', 'completion_date', 'portal_url', 'login_url']:
+            subj_tpl = subj_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+            body_tpl = body_tpl.replace(f'{{{{{p}}}}}', f'{{{p}}}')
+
+        try:
+            subject = subj_tpl.format(**fmt_args)
+            body = body_tpl.format(**fmt_args)
+        except Exception:
+            subject = subj_tpl
+            body = body_tpl
+            for k, v in fmt_args.items():
+                subject = subject.replace(f'{{{k}}}', str(v))
+                body = body.replace(f'{{{k}}}', str(v))
+
+        send_lms_email(
+            to_email=cert.student.email,
+            subject=subject,
+            text_body=body,
+            async_mode=False,
+        )
+        logger.info(f"[Course Completion Email] Successfully sent completion email to {cert.student.email} for Certificate {cert.certificate_code}")
+
+    except Exception as exc:
+        logger.error(f"[Course Completion Email] Thread error: {exc}")
 
 
 def send_course_completion_email(certificate_id: int):
     """
     Triggers SMTP email notifications to a student upon course completion / certificate issuance.
-    Returns INSTANTLY — processed via dedicated background worker pool.
+    Returns INSTANTLY — all work (DB queries, SMTP) runs in background thread.
     """
-    _email_executor.submit(_send_course_completion_email_thread, certificate_id)
-
+    thread = threading.Thread(
+        target=_send_course_completion_email_thread,
+        args=(certificate_id,),
+        daemon=True,
+    )
+    thread.start()
 
 
