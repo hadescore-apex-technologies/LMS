@@ -489,35 +489,31 @@ def _send_email_thread(
         # Get templates (cached — usually instant)
         subject_template, body_template = _get_cached_templates(role or 'STUDENT')
 
-        # Normalize {{placeholder}} → {placeholder}
-        for p in ['full_name', 'email', 'password', 'login_url', 'role']:
-            subject_template = subject_template.replace(f'{{{{{p}}}}}', f'{{{p}}}')
-            body_template = body_template.replace(f'{{{{{p}}}}}', f'{{{p}}}')
-
         # Format role for display
         display_role = (role or 'STUDENT').replace('_', ' ').title()
         if display_role.lower() == 'super admin':
             display_role = 'Administrator'
 
-        # Format
         fmt_args = dict(
             full_name=full_name,
             email=email or '',
             password=password or '',
-            login_url=login_url or '',
+            login_url=login_url or 'https://lms.hadescoretech.com/student/login',
             role=display_role
         )
-        try:
-            subject = subject_template.format(**fmt_args)
-            body = body_template.format(**fmt_args)
-        except Exception:
-            subject = subject_template
-            body = body_template
-            for k, v in fmt_args.items():
-                # pyrefly: ignore [unnecessary-type-conversion]
-                subject = subject.replace(f'{{{k}}}', str(v))
-                # pyrefly: ignore [unnecessary-type-conversion]
-                body = body.replace(f'{{{k}}}', str(v))
+
+        # Clean and robust template variable substitution
+        subject = subject_template
+        body = body_template
+        for k, v in fmt_args.items():
+            # pyrefly: ignore [unnecessary-type-conversion]
+            val_str = str(v or '')
+            subject = subject.replace(f'{{{{{k}}}}}', val_str).replace(f'{{{k}}}', val_str)
+            body = body.replace(f'{{{{{k}}}}}', val_str).replace(f'{{{k}}}', val_str)
+
+        # Remove any lingering invalid unicode characters
+        subject = subject.replace('\ufffd', '-').strip()
+        body = body.replace('\ufffd', '-').strip()
 
         # Send via anti-spam deliverability engine synchronously inside this worker thread
         send_lms_email(
