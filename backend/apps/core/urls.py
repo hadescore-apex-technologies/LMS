@@ -12,8 +12,11 @@ def favicon_view(request):
 def root_view(request):
     return HttpResponse("OK", status=200, content_type="text/plain")
 
+from apps.core.views import TestSMTPView
+
 urlpatterns = [
     path('', root_view),
+    path('test-smtp/', TestSMTPView.as_view()),
     path('favicon.ico', favicon_view),
     path('admin/', admin.site.urls),
     
