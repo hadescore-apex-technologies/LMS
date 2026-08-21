@@ -469,71 +469,6 @@ def _get_cached_templates(role: str):
     return subject_template, body_template
 
 
-# ── Background Email Worker ───────────────────────────────────────────────────
-
-def _send_email_thread(
-    first_name: str,
-    last_name: str,
-    email: str,
-    password: str,
-    role: str,
-    login_url: str,
-):
-    # pyrefly: ignore [missing-import]
-    from django.db import connections
-    connections.close_all()
-    subject = None
-    body = None
-    try:
-        full_name = f"{first_name or ''} {last_name or ''}".strip() or email.split('@')[0]
-
-        # Get templates (cached — usually instant)
-        subject_template, body_template = _get_cached_templates(role or 'STUDENT')
-
-        # Format role for display
-        display_role = (role or 'STUDENT').replace('_', ' ').title()
-        if display_role.lower() == 'super admin':
-            display_role = 'Administrator'
-
-        fmt_args = dict(
-            full_name=full_name,
-            email=email or '',
-            password=password or '',
-            login_url=login_url or 'https://lms.hadescoretech.com/student/login',
-            role=display_role
-        )
-
-        # Clean and robust template variable substitution
-        subject = subject_template
-        body = body_template
-        for k, v in fmt_args.items():
-            # pyrefly: ignore [unnecessary-type-conversion]
-            val_str = str(v or '')
-            subject = subject.replace(f'{{{{{k}}}}}', val_str).replace(f'{{{k}}}', val_str)
-            body = body.replace(f'{{{{{k}}}}}', val_str).replace(f'{{{k}}}', val_str)
-
-        # Remove any lingering invalid unicode characters
-        subject = subject.replace('\ufffd', '-').strip()
-        body = body.replace('\ufffd', '-').strip()
-
-        # Send via anti-spam deliverability engine synchronously inside this worker thread
-        send_lms_email(
-            to_email=email,
-            subject=subject,
-            text_body=body,
-            async_mode=False,
-        )
-
-    except Exception as exc:
-        logger.error(f"[Email] Failed to send welcome email to {email}: {exc}")
-        print(f"\n============================================================")
-        print(f"FALLBACK WELCOME EMAIL DUMP FOR {email}:")
-        print(f"Subject: {subject or 'N/A'}")
-        print(f"------------------------------------------------------------")
-        print(f"{body or 'N/A'}")
-        print(f"============================================================\n")
-
-
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 def send_welcome_email(
@@ -546,15 +481,52 @@ def send_welcome_email(
 ):
     """
     Send the welcome email to a newly created user (student or staff).
-    Returns INSTANTLY — processed via dedicated background worker pool.
+    Formats template in memory and dispatches pure SMTP payload to background worker pool.
     """
-    if not login_url:
-        login_url = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com/student/login')
+    try:
+        # pyrefly: ignore [unnecessary-type-conversion]
+        clean_email = str(email or '').strip().lower()
+        if not clean_email or '@' not in clean_email:
+            logger.warning(f"[Email] Invalid email '{email}', skipping welcome email.")
+            return
 
-    _email_executor.submit(
-        _send_email_thread,
-        first_name, last_name, email, password, role, login_url
-    )
+        full_name = f"{first_name or ''} {last_name or ''}".strip() or clean_email.split('@')[0]
+        if not login_url:
+            login_url = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com/student/login')
+
+        subject_template, body_template = _get_cached_templates(role or 'STUDENT')
+
+        display_role = (role or 'STUDENT').replace('_', ' ').title()
+        if display_role.lower() == 'super admin':
+            display_role = 'Administrator'
+
+        fmt_args = dict(
+            full_name=full_name,
+            email=clean_email,
+            password=password or '',
+            login_url=login_url,
+            role=display_role
+        )
+
+        subject = subject_template
+        body = body_template
+        for k, v in fmt_args.items():
+            val_str = str(v or '')
+            subject = subject.replace(f'{{{{{k}}}}}', val_str).replace(f'{{{k}}}', val_str)
+            body = body.replace(f'{{{{{k}}}}}', val_str).replace(f'{{{k}}}', val_str)
+
+        subject = subject.replace('\ufffd', '-').strip()
+        body = body.replace('\ufffd', '-').strip()
+
+        # Dispatch pure SMTP payload to worker pool
+        send_lms_email(
+            to_email=clean_email,
+            subject=subject,
+            text_body=body,
+            async_mode=True
+        )
+    except Exception as exc:
+        logger.error(f"[Email] Failed to format welcome email for {email}: {exc}")
 
 
 def _send_live_class_email_thread(live_class_id: int):
