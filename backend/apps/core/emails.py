@@ -249,12 +249,12 @@ def _get_env_fallback_connection():
 
     # Build a real connection from Django settings so email actually sends
     host = str(getattr(settings, 'EMAIL_HOST', '') or 'smtp.gmail.com').strip()
-    port_val = str(getattr(settings, 'EMAIL_PORT', 587)).strip()
-    port = int(port_val) if port_val.isdigit() else 587
+    port_val = str(getattr(settings, 'EMAIL_PORT', 465)).strip()
+    port = int(port_val) if port_val.isdigit() else 465
     user = str(getattr(settings, 'EMAIL_HOST_USER', '') or 'hadescore.apex.technologies@gmail.com').strip()
     password = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or 'ievwcckkjvozzbku').replace(' ', '').strip()
 
-    use_ssl = (port == 465) or (getattr(settings, 'EMAIL_USE_SSL', False) is True)
+    use_ssl = (port == 465) or (getattr(settings, 'EMAIL_USE_SSL', True) is True)
     use_tls = (not use_ssl)
 
     connection = get_connection(
@@ -284,8 +284,8 @@ def get_smtp_connection_and_sender():
         host = smtp['host']
         user = smtp['user']
         password = str(smtp['password']).replace(' ', '').strip()
-        port = int(smtp.get('port', 587) or 587)
-        use_ssl = (port == 465)
+        port = int(smtp.get('port', 465) or 465)
+        use_ssl = (port == 465) or ('gmail' in host.lower() and port != 587)
         use_tls = (not use_ssl)
 
         connection = get_connection(
@@ -318,20 +318,9 @@ from concurrent.futures import ThreadPoolExecutor
 _email_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix='apex_email_worker')
 
 
-def send_lms_email(
-    to_email: str,
-    subject: str,
-    text_body: str,
-    html_body: str | None = None,
-    reply_to: str | None = None,
-    async_mode: bool = True,
-):
-    """
-    Unified anti-spam transactional email sender.
-    Dispatches to persistent background ThreadPoolExecutor when async_mode=True.
-    """
 def _safe_async_send_worker(to_email: str, subject: str, text_body: str, html_body: str | None = None, reply_to: str | None = None):
     # Close any stale connections for multi-threaded Gunicorn environment
+    # pyrefly: ignore [missing-import]
     from django.db import connections
     connections.close_all()
     try:
@@ -406,33 +395,14 @@ def _send_lms_email_sync(
         logger.info(f"[Email] Successfully sent email to {to_email}")
         return
     except Exception as primary_exc:
-        logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Trying Port 587 TLS fallback...")
+        logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Trying Port 465 SSL fallback...")
 
-    # Tier 2: Fallback attempt with TLS (Port 587)
+    # Tier 2: Fallback attempt with Port 465 SSL
     user_to_use = str(getattr(settings, 'EMAIL_HOST_USER', '') or 'hadescore.apex.technologies@gmail.com').strip()
     pass_to_use = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or 'ievwcckkjvozzbku').replace(' ', '').strip()
     host_to_use = getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com') or 'smtp.gmail.com'
 
     if user_to_use and pass_to_use:
-        try:
-            tls_conn = get_connection(
-                backend='django.core.mail.backends.smtp.EmailBackend',
-                host=host_to_use,
-                port=587,
-                username=user_to_use,
-                password=pass_to_use,
-                use_ssl=False,
-                use_tls=True,
-                timeout=15,
-            )
-            email_message.connection = tls_conn
-            email_message.send(fail_silently=False)
-            logger.info(f"[Email] Successfully sent email to {to_email} via Port 587 TLS fallback!")
-            return
-        except Exception as tls_exc:
-            logger.warning(f"[Email] Port 587 TLS fallback failed for {to_email}: {tls_exc}. Trying Port 465 SSL...")
-
-        # Tier 3: Fallback attempt with SSL (Port 465)
         try:
             ssl_conn = get_connection(
                 backend='django.core.mail.backends.smtp.EmailBackend',
@@ -449,8 +419,27 @@ def _send_lms_email_sync(
             logger.info(f"[Email] Successfully sent email to {to_email} via Port 465 SSL fallback!")
             return
         except Exception as ssl_exc:
-            logger.error(f"[Email] All SMTP attempts (Primary, Port 587 TLS, Port 465 SSL) failed for {to_email}: {ssl_exc}")
-            raise ssl_exc
+            logger.warning(f"[Email] Port 465 SSL fallback failed for {to_email}: {ssl_exc}. Trying Port 587 TLS...")
+
+        # Tier 3: Fallback attempt with Port 587 TLS
+        try:
+            tls_conn = get_connection(
+                backend='django.core.mail.backends.smtp.EmailBackend',
+                host=host_to_use,
+                port=587,
+                username=user_to_use,
+                password=pass_to_use,
+                use_ssl=False,
+                use_tls=True,
+                timeout=15,
+            )
+            email_message.connection = tls_conn
+            email_message.send(fail_silently=False)
+            logger.info(f"[Email] Successfully sent email to {to_email} via Port 587 TLS fallback!")
+            return
+        except Exception as tls_exc:
+            logger.error(f"[Email] All SMTP attempts (Primary, Port 465 SSL, Port 587 TLS) failed for {to_email}: {tls_exc}")
+            raise tls_exc
 
 
 
