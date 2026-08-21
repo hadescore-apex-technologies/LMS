@@ -240,41 +240,33 @@ def _get_cached_smtp_settings():
 
 def _get_env_fallback_connection():
     from email.utils import parseaddr
-    from_email = str(getattr(settings, 'DEFAULT_FROM_EMAIL', ''))
-    display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
+    from_email = str(getattr(settings, 'DEFAULT_FROM_EMAIL', '') or 'Apex LMS <hadescore.apex.technologies@gmail.com>')
+    display_name, email_addr = parseaddr(from_email) if from_email else ('Apex LMS', 'hadescore.apex.technologies@gmail.com')
     if not email_addr or '@' not in email_addr:
-        email_addr = str(getattr(settings, 'EMAIL_HOST_USER', ''))
+        email_addr = str(getattr(settings, 'EMAIL_HOST_USER', '') or 'hadescore.apex.technologies@gmail.com')
     if not display_name:
-        display_name = 'LMS'
-    if not email_addr:
-        email_addr = 'noreply@apex-lms.com'
+        display_name = 'Apex LMS'
 
     # Build a real connection from Django settings so email actually sends
-    host = str(getattr(settings, 'EMAIL_HOST', '') or '').strip()
+    host = str(getattr(settings, 'EMAIL_HOST', '') or 'smtp.gmail.com').strip()
     port_val = str(getattr(settings, 'EMAIL_PORT', 587)).strip()
     port = int(port_val) if port_val.isdigit() else 587
-    user = str(getattr(settings, 'EMAIL_HOST_USER', '') or '').strip()
-    password = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').strip()
-
-    if host and ('gmail' in host.lower() or 'google' in host.lower()):
-        password = password.replace(' ', '')
+    user = str(getattr(settings, 'EMAIL_HOST_USER', '') or 'hadescore.apex.technologies@gmail.com').strip()
+    password = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or 'ievwcckkjvozzbku').replace(' ', '').strip()
 
     use_ssl = (port == 465) or (getattr(settings, 'EMAIL_USE_SSL', False) is True)
-    use_tls = (not use_ssl) and (getattr(settings, 'EMAIL_USE_TLS', True) is True)
+    use_tls = (not use_ssl)
 
-    if host and user and password:
-        connection = get_connection(
-            backend='django.core.mail.backends.smtp.EmailBackend',
-            host=host,
-            port=port,
-            username=user,
-            password=password,
-            use_tls=use_tls,
-            use_ssl=use_ssl,
-            timeout=15,
-        )
-    else:
-        connection = None
+    connection = get_connection(
+        backend='django.core.mail.backends.smtp.EmailBackend',
+        host=host,
+        port=port,
+        username=user,
+        password=password,
+        use_tls=use_tls,
+        use_ssl=use_ssl,
+        timeout=15,
+    )
 
     sender = formataddr((display_name, email_addr))
     return connection, sender, email_addr
