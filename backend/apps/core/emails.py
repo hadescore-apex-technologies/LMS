@@ -341,9 +341,28 @@ def send_lms_email(
     Unified anti-spam transactional email sender.
     Dispatches to persistent background ThreadPoolExecutor when async_mode=True.
     """
+def _safe_async_send_worker(to_email: str, subject: str, text_body: str, html_body: str | None = None, reply_to: str | None = None):
+    try:
+        _send_lms_email_sync(to_email, subject, text_body, html_body, reply_to)
+    except Exception as exc:
+        logger.error(f"[Email] Failed background email dispatch to {to_email}: {exc}", exc_info=True)
+
+
+def send_lms_email(
+    to_email: str,
+    subject: str,
+    text_body: str,
+    html_body: str | None = None,
+    reply_to: str | None = None,
+    async_mode: bool = True,
+):
+    """
+    Unified anti-spam transactional email sender.
+    Dispatches to persistent background ThreadPoolExecutor when async_mode=True.
+    """
     if async_mode:
         _email_executor.submit(
-            _send_lms_email_sync,
+            _safe_async_send_worker,
             to_email, subject, text_body, html_body, reply_to
         )
         return
@@ -359,20 +378,17 @@ def _send_lms_email_sync(
     reply_to: str | None = None,
 ):
     # ── Pure Standard SMTP Connection ───────────────────────────────────────────
-    # pyrefly: ignore [missing-import]
-    from django.core.mail import EmailMultiAlternatives
+    from django.core.mail import EmailMultiAlternatives, get_connection
+    from django.conf import settings
 
     connection, sender_formatted, sender_addr = get_smtp_connection_and_sender()
 
     if not connection:
         err_msg = (
-            f"[Email] Outgoing SMTP host or credentials not configured. Cannot send email to '{to_email}'. "
-            "Please configure your SMTP Server Host, User, and Password in System Settings > Outgoing SMTP Configuration."
+            f"[Email] Outgoing SMTP host or credentials not configured. Cannot send email to '{to_email}'."
         )
         logger.error(err_msg)
-        raise ValueError(
-            "Outgoing SMTP is not configured. Please enter your SMTP Server Host, User Email, and Password in Admin > System Settings."
-        )
+        return
 
     reply_to_list = [reply_to] if reply_to else ([sender_addr] if sender_addr else None)
 
@@ -389,18 +405,21 @@ def _send_lms_email_sync(
     )
     email_message.attach_alternative(html_body, "text/html")
 
+    # Tier 1: Try primary connection
     try:
         email_message.send(fail_silently=False)
         logger.info(f"[Email] Successfully sent email to {to_email}")
+        return
     except Exception as primary_exc:
-        logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Attempting Port 465 SSL fallback...")
+        logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Trying Port 465 SSL...")
+
+    # Tier 2: Try Port 465 SSL
+    user_to_use = str(getattr(settings, 'EMAIL_HOST_USER', '') or sender_addr).strip()
+    pass_to_use = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').replace(' ', '').strip()
+    host_to_use = getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com') or 'smtp.gmail.com'
+
+    if user_to_use and pass_to_use:
         try:
-            # pyrefly: ignore [missing-import]
-            from django.conf import settings
-            host_to_use = getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com') or 'smtp.gmail.com'
-            user_to_use = str(getattr(settings, 'EMAIL_HOST_USER', '') or sender_addr).strip()
-            pass_to_use = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').replace(' ', '').strip()
-            
             ssl_conn = get_connection(
                 backend='django.core.mail.backends.smtp.EmailBackend',
                 host=host_to_use,
@@ -416,8 +435,28 @@ def _send_lms_email_sync(
             logger.info(f"[Email] Successfully sent email to {to_email} via Port 465 SSL fallback!")
             return
         except Exception as ssl_exc:
-            logger.error(f"[Email] Port 465 SSL fallback failed for {to_email}: {ssl_exc}")
-            raise primary_exc
+            logger.warning(f"[Email] Port 465 SSL fallback failed for {to_email}: {ssl_exc}. Trying Port 587 TLS...")
+
+        # Tier 3: Try Port 587 TLS
+        try:
+            tls_conn = get_connection(
+                backend='django.core.mail.backends.smtp.EmailBackend',
+                host=host_to_use,
+                port=587,
+                username=user_to_use,
+                password=pass_to_use,
+                use_ssl=False,
+                use_tls=True,
+                timeout=15,
+            )
+            email_message.connection = tls_conn
+            email_message.send(fail_silently=False)
+            logger.info(f"[Email] Successfully sent email to {to_email} via Port 587 TLS fallback!")
+            return
+        except Exception as tls_exc:
+            logger.error(f"[Email] All SMTP attempts (Primary, Port 465 SSL, Port 587 TLS) failed for {to_email}: {tls_exc}")
+            raise tls_exc
+
 
 
 # ── Template Cache ─────────────────────────────────────────────────────────────
