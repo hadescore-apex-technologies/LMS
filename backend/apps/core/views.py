@@ -234,6 +234,7 @@ class FileDownloadProxyView(views.APIView):
 
 
 class TestSMTPView(views.APIView):
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request):
