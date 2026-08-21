@@ -302,7 +302,7 @@ def get_smtp_connection_and_sender():
         from_email = str(smtp.get('from_email') or '')
         display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
         
-        if not email_addr or '@' not in email_addr:
+        if 'gmail' in host.lower() or not email_addr or '@' not in email_addr:
             email_addr = str(user)
         if not display_name:
             display_name = 'Apex LMS'
@@ -405,8 +405,8 @@ def _send_lms_email_sync(
         logger.warning(f"[Email] Primary SMTP connection failed for {to_email}: {primary_exc}. Trying Port 587 TLS fallback...")
 
     # Tier 2: Fallback attempt with TLS (Port 587)
-    user_to_use = str(getattr(settings, 'EMAIL_HOST_USER', '') or sender_addr).strip()
-    pass_to_use = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '').replace(' ', '').strip()
+    user_to_use = str(getattr(settings, 'EMAIL_HOST_USER', '') or 'hadescore.apex.technologies@gmail.com').strip()
+    pass_to_use = str(getattr(settings, 'EMAIL_HOST_PASSWORD', '') or 'ievwcckkjvozzbku').replace(' ', '').strip()
     host_to_use = getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com') or 'smtp.gmail.com'
 
     if user_to_use and pass_to_use:
