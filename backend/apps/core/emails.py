@@ -220,9 +220,12 @@ def _get_cached_smtp_settings():
         rows = PlatformSettings.objects.filter(key__in=smtp_keys)
         settings_map = {row.key: str(row.value or '').strip() for row in rows}
 
-        host = settings_map.get('smtp_host', '').strip()
-        user = settings_map.get('smtp_user', '').strip()
-        password = settings_map.get('smtp_password', '').strip()
+        # pyrefly: ignore [unnecessary-type-conversion]
+        host = str(settings_map.get('smtp_host', '') or '').strip()
+        # pyrefly: ignore [unnecessary-type-conversion]
+        user = str(settings_map.get('smtp_user', '') or '').strip()
+        # pyrefly: ignore [unnecessary-type-conversion]
+        password = str(settings_map.get('smtp_password', '') or '').strip()
 
         if host and ('gmail' in host.lower() or 'google' in host.lower() or len(password.replace(' ', '')) == 16):
             password = password.replace(' ', '')
@@ -292,8 +295,8 @@ def get_smtp_connection_and_sender():
     from email.utils import parseaddr
     smtp = _get_cached_smtp_settings()
     if smtp and smtp.get('host') and smtp.get('user') and smtp.get('password'):
-        host = smtp['host']
-        user = smtp['user']
+        host = str(smtp['host']).strip()
+        user = str(smtp['user']).strip()
         password = str(smtp['password']).replace(' ', '').strip()
         port = int(smtp.get('port', 465) or 465)
         use_ssl = (port == 465) or ('gmail' in host.lower() and port != 587)
@@ -314,7 +317,7 @@ def get_smtp_connection_and_sender():
         display_name, email_addr = parseaddr(from_email) if from_email else ('', '')
         
         if 'gmail' in host.lower() or not email_addr or '@' not in email_addr:
-            email_addr = str(user)
+            email_addr = user
         if not display_name:
             display_name = 'Apex LMS'
 

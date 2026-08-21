@@ -10,7 +10,7 @@ def favicon_view(request):
     return HttpResponse(status=204)
 
 def root_view(request):
-    return HttpResponse("OK", status=200, content_type="text/plain")
+    return HttpResponse("OK v2.0 - SMTP Updated", status=200, content_type="text/plain")
 
 from apps.core.views import TestSMTPView
 
