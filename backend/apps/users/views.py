@@ -77,7 +77,7 @@ class StaffViewSet(viewsets.ModelViewSet):
             raw_pwd = request.data.get('password')
             # pyrefly: ignore [unnecessary-type-conversion]
             password_to_send = str(raw_pwd).strip() if (raw_pwd and isinstance(raw_pwd, str) and str(raw_pwd).strip()) else 'apex123'
-            frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+            frontend_base = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com')
             login_url = f"{frontend_base}/staff/login"
             send_welcome_email(
                 first_name=existing.first_name,
@@ -103,7 +103,7 @@ class StaffViewSet(viewsets.ModelViewSet):
         from django.conf import settings
         raw_pwd = self.request.data.get('password')
         password_to_send = raw_pwd.strip() if (raw_pwd and isinstance(raw_pwd, str) and raw_pwd.strip()) else 'apex123'
-        frontend_base = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        frontend_base = getattr(settings, 'FRONTEND_URL', 'https://lms.hadescoretech.com')
         login_url = f"{frontend_base}/staff/login"
         
         send_welcome_email(
