@@ -99,8 +99,8 @@ class RequestPasswordResetView(views.APIView):
                 print(f"PASSWORD RESET OTP FOR {email}: {otp_code}")
                 print(f"============================================================")
 
-        thread = threading.Thread(target=_send_otp_task, daemon=True)
-        thread.start()
+        from apps.core.emails import _email_executor
+        _email_executor.submit(_send_otp_task)
 
         AuditLog.objects.create(
             user=user,
